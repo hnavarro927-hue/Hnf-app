@@ -1,0 +1,43 @@
+import { expenseModel } from '../models/expense.model.js';
+import { expenseService } from '../services/expense.service.js';
+import { sendError, sendSuccess } from '../utils/http.js';
+
+export const getAllExpenses = async (request, response) => {
+  sendSuccess(response, 200, expenseService.getAll(), {
+    resource: 'expenses',
+    model: expenseModel,
+    repositoryMode: expenseService.repositoryMode,
+  });
+};
+
+export const getExpenseById = async (request, response) => {
+  const item = expenseService.getById(request.params.id);
+
+  if (!item) {
+    return sendError(response, 404, 'Gasto no encontrado.', {
+      resource: 'expenses',
+      expenseId: request.params.id,
+    });
+  }
+
+  return sendSuccess(response, 200, item, {
+    resource: 'expenses',
+    action: 'getExpenseById',
+  });
+};
+
+export const createExpense = async (request, response) => {
+  const item = expenseService.create(request.body || {});
+
+  if (item.errors) {
+    return sendError(response, 400, 'Payload de gasto inválido.', {
+      resource: 'expenses',
+      validations: item.errors,
+    });
+  }
+
+  sendSuccess(response, 201, item, {
+    resource: 'expenses',
+    action: 'createExpense',
+  });
+};

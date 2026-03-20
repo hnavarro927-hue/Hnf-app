@@ -1,0 +1,14 @@
+{
+  "name": "hnf-servicios-integrales",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "check:frontend": "cd frontend && npm run check",
+    "check:backend": "cd backend && npm run check",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev"
+  }
+}
