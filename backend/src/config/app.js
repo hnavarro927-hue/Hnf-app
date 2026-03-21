@@ -1,5 +1,7 @@
 // Variables mínimas esperadas:
-// - BACKEND_PORT: puerto HTTP del backend.
+// - PORT: puerto HTTP inyectado por la plataforma de deployment.
+// - BACKEND_PORT: puerto HTTP local del backend.
+
 export const appConfig = {
-  port: Number(process.env.BACKEND_PORT || 4000),
+  port: Number(process.env.PORT || process.env.BACKEND_PORT || 4000),
 };

@@ -1,17 +1,39 @@
-// Base preparada para el siguiente paso funcional.
-// Todavía no existen formularios operativos en frontend; aquí solo se define la estructura esperada.
 export const otFormDefinition = {
   endpoint: '/ots',
   submitLabel: 'Crear OT',
-  fields: [
-    { name: 'cliente', label: 'Cliente', type: 'text', required: true },
-    { name: 'clienteRelacionado', label: 'Cliente relacionado', type: 'text', required: false },
-    { name: 'vehiculoRelacionado', label: 'Vehículo relacionado', type: 'text', required: false },
-    { name: 'tipoServicio', label: 'Tipo de servicio', type: 'select', required: true, options: ['clima', 'flota'] },
-    { name: 'tecnicoAsignado', label: 'Técnico asignado', type: 'text', required: false },
-    { name: 'fecha', label: 'Fecha', type: 'date', required: true },
-    { name: 'observaciones', label: 'Observaciones', type: 'textarea', required: false },
-    { name: 'fotografias', label: 'Evidencias', type: 'file-list', required: false },
+  sections: [
+    {
+      title: 'Datos principales',
+      fields: [
+        { name: 'cliente', label: 'Cliente', type: 'text', required: true },
+        { name: 'direccion', label: 'Dirección', type: 'text', required: true },
+        { name: 'comuna', label: 'Comuna', type: 'text', required: true },
+        { name: 'contactoTerreno', label: 'Contacto en terreno', type: 'text', required: true },
+        { name: 'telefonoContacto', label: 'Teléfono de contacto', type: 'tel', required: true },
+        { name: 'tipoServicio', label: 'Tipo de servicio', type: 'select', required: true, options: ['clima', 'flota'] },
+        { name: 'subtipoServicio', label: 'Subtipo de servicio', type: 'text', required: true },
+        { name: 'tecnicoAsignado', label: 'Técnico asignado', type: 'text', required: false },
+        { name: 'fecha', label: 'Fecha', type: 'date', required: true },
+        { name: 'hora', label: 'Hora', type: 'time', required: true },
+        { name: 'estado', label: 'Estado inicial', type: 'readonly', required: true, defaultValue: 'pendiente' },
+      ],
+    },
+    {
+      title: 'Detalle técnico',
+      fields: [
+        { name: 'observaciones', label: 'Observaciones', type: 'textarea', required: false },
+        { name: 'resumenTrabajo', label: 'Resumen del trabajo', type: 'textarea', required: false },
+        { name: 'recomendaciones', label: 'Recomendaciones', type: 'textarea', required: false },
+      ],
+    },
+    {
+      title: 'Evidencias fotográficas',
+      fields: [
+        { name: 'fotografiasAntes', label: 'Fotografías antes', type: 'file-list', required: false },
+        { name: 'fotografiasDurante', label: 'Fotografías durante', type: 'file-list', required: false },
+        { name: 'fotografiasDespues', label: 'Fotografías después', type: 'file-list', required: false },
+      ],
+    },
   ],
 };
 

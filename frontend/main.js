@@ -27,10 +27,12 @@ const viewRegistry = {
       return { health, ots, clients, vehicles, expenses };
     },
   },
+
   clima: {
     render: climaView,
     load: () => otService.getAll(),
   },
+
   flota: {
     render: flotaView,
     load: async () => {
@@ -42,6 +44,7 @@ const viewRegistry = {
       return { vehicles, expenses };
     },
   },
+
   admin: {
     render: adminView,
     load: async () => {
@@ -60,7 +63,82 @@ const state = {
   activeView: 'dashboard',
   integrationStatus: 'pendiente',
   viewData: null,
+  selectedOTId: null,
+  otFeedback: null,
+  isSubmittingOT: false,
+  isUpdatingOTStatus: false,
 };
+
+const syncSelectedOT = () => {
+  if (state.activeView !== 'clima') return;
+
+  const ots = state.viewData?.data || [];
+  if (!ots.length) {
+    state.selectedOTId = null;
+    return;
+  }
+
+  const exists = ots.some(item => item.id === state.selectedOTId);
+  if (!exists) {
+    state.selectedOTId = ots[ots.length - 1].id;
+  }
+};
+
+const createActions = () => ({
+  selectOT: (id) => {
+    state.selectedOTId = id;
+    render();
+  },
+
+  createOT: async (payload) => {
+    state.isSubmittingOT = true;
+    state.otFeedback = null;
+    render();
+
+    try {
+      const response = await otService.create(payload);
+      state.selectedOTId = response.data.id;
+      state.otFeedback = {
+        type: 'success',
+        message: 'OT creada correctamente y lista para revisión en pantalla o futuro PDF.',
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No fue posible crear la OT.',
+      };
+      render();
+    } finally {
+      state.isSubmittingOT = false;
+      render();
+    }
+  },
+
+  updateOTStatus: async (id, status) => {
+    state.isUpdatingOTStatus = true;
+    state.otFeedback = null;
+    render();
+
+    try {
+      await otService.updateStatus(id, { estado: status });
+      state.otFeedback = {
+        type: 'success',
+        message: `Estado de la OT actualizado a ${status}.`,
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No fue posible actualizar el estado de la OT.',
+      };
+      render();
+    } finally {
+      state.isUpdatingOTStatus = false;
+      render();
+    }
+  },
+});
 
 const render = () => {
   const currentView = viewRegistry[state.activeView];
@@ -73,6 +151,11 @@ const render = () => {
     onNavigate: async (viewId) => {
       state.activeView = viewId;
       state.integrationStatus = 'cargando';
+
+      if (viewId !== 'clima') {
+        state.otFeedback = null;
+      }
+
       render();
       await loadViewData();
     },
@@ -83,7 +166,12 @@ const render = () => {
       apiBaseUrl: appConfig.apiBaseUrl,
       integrationStatus: state.integrationStatus,
       data: state.viewData,
-    }),
+      actions: createActions(),
+      feedback: state.otFeedback,
+      isSubmitting: state.isSubmittingOT,
+      isUpdatingStatus: state.isUpdatingOTStatus,
+      selectedOTId: state.selectedOTId,
+    })
   );
 
   app.append(shell.element);
@@ -93,6 +181,7 @@ const loadViewData = async () => {
   try {
     state.viewData = await viewRegistry[state.activeView].load();
     state.integrationStatus = 'conectado';
+    syncSelectedOT();
   } catch (error) {
     state.viewData = null;
     state.integrationStatus = 'sin conexión';

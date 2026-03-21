@@ -3,15 +3,25 @@ export const otModel = {
   fields: [
     'id',
     'cliente',
+    'direccion',
+    'comuna',
+    'contactoTerreno',
+    'telefonoContacto',
     'clienteRelacionado',
     'vehiculoRelacionado',
     'tipoServicio',
+    'subtipoServicio',
     'tecnicoAsignado',
     'estado',
     'fecha',
+    'hora',
     'observaciones',
-    'fotografias',
+    'resumenTrabajo',
+    'recomendaciones',
+    'fotografiasAntes',
+    'fotografiasDurante',
+    'fotografiasDespues'
   ],
   statusOptions: ['pendiente', 'en proceso', 'terminado'],
-  serviceTypes: ['clima', 'flota'],
+  serviceTypes: ['clima', 'flota']
 };

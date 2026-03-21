@@ -4,33 +4,137 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HNF Servicios Integrales</title>
+
     <style>
       :root {
         --bg: #f4f7fb;
         --surface: #ffffff;
+        --surface-soft: #f8fbff;
         --border: #d9e1ec;
         --text: #10233f;
         --muted: #5c6f88;
         --primary: #1d4ed8;
+
+        --success: #15803d;
+        --success-bg: #dcfce7;
+        --danger: #b91c1c;
+        --danger-bg: #fee2e2;
       }
+
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-      #app { min-height: 100vh; padding: 24px; }
-      .shell { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
-      .sidebar, .content { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
-      .nav { display: grid; gap: 12px; margin-top: 24px; }
-      .nav button { text-align: left; border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 14px; cursor: pointer; }
-      .nav button.active { border-color: var(--primary); color: var(--primary); }
-      .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-      .card { border: 1px solid var(--border); border-radius: 14px; padding: 18px; background: #fff; }
-      .muted { color: var(--muted); line-height: 1.6; }
-      @media (max-width: 900px) {
-        .shell, .cards { grid-template-columns: 1fr; }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      #app {
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 24px;
+      }
+
+      .sidebar, .content {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 24px;
+      }
+
+      .nav {
+        display: grid;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .nav button {
+        text-align: left;
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 12px;
+        padding: 14px;
+        cursor: pointer;
+      }
+
+      .nav button.active {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        background: #fff;
+      }
+
+      .muted {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .primary-button {
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 18px;
+        font-weight: 700;
+        cursor: pointer;
+        background: var(--primary);
+        color: #fff;
+      }
+
+      .secondary-button {
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 18px;
+        font-weight: 700;
+        cursor: pointer;
+        background: #eef4ff;
+        color: var(--primary);
+      }
+
+      .form-feedback {
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-weight: 700;
+      }
+
+      .form-feedback--success {
+        background: var(--success-bg);
+        color: var(--success);
+      }
+
+      .form-feedback--error {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+
+      @media (max-width: 1100px) {
+        .shell,
+        .cards {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
+
   <body>
     <div id="app"></div>
+
     <script src="./env.js"></script>
     <script type="module" src="./main.js"></script>
   </body>
