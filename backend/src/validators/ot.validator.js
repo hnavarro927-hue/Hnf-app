@@ -26,7 +26,9 @@ export const validateOTPayload = (payload = {}) => {
   if (!payload.tipoServicio) {
     errors.push('El tipo de servicio es obligatorio.');
   } else if (!otModel.serviceTypes.includes(payload.tipoServicio)) {
-    errors.push(`Tipo de servicio inválido. Valores permitidos: ${otModel.serviceTypes.join(', ')}.`);
+    errors.push(
+      `Tipo de servicio inválido. Valores permitidos: ${otModel.serviceTypes.join(', ')}.`
+    );
   }
 
   if (!payload.subtipoServicio) {

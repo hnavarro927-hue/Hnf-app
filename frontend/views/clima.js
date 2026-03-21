@@ -44,7 +44,8 @@ const buildField = (field) => {
   return wrapper;
 };
 
-const getFileNames = (form, fieldName) => Array.from(form.elements[fieldName]?.files || []).map((file) => file.name);
+const getFileNames = (form, fieldName) =>
+  Array.from(form.elements[fieldName]?.files || []).map((file) => file.name);
 
 const createStatusBadge = (status) => {
   const badge = document.createElement('span');
@@ -93,7 +94,7 @@ const createPreviewPhotos = (title, items = []) => {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'preview-photo-card is-empty';
-    empty.innerHTML = '<strong>Sin evidencia</strong><span>Espacio preparado para imágenes reales</span>';
+    empty.innerHTML = '<strong>Sin evidencias</strong><span>Espacio preparado para imágenes reales</span>';
     grid.append(empty);
   } else {
     items.forEach((item) => {
@@ -132,6 +133,7 @@ const createClientPreview = (ot) => {
 
   const summary = document.createElement('div');
   summary.className = 'preview-summary-grid';
+
   [
     ['Cliente', ot.cliente],
     ['Ubicación', `${ot.direccion}, ${ot.comuna}`],
@@ -148,6 +150,7 @@ const createClientPreview = (ot) => {
 
   const textSections = document.createElement('div');
   textSections.className = 'preview-text-grid';
+
   [
     ['Observaciones', ot.observaciones || 'Sin observaciones registradas.'],
     ['Resumen del trabajo', ot.resumenTrabajo || 'Sin resumen registrado.'],
@@ -164,14 +167,21 @@ const createClientPreview = (ot) => {
   evidence.append(
     createPreviewPhotos('Evidencias antes', ot.fotografiasAntes || []),
     createPreviewPhotos('Evidencias durante', ot.fotografiasDurante || []),
-    createPreviewPhotos('Evidencias después', ot.fotografiasDespues || []),
+    createPreviewPhotos('Evidencias después', ot.fotografiasDespues || [])
   );
 
   article.append(header, summary, textSections, evidence);
   return article;
 };
 
-export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingStatus, selectedOTId } = {}) => {
+export const climaView = ({
+  data,
+  actions,
+  feedback,
+  isSubmitting,
+  isUpdatingStatus,
+  selectedOTId,
+} = {}) => {
   const section = document.createElement('section');
   section.className = 'ot-workspace';
 
@@ -183,16 +193,32 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
   const pendingCount = ots.filter((item) => item.estado === 'pendiente').length;
   const inProgressCount = ots.filter((item) => item.estado === 'en proceso').length;
   const evidenceCount = ots.reduce(
-    (total, item) => total + (item.fotografiasAntes?.length || 0) + (item.fotografiasDurante?.length || 0) + (item.fotografiasDespues?.length || 0),
-    0,
+    (total, item) =>
+      total +
+      (item.fotografiasAntes?.length || 0) +
+      (item.fotografiasDurante?.length || 0) +
+      (item.fotografiasDespues?.length || 0),
+    0
   );
 
   const cards = document.createElement('div');
   cards.className = 'cards';
   [
-    { title: 'OT activas', description: 'Registro y seguimiento.', items: [`Cantidad OT: ${ots.length}`, `Pendientes: ${pendingCount}`, `En proceso: ${inProgressCount}`] },
-    { title: 'Técnicos', description: 'Asignación inicial.', items: ['Responsables', 'Agenda', 'Terreno'] },
-    { title: 'Evidencias', description: 'Documentación base para informe.', items: [`Fotos cargadas: ${evidenceCount}`, 'Antes / Durante / Después', 'Preparado para PDF futuro'] },
+    {
+      title: 'OT activas',
+      description: 'Registro y seguimiento.',
+      items: [`Cantidad OT: ${ots.length}`, `Pendientes: ${pendingCount}`, `En proceso: ${inProgressCount}`],
+    },
+    {
+      title: 'Técnicos',
+      description: 'Asignación inicial.',
+      items: ['Responsables', 'Agenda', 'Terreno'],
+    },
+    {
+      title: 'Evidencias',
+      description: 'Documentación base para informe.',
+      items: [`Fotos cargadas: ${evidenceCount}`, 'Antes / Durante / Después'],
+    },
   ].forEach((item) => cards.append(createCard(item)));
 
   const formCard = document.createElement('article');
@@ -228,20 +254,25 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
 
     const grid = document.createElement('div');
     grid.className = 'ot-form__grid';
-    sectionConfig.fields.forEach((field) => grid.append(buildField(field)));
+
+    sectionConfig.fields.forEach((field) => {
+      grid.append(buildField(field));
+    });
+
     fieldset.append(grid);
     form.append(fieldset);
   });
 
   const footer = document.createElement('div');
   footer.className = 'ot-form__footer';
-  footer.innerHTML = '<p class="muted">Estado inicial fijo en pendiente. Las fotografías se agrupan por etapa para el próximo módulo de informe/PDF.</p>';
+  footer.innerHTML = '<p class="muted">Estado inicial fijo en pendiente. Las fotografías se agrupan por etapa para el próximo módulo de informe.</p>';
 
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
   submitButton.className = 'primary-button';
   submitButton.textContent = isSubmitting ? 'Guardando OT...' : otFormDefinition.submitLabel;
   submitButton.disabled = Boolean(isSubmitting);
+
   footer.append(submitButton);
   form.append(footer);
 
@@ -321,10 +352,11 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
 
     const summaryGrid = document.createElement('div');
     summaryGrid.className = 'ot-summary-grid';
+
     [
       ['Dirección', selectedOT.direccion],
       ['Comuna', selectedOT.comuna],
-      ['Contacto en terreno', selectedOT.contactoTerreno],
+      ['Contacto terreno', selectedOT.contactoTerreno],
       ['Teléfono', selectedOT.telefonoContacto],
       ['Técnico', selectedOT.tecnicoAsignado],
       ['Tipo / subtipo', `${selectedOT.tipoServicio} / ${selectedOT.subtipoServicio}`],
@@ -334,7 +366,7 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
     ].forEach(([label, value]) => {
       const row = document.createElement('div');
       row.className = 'ot-summary-item';
-      row.innerHTML = `<span class="muted">${label}</span><strong>${value}</strong>`;
+      row.innerHTML = `<span>${label}</span><strong>${value || 'No informado'}</strong>`;
       summaryGrid.append(row);
     });
 
@@ -357,6 +389,7 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
 
     const statusButtons = document.createElement('div');
     statusButtons.className = 'status-actions__buttons';
+
     ['pendiente', 'en proceso', 'terminado'].forEach((status) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -364,13 +397,12 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
       button.textContent = status;
       button.disabled = Boolean(isUpdatingStatus && selectedOT.estado !== status);
       button.addEventListener('click', async () => {
-        if (status === selectedOT.estado) {
-          return;
-        }
+        if (status === selectedOT.estado) return;
         await actions.updateOTStatus(selectedOT.id, status);
       });
       statusButtons.append(button);
     });
+
     statusActions.append(statusButtons);
 
     const evidenceGrid = document.createElement('div');
@@ -378,7 +410,7 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
     evidenceGrid.append(
       createEvidenceSection('Fotografías antes', selectedOT.fotografiasAntes || []),
       createEvidenceSection('Fotografías durante', selectedOT.fotografiasDurante || []),
-      createEvidenceSection('Fotografías después', selectedOT.fotografiasDespues || []),
+      createEvidenceSection('Fotografías después', selectedOT.fotografiasDespues || [])
     );
 
     const previewCard = document.createElement('div');
@@ -390,5 +422,6 @@ export const climaView = ({ data, actions, feedback, isSubmitting, isUpdatingSta
 
   overview.append(listCard, detailCard);
   section.append(header, cards, formCard, overview);
+
   return section;
 };

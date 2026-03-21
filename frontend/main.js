@@ -27,10 +27,12 @@ const viewRegistry = {
       return { health, ots, clients, vehicles, expenses };
     },
   },
+
   clima: {
     render: climaView,
     load: () => otService.getAll(),
   },
+
   flota: {
     render: flotaView,
     load: async () => {
@@ -42,6 +44,7 @@ const viewRegistry = {
       return { vehicles, expenses };
     },
   },
+
   admin: {
     render: adminView,
     load: async () => {
@@ -67,9 +70,7 @@ const state = {
 };
 
 const syncSelectedOT = () => {
-  if (state.activeView !== 'clima') {
-    return;
-  }
+  if (state.activeView !== 'clima') return;
 
   const ots = state.viewData?.data || [];
   if (!ots.length) {
@@ -77,7 +78,7 @@ const syncSelectedOT = () => {
     return;
   }
 
-  const exists = ots.some((item) => item.id === state.selectedOTId);
+  const exists = ots.some(item => item.id === state.selectedOTId);
   if (!exists) {
     state.selectedOTId = ots[ots.length - 1].id;
   }
@@ -88,6 +89,7 @@ const createActions = () => ({
     state.selectedOTId = id;
     render();
   },
+
   createOT: async (payload) => {
     state.isSubmittingOT = true;
     state.otFeedback = null;
@@ -112,6 +114,7 @@ const createActions = () => ({
       render();
     }
   },
+
   updateOTStatus: async (id, status) => {
     state.isUpdatingOTStatus = true;
     state.otFeedback = null;
@@ -148,9 +151,11 @@ const render = () => {
     onNavigate: async (viewId) => {
       state.activeView = viewId;
       state.integrationStatus = 'cargando';
+
       if (viewId !== 'clima') {
         state.otFeedback = null;
       }
+
       render();
       await loadViewData();
     },
@@ -166,7 +171,7 @@ const render = () => {
       isSubmitting: state.isSubmittingOT,
       isUpdatingStatus: state.isUpdatingOTStatus,
       selectedOTId: state.selectedOTId,
-    }),
+    })
   );
 
   app.append(shell.element);

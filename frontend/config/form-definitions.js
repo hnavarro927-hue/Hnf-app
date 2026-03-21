@@ -1,5 +1,3 @@
-// Base preparada para el siguiente paso funcional.
-// La OT ahora cuenta con estructura operativa para luego generar informe/PDF con fotos incrustadas.
 export const otFormDefinition = {
   endpoint: '/ots',
   submitLabel: 'Crear OT',

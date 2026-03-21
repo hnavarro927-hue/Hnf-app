@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HNF Servicios Integrales</title>
+
     <style>
       :root {
         --bg: #f4f7fb;
@@ -13,132 +14,127 @@
         --text: #10233f;
         --muted: #5c6f88;
         --primary: #1d4ed8;
+
         --success: #15803d;
         --success-bg: #dcfce7;
         --danger: #b91c1c;
         --danger-bg: #fee2e2;
       }
+
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-      #app { min-height: 100vh; padding: 24px; }
-      .shell { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
-      .sidebar, .content { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
-      .nav { display: grid; gap: 12px; margin-top: 24px; }
-      .nav button { text-align: left; border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 14px; cursor: pointer; }
-      .nav button.active { border-color: var(--primary); color: var(--primary); }
-      .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-      .card, .ot-form-card, .ot-list-card, .ot-detail-card, .evidence-card, .ot-text-card, .preview-sheet { border: 1px solid var(--border); border-radius: 14px; padding: 18px; background: #fff; }
-      .muted { color: var(--muted); line-height: 1.6; }
-      .ot-workspace { display: grid; gap: 20px; }
-      .ot-form-card { background: var(--surface-soft); }
-      .ot-form-card__header, .ot-detail-card__header, .ot-list-card__header, .preview-sheet__header { display: grid; gap: 12px; margin-bottom: 18px; }
-      .ot-detail-card__header, .preview-sheet__header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-      .ot-form { display: grid; gap: 18px; }
-      .ot-form__section { margin: 0; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
-      .ot-form__section legend { padding: 0 8px; font-weight: 700; }
-      .ot-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-      .form-field { display: grid; gap: 8px; }
-      .form-field__label { font-size: 0.92rem; font-weight: 700; }
-      .form-field input, .form-field select, .form-field textarea {
-        width: 100%;
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      #app {
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 24px;
+      }
+
+      .sidebar, .content {
+        background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 12px 14px;
-        font: inherit;
+        border-radius: 18px;
+        padding: 24px;
+      }
+
+      .nav {
+        display: grid;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .nav button {
+        text-align: left;
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 12px;
+        padding: 14px;
+        cursor: pointer;
+      }
+
+      .nav button.active {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
         background: #fff;
       }
-      .form-field textarea { resize: vertical; min-height: 110px; }
-      .ot-form__footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-      .primary-button, .secondary-button {
+
+      .muted {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .primary-button {
         border: 0;
         border-radius: 10px;
         padding: 12px 18px;
         font-weight: 700;
         cursor: pointer;
+        background: var(--primary);
+        color: #fff;
       }
-      .primary-button { background: var(--primary); color: #fff; }
-      .secondary-button { background: #eef4ff; color: var(--primary); }
-      .secondary-button.is-active { background: var(--primary); color: #fff; }
-      .primary-button:disabled, .secondary-button:disabled { opacity: 0.7; cursor: wait; }
-      .form-feedback { padding: 12px 14px; border-radius: 10px; font-weight: 700; }
-      .form-feedback--success { background: var(--success-bg); color: var(--success); }
-      .form-feedback--error { background: var(--danger-bg); color: var(--danger); }
-      .ot-overview { display: grid; grid-template-columns: minmax(320px, 360px) minmax(0, 1fr); gap: 20px; }
-      .ot-list { display: grid; gap: 12px; }
-      .ot-list__item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        width: 100%;
-        text-align: left;
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 14px;
-        cursor: pointer;
-      }
-      .ot-list__item.is-active { border-color: var(--primary); background: var(--surface-soft); }
-      .status-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        font-weight: 700;
-        text-transform: capitalize;
-        background: #e2e8f0;
-      }
-      .status-badge--pendiente { background: #fef3c7; color: #92400e; }
-      .status-badge--en-proceso { background: #dbeafe; color: #1d4ed8; }
-      .status-badge--terminado { background: #dcfce7; color: #15803d; }
-      .ot-summary-grid, .ot-text-blocks, .evidence-grid, .preview-summary-grid, .preview-text-grid, .preview-evidence { display: grid; gap: 16px; }
-      .ot-summary-grid, .preview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 20px; }
-      .ot-summary-item, .preview-summary-item { display: grid; gap: 6px; }
-      .status-actions { display: grid; gap: 10px; margin-bottom: 20px; }
-      .status-actions__buttons { display: flex; flex-wrap: wrap; gap: 10px; }
-      .ot-text-blocks, .preview-text-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 20px; }
-      .evidence-grid, .preview-photo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .evidence-list { display: grid; gap: 10px; padding-left: 18px; }
-      .evidence-list li { display: grid; gap: 4px; }
-      .preview-wrapper { margin-top: 20px; }
-      .preview-sheet {
-        background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
-        border: 1px solid #cbd5e1;
-        box-shadow: 0 12px 30px rgba(16, 35, 63, 0.06);
-      }
-      .preview-sheet__eyebrow { margin: 0; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary); }
-      .preview-sheet__meta { display: grid; gap: 8px; justify-items: end; font-weight: 700; color: var(--muted); }
-      .preview-text-card h4, .preview-photo-section h4 { margin: 0 0 10px; }
-      .preview-text-card p { margin: 0; color: var(--muted); line-height: 1.7; }
-      .preview-photo-section { display: grid; gap: 12px; }
-      .preview-photo-card {
-        display: grid;
-        gap: 10px;
-        border: 1px dashed var(--border);
-        border-radius: 14px;
-        padding: 14px;
-        background: #fff;
-      }
-      .preview-photo-card__placeholder {
-        display: grid;
-        place-items: center;
-        min-height: 120px;
+
+      .secondary-button {
+        border: 0;
         border-radius: 10px;
+        padding: 12px 18px;
+        font-weight: 700;
+        cursor: pointer;
         background: #eef4ff;
         color: var(--primary);
+      }
+
+      .form-feedback {
+        padding: 12px 14px;
+        border-radius: 10px;
         font-weight: 700;
       }
-      .preview-photo-card span { color: var(--muted); }
-      .preview-photo-card.is-empty { align-content: center; min-height: 170px; }
+
+      .form-feedback--success {
+        background: var(--success-bg);
+        color: var(--success);
+      }
+
+      .form-feedback--error {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+
       @media (max-width: 1100px) {
-        .shell, .cards, .ot-overview, .ot-summary-grid, .ot-text-blocks, .evidence-grid, .ot-form__grid, .ot-form__footer, .preview-summary-grid, .preview-text-grid, .preview-photo-grid { grid-template-columns: 1fr; }
+        .shell,
+        .cards {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
+
   <body>
     <div id="app"></div>
+
     <script src="./env.js"></script>
     <script type="module" src="./main.js"></script>
   </body>

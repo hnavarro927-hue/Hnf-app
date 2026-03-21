@@ -20,8 +20,8 @@ export const otModel = {
     'recomendaciones',
     'fotografiasAntes',
     'fotografiasDurante',
-    'fotografiasDespues',
+    'fotografiasDespues'
   ],
   statusOptions: ['pendiente', 'en proceso', 'terminado'],
-  serviceTypes: ['clima', 'flota'],
+  serviceTypes: ['clima', 'flota']
 };

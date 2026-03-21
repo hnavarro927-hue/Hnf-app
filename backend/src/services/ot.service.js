@@ -4,9 +4,11 @@ import { validateOTPayload } from '../validators/ot.validator.js';
 
 export const otService = {
   repositoryMode: otRepository.mode,
+
   getAll() {
     return otRepository.findAll();
   },
+
   create(data) {
     const validation = validateOTPayload(data);
     if (!validation.valid) {
@@ -21,12 +23,12 @@ export const otService = {
       telefonoContacto: data.telefonoContacto || '',
       clienteRelacionado: data.clienteRelacionado || null,
       vehiculoRelacionado: data.vehiculoRelacionado || null,
-      tipoServicio: data.tipoServicio,
+      tipoServicio: data.tipoServicio || '',
       subtipoServicio: data.subtipoServicio || '',
       tecnicoAsignado: data.tecnicoAsignado || 'Por asignar',
       estado: 'pendiente',
       fecha: data.fecha,
-      hora: data.hora,
+      hora: data.hora || '',
       observaciones: data.observaciones || '',
       resumenTrabajo: data.resumenTrabajo || '',
       recomendaciones: data.recomendaciones || '',
@@ -35,6 +37,7 @@ export const otService = {
       fotografiasDespues: normalizeFiles(data, 'fotografiasDespues'),
     });
   },
+
   updateStatus(id, estado, statusOptions) {
     if (!statusOptions.includes(estado)) {
       return { error: 'Estado inválido.' };

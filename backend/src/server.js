@@ -2,12 +2,14 @@ import { createServer } from 'node:http';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { appConfig } from './config/app.js';
 import { routes } from './routes/index.js';
 import { matchRoute, readJsonBody, sendError } from './utils/http.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const frontendRoot = path.resolve(__dirname, '../../frontend');
 const frontendIndexPath = path.join(frontendRoot, 'index.html');
 
@@ -18,7 +20,8 @@ const contentTypeByExtension = {
   '.css': 'text/css; charset=utf-8',
 };
 
-const isSafeFrontendPath = (filePath) => filePath === frontendIndexPath || filePath.startsWith(`${frontendRoot}${path.sep}`);
+const isSafeFrontendPath = (filePath) =>
+  filePath === frontendIndexPath || filePath.startsWith(`${frontendRoot}${path.sep}`);
 
 const getFrontendFilePath = async (pathname) => {
   if (pathname === '/') {
@@ -44,9 +47,12 @@ const serveFrontendFile = async (response, pathname) => {
   const filePath = await getFrontendFilePath(pathname);
   const fileContent = await readFile(filePath);
   const extension = path.extname(filePath);
+
   response.writeHead(200, {
-    'Content-Type': contentTypeByExtension[extension] || 'application/octet-stream',
+    'Content-Type':
+      contentTypeByExtension[extension] || 'application/octet-stream',
   });
+
   response.end(fileContent);
 };
 
