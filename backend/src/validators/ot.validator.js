@@ -48,3 +48,43 @@ export const validateOTPayload = (payload = {}) => {
     errors,
   };
 };
+
+const EVIDENCE_KEYS = ['fotografiasAntes', 'fotografiasDurante', 'fotografiasDespues'];
+
+export const validateEvidencePatchBody = (payload = {}) => {
+  const errors = [];
+  const hasAny = EVIDENCE_KEYS.some((key) => Array.isArray(payload[key]));
+
+  if (!hasAny) {
+    errors.push('Debe enviar al menos un arreglo de evidencias (fotografiasAntes, fotografiasDurante o fotografiasDespues).');
+  }
+
+  for (const key of EVIDENCE_KEYS) {
+    if (payload[key] === undefined) continue;
+    if (!Array.isArray(payload[key])) {
+      errors.push(`El campo ${key} debe ser un arreglo.`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};
+
+export const validateReportPayload = (payload = {}) => {
+  const errors = [];
+
+  if (!payload.pdfName || typeof payload.pdfName !== 'string' || !payload.pdfName.trim()) {
+    errors.push('pdfName es obligatorio.');
+  }
+
+  if (!payload.pdfUrl || typeof payload.pdfUrl !== 'string' || !payload.pdfUrl.trim()) {
+    errors.push('pdfUrl es obligatorio.');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};

@@ -3,6 +3,7 @@ import { createShell } from './components/shell.js';
 import { clientService } from './services/client.service.js';
 import { expenseService } from './services/expense.service.js';
 import { healthService } from './services/health.service.js';
+import { blobToDataUrl, generateOtPdfBlob } from './services/pdf.service.js';
 import { otService } from './services/ot.service.js';
 import { vehicleService } from './services/vehicle.service.js';
 import { dashboardView } from './views/dashboard.js';
@@ -59,6 +60,9 @@ const viewRegistry = {
   },
 };
 
+const OT_CLOSE_EVIDENCE_MESSAGE =
+  'Debes cargar evidencias (antes, durante y después) antes de cerrar la OT';
+
 const state = {
   activeView: 'dashboard',
   integrationStatus: 'pendiente',
@@ -67,6 +71,8 @@ const state = {
   otFeedback: null,
   isSubmittingOT: false,
   isUpdatingOTStatus: false,
+  isClosingOT: false,
+  isUploadingEvidence: false,
 };
 
 const syncSelectedOT = () => {
@@ -87,6 +93,11 @@ const syncSelectedOT = () => {
 const createActions = () => ({
   selectOT: (id) => {
     state.selectedOTId = id;
+    render();
+  },
+
+  showFeedback: (fb) => {
+    state.otFeedback = fb;
     render();
   },
 
@@ -138,6 +149,70 @@ const createActions = () => ({
       render();
     }
   },
+
+  addEvidences: async (id, payload) => {
+    state.isUploadingEvidence = true;
+    state.otFeedback = null;
+    render();
+
+    try {
+      await otService.patchEvidences(id, payload);
+      state.otFeedback = {
+        type: 'success',
+        message: 'Evidencias agregadas correctamente.',
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No fue posible agregar evidencias.',
+      };
+      render();
+    } finally {
+      state.isUploadingEvidence = false;
+      render();
+    }
+  },
+
+  closeAndGenerateReport: async (ot) => {
+    const hasEvidence =
+      (ot.fotografiasAntes?.length || 0) >= 1 &&
+      (ot.fotografiasDurante?.length || 0) >= 1 &&
+      (ot.fotografiasDespues?.length || 0) >= 1;
+
+    if (!hasEvidence) {
+      state.otFeedback = { type: 'error', message: OT_CLOSE_EVIDENCE_MESSAGE };
+      render();
+      return;
+    }
+
+    state.isClosingOT = true;
+    state.otFeedback = null;
+    render();
+
+    try {
+      await otService.updateStatus(ot.id, { estado: 'terminado' });
+      const otClosed = { ...ot, estado: 'terminado' };
+      const { blob, fileName } = await generateOtPdfBlob(otClosed);
+      const pdfUrl = await blobToDataUrl(blob);
+      await otService.patchReport(ot.id, { pdfName: fileName, pdfUrl });
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      state.otFeedback = {
+        type: 'success',
+        message: 'OT cerrada: estado terminado, informe PDF generado y guardado de forma persistente.',
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No fue posible completar el cierre con informe.',
+      };
+      render();
+    } finally {
+      state.isClosingOT = false;
+      render();
+    }
+  },
 });
 
 const render = () => {
@@ -170,6 +245,8 @@ const render = () => {
       feedback: state.otFeedback,
       isSubmitting: state.isSubmittingOT,
       isUpdatingStatus: state.isUpdatingOTStatus,
+      isClosingOT: state.isClosingOT,
+      isUploadingEvidence: state.isUploadingEvidence,
       selectedOTId: state.selectedOTId,
     })
   );

@@ -123,6 +123,50 @@
         color: var(--danger);
       }
 
+      .detail-feedback {
+        margin-bottom: 16px;
+      }
+
+      .report-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 16px 0;
+      }
+
+      .status-actions--close {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+        display: grid;
+        gap: 8px;
+      }
+
+      .evidence-manager {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px dashed var(--border);
+        display: grid;
+        gap: 8px;
+      }
+
+      .evidence-manager__input {
+        font-size: 14px;
+      }
+
+      .preview-photo-card__img {
+        width: 100%;
+        max-height: 140px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .secondary-button.is-active {
+        background: var(--primary);
+        color: #fff;
+      }
+
       @media (max-width: 1100px) {
         .shell,
         .cards {

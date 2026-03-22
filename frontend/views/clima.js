@@ -1,6 +1,24 @@
 import { createCard } from '../components/card.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const readFilesAsEvidence = async (input) => {
+  const files = Array.from(input?.files || []);
+  const out = [];
+  for (const file of files) {
+    const url = await readFileAsDataUrl(file);
+    out.push({ name: file.name, url });
+  }
+  return out;
+};
+
 const buildField = (field) => {
   const wrapper = document.createElement('label');
   wrapper.className = 'form-field';
@@ -44,9 +62,6 @@ const buildField = (field) => {
   return wrapper;
 };
 
-const getFileNames = (form, fieldName) =>
-  Array.from(form.elements[fieldName]?.files || []).map((file) => file.name);
-
 const createStatusBadge = (status) => {
   const badge = document.createElement('span');
   badge.className = `status-badge status-badge--${(status || 'pendiente').replace(/\s+/g, '-')}`;
@@ -54,12 +69,13 @@ const createStatusBadge = (status) => {
   return badge;
 };
 
-const createEvidenceSection = (title, items = []) => {
+const createEvidenceBlock = (selectedOT, fieldKey, title, actions, isUploading) => {
   const article = document.createElement('article');
   article.className = 'evidence-card';
 
+  const items = selectedOT[fieldKey] || [];
   const heading = document.createElement('h4');
-  heading.textContent = title;
+  heading.textContent = `${title} (${items.length})`;
 
   const list = document.createElement('ul');
   list.className = 'evidence-list';
@@ -72,12 +88,45 @@ const createEvidenceSection = (title, items = []) => {
   } else {
     items.forEach((item) => {
       const row = document.createElement('li');
-      row.innerHTML = `<strong>${item.name}</strong><span class="muted">${item.url || 'Referencia preparada para imagen real'}</span>`;
+      row.innerHTML = `<strong>${item.name}</strong><span class="muted">${item.url ? 'Archivo cargado' : 'Sin URL'}</span>`;
       list.append(row);
     });
   }
 
-  article.append(heading, list);
+  const manager = document.createElement('div');
+  manager.className = 'evidence-manager';
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  input.className = 'evidence-manager__input';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'secondary-button evidence-manager__btn';
+  btn.textContent = isUploading ? 'Enviando evidencias...' : 'Agregar evidencias a este bloque';
+  btn.disabled = Boolean(isUploading);
+
+  btn.addEventListener('click', async () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+      actions.showFeedback({
+        type: 'error',
+        message: 'Selecciona al menos un archivo para este bloque.',
+      });
+      return;
+    }
+    const evidences = [];
+    for (const f of files) {
+      evidences.push({ name: f.name, url: await readFileAsDataUrl(f) });
+    }
+    await actions.addEvidences(selectedOT.id, { [fieldKey]: evidences });
+    input.value = '';
+  });
+
+  manager.append(input, btn);
+  article.append(heading, list, manager);
   return article;
 };
 
@@ -100,11 +149,24 @@ const createPreviewPhotos = (title, items = []) => {
     items.forEach((item) => {
       const card = document.createElement('article');
       card.className = 'preview-photo-card';
-      card.innerHTML = `
-        <div class="preview-photo-card__placeholder">Imagen / referencia</div>
-        <strong>${item.name}</strong>
-        <span>${item.url || 'Referencia cargada para futura imagen incrustada'}</span>
-      `;
+      if (item.url && String(item.url).startsWith('data:image')) {
+        const img = document.createElement('img');
+        img.className = 'preview-photo-card__img';
+        img.alt = item.name || '';
+        img.src = item.url;
+        const nameEl = document.createElement('strong');
+        nameEl.textContent = item.name || '';
+        card.append(img, nameEl);
+      } else {
+        card.innerHTML = `
+          <div class="preview-photo-card__placeholder">Imagen / referencia</div>
+          <strong></strong>
+          <span></span>
+        `;
+        card.querySelector('strong').textContent = item.name || '';
+        card.querySelector('span').textContent =
+          item.url || 'Referencia cargada para futura imagen incrustada';
+      }
       grid.append(card);
     });
   }
@@ -156,10 +218,10 @@ const createClientPreview = (ot) => {
     ['Resumen del trabajo', ot.resumenTrabajo || 'Sin resumen registrado.'],
     ['Recomendaciones', ot.recomendaciones || 'Sin recomendaciones registradas.'],
   ].forEach(([label, value]) => {
-    const block = document.createElement('section');
-    block.className = 'preview-text-card';
-    block.innerHTML = `<h4>${label}</h4><p>${value}</p>`;
-    textSections.append(block);
+    const textBlock = document.createElement('section');
+    textBlock.className = 'preview-text-card';
+    textBlock.innerHTML = `<h4>${label}</h4><p>${value}</p>`;
+    textSections.append(textBlock);
   });
 
   const evidence = document.createElement('div');
@@ -180,6 +242,8 @@ export const climaView = ({
   feedback,
   isSubmitting,
   isUpdatingStatus,
+  isClosingOT,
+  isUploadingEvidence,
   selectedOTId,
 } = {}) => {
   const section = document.createElement('section');
@@ -192,14 +256,9 @@ export const climaView = ({
   const selectedOT = ots.find((item) => item.id === selectedOTId) || ots[ots.length - 1] || null;
   const pendingCount = ots.filter((item) => item.estado === 'pendiente').length;
   const inProgressCount = ots.filter((item) => item.estado === 'en proceso').length;
-  const evidenceCount = ots.reduce(
-    (total, item) =>
-      total +
-      (item.fotografiasAntes?.length || 0) +
-      (item.fotografiasDurante?.length || 0) +
-      (item.fotografiasDespues?.length || 0),
-    0
-  );
+  const evidenceBefore = ots.reduce((t, item) => t + (item.fotografiasAntes?.length || 0), 0);
+  const evidenceDuring = ots.reduce((t, item) => t + (item.fotografiasDurante?.length || 0), 0);
+  const evidenceAfter = ots.reduce((t, item) => t + (item.fotografiasDespues?.length || 0), 0);
 
   const cards = document.createElement('div');
   cards.className = 'cards';
@@ -216,8 +275,8 @@ export const climaView = ({
     },
     {
       title: 'Evidencias',
-      description: 'Documentación base para informe.',
-      items: [`Fotos cargadas: ${evidenceCount}`, 'Antes / Durante / Después'],
+      description: 'Conteo por tipo (todas las OT).',
+      items: [`Antes: ${evidenceBefore}`, `Durante: ${evidenceDuring}`, `Después: ${evidenceAfter}`],
     },
   ].forEach((item) => cards.append(createCard(item)));
 
@@ -265,7 +324,8 @@ export const climaView = ({
 
   const footer = document.createElement('div');
   footer.className = 'ot-form__footer';
-  footer.innerHTML = '<p class="muted">Estado inicial fijo en pendiente. Las fotografías se agrupan por etapa para el próximo módulo de informe.</p>';
+  footer.innerHTML =
+    '<p class="muted">Estado inicial fijo en pendiente. Las fotografías se agrupan por etapa; al crear la OT se envían como evidencias con nombre y contenido.</p>';
 
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
@@ -278,6 +338,10 @@ export const climaView = ({
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+
+    const antesInput = form.elements.fotografiasAntes;
+    const duranteInput = form.elements.fotografiasDurante;
+    const despuesInput = form.elements.fotografiasDespues;
 
     const payload = {
       cliente: form.elements.cliente.value.trim(),
@@ -293,9 +357,9 @@ export const climaView = ({
       observaciones: form.elements.observaciones.value.trim(),
       resumenTrabajo: form.elements.resumenTrabajo.value.trim(),
       recomendaciones: form.elements.recomendaciones.value.trim(),
-      fotografiasAntes: getFileNames(form, 'fotografiasAntes'),
-      fotografiasDurante: getFileNames(form, 'fotografiasDurante'),
-      fotografiasDespues: getFileNames(form, 'fotografiasDespues'),
+      fotografiasAntes: await readFilesAsEvidence(antesInput),
+      fotografiasDurante: await readFilesAsEvidence(duranteInput),
+      fotografiasDespues: await readFilesAsEvidence(despuesInput),
     };
 
     await actions.createOT(payload);
@@ -308,7 +372,8 @@ export const climaView = ({
 
   const listCard = document.createElement('article');
   listCard.className = 'ot-list-card';
-  listCard.innerHTML = '<div class="ot-list-card__header"><h3>Listado de OT</h3><p class="muted">Cliente, fecha, tipo y estado actual.</p></div>';
+  listCard.innerHTML =
+    '<div class="ot-list-card__header"><h3>Listado de OT</h3><p class="muted">Cliente, fecha, tipo y estado actual.</p></div>';
 
   const list = document.createElement('div');
   list.className = 'ot-list';
@@ -341,14 +406,23 @@ export const climaView = ({
   detailCard.className = 'ot-detail-card';
 
   if (!selectedOT) {
-    detailCard.innerHTML = '<h3>Detalle de OT</h3><p class="muted">Crea una OT para revisar aquí su información y evidencias.</p>';
+    detailCard.innerHTML =
+      '<h3>Detalle de OT</h3><p class="muted">Crea una OT para revisar aquí su información y evidencias.</p>';
   } else {
+    if (feedback?.message) {
+      const detailFeedback = document.createElement('div');
+      detailFeedback.className = `form-feedback form-feedback--${feedback.type} detail-feedback`;
+      detailFeedback.textContent = feedback.message;
+      detailCard.append(detailFeedback);
+    }
+
     const titleRow = document.createElement('div');
     titleRow.className = 'ot-detail-card__header';
 
     const titleBlock = document.createElement('div');
     titleBlock.innerHTML = `<p class="muted">Detalle / resumen OT</p><h3>${selectedOT.id} · ${selectedOT.cliente}</h3>`;
     titleRow.append(titleBlock, createStatusBadge(selectedOT.estado));
+    detailCard.append(titleRow);
 
     const summaryGrid = document.createElement('div');
     summaryGrid.className = 'ot-summary-grid';
@@ -370,18 +444,37 @@ export const climaView = ({
       summaryGrid.append(row);
     });
 
-    const textBlocks = document.createElement('div');
-    textBlocks.className = 'ot-text-blocks';
-    [
-      ['Observaciones', selectedOT.observaciones || 'Sin observaciones.'],
-      ['Resumen del trabajo', selectedOT.resumenTrabajo || 'Sin resumen de trabajo.'],
-      ['Recomendaciones', selectedOT.recomendaciones || 'Sin recomendaciones.'],
-    ].forEach(([label, value]) => {
-      const block = document.createElement('article');
-      block.className = 'ot-text-card';
-      block.innerHTML = `<h4>${label}</h4><p class="muted">${value}</p>`;
-      textBlocks.append(block);
-    });
+    detailCard.append(summaryGrid);
+
+    if (selectedOT.pdfUrl && selectedOT.pdfName) {
+      const reportRow = document.createElement('div');
+      reportRow.className = 'report-actions';
+
+      const viewBtn = document.createElement('button');
+      viewBtn.type = 'button';
+      viewBtn.className = 'secondary-button';
+      viewBtn.textContent = 'Ver informe';
+      viewBtn.addEventListener('click', () => {
+        window.open(selectedOT.pdfUrl, '_blank', 'noopener,noreferrer');
+      });
+
+      const dlBtn = document.createElement('button');
+      dlBtn.type = 'button';
+      dlBtn.className = 'secondary-button';
+      dlBtn.textContent = 'Descargar informe';
+      dlBtn.addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = selectedOT.pdfUrl;
+        a.download = selectedOT.pdfName;
+        a.rel = 'noopener';
+        document.body.append(a);
+        a.click();
+        a.remove();
+      });
+
+      reportRow.append(viewBtn, dlBtn);
+      detailCard.append(reportRow);
+    }
 
     const statusActions = document.createElement('div');
     statusActions.className = 'status-actions';
@@ -390,7 +483,7 @@ export const climaView = ({
     const statusButtons = document.createElement('div');
     statusButtons.className = 'status-actions__buttons';
 
-    ['pendiente', 'en proceso', 'terminado'].forEach((status) => {
+    ['pendiente', 'en proceso'].forEach((status) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `secondary-button ${selectedOT.estado === status ? 'is-active' : ''}`.trim();
@@ -405,19 +498,68 @@ export const climaView = ({
 
     statusActions.append(statusButtons);
 
+    const closeWrap = document.createElement('div');
+    closeWrap.className = 'status-actions status-actions--close';
+    const closeLabel = document.createElement('p');
+    closeLabel.className = 'muted';
+    closeLabel.textContent = 'Cierre con informe PDF persistente';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'primary-button';
+    closeBtn.textContent = isClosingOT ? 'Cerrando y generando informe...' : 'Cerrar y Generar Informe';
+    const closeDisabled =
+      Boolean(isClosingOT || isUploadingEvidence) || selectedOT.estado === 'terminado';
+    closeBtn.disabled = closeDisabled;
+    closeBtn.addEventListener('click', async () => {
+      await actions.closeAndGenerateReport(selectedOT);
+    });
+    closeWrap.append(closeLabel, closeBtn);
+    statusActions.append(closeWrap);
+
+    detailCard.append(statusActions);
+
+    const textBlocks = document.createElement('div');
+    textBlocks.className = 'ot-text-blocks';
+    [
+      ['Observaciones', selectedOT.observaciones || 'Sin observaciones.'],
+      ['Resumen del trabajo', selectedOT.resumenTrabajo || 'Sin resumen de trabajo.'],
+      ['Recomendaciones', selectedOT.recomendaciones || 'Sin recomendaciones.'],
+    ].forEach(([label, value]) => {
+      const block = document.createElement('article');
+      block.className = 'ot-text-card';
+      block.innerHTML = `<h4>${label}</h4><p class="muted">${value}</p>`;
+      textBlocks.append(block);
+    });
+
+    detailCard.append(textBlocks);
+
     const evidenceGrid = document.createElement('div');
     evidenceGrid.className = 'evidence-grid';
     evidenceGrid.append(
-      createEvidenceSection('Fotografías antes', selectedOT.fotografiasAntes || []),
-      createEvidenceSection('Fotografías durante', selectedOT.fotografiasDurante || []),
-      createEvidenceSection('Fotografías después', selectedOT.fotografiasDespues || [])
+      createEvidenceBlock(selectedOT, 'fotografiasAntes', 'Fotografías antes', actions, isUploadingEvidence),
+      createEvidenceBlock(
+        selectedOT,
+        'fotografiasDurante',
+        'Fotografías durante',
+        actions,
+        isUploadingEvidence
+      ),
+      createEvidenceBlock(
+        selectedOT,
+        'fotografiasDespues',
+        'Fotografías después',
+        actions,
+        isUploadingEvidence
+      )
     );
+
+    detailCard.append(evidenceGrid);
 
     const previewCard = document.createElement('div');
     previewCard.className = 'preview-wrapper';
     previewCard.append(createClientPreview(selectedOT));
 
-    detailCard.append(titleRow, summaryGrid, statusActions, textBlocks, evidenceGrid, previewCard);
+    detailCard.append(previewCard);
   }
 
   overview.append(listCard, detailCard);
