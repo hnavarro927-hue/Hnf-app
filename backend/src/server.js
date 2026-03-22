@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { existsSync } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +11,11 @@ import { matchRoute, readJsonBody, sendError } from './utils/http.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const frontendRoot = path.resolve(__dirname, '../../frontend');
+const frontendSrcRoot = path.resolve(__dirname, '../../frontend');
+const frontendDistRoot = path.resolve(__dirname, '../../frontend/dist');
+const distIndex = path.join(frontendDistRoot, 'index.html');
+
+const frontendRoot = existsSync(distIndex) ? frontendDistRoot : frontendSrcRoot;
 const frontendIndexPath = path.join(frontendRoot, 'index.html');
 
 const contentTypeByExtension = {
@@ -18,6 +23,9 @@ const contentTypeByExtension = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.ico': 'image/x-icon',
 };
 
 const isSafeFrontendPath = (filePath) =>
@@ -94,5 +102,12 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(appConfig.port, () => {
+  const mode = frontendRoot === frontendDistRoot ? 'dist (build)' : 'código fuente';
   console.log(`HNF backend running on http://localhost:${appConfig.port}`);
+  console.log(`HNF frontend static: ${mode} → ${frontendRoot}`);
+  if (frontendRoot !== frontendDistRoot) {
+    console.warn(
+      '[HNF] Sin frontend/dist: ejecuta "npm run build --prefix frontend" para servir el bundle (jsPDF y módulos npm).'
+    );
+  }
 });

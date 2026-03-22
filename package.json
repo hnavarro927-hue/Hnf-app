@@ -2,7 +2,8 @@
   "name": "hnf-app",
   "private": true,
   "scripts": {
-    "build": "npm run check:backend && npm run check:frontend",
+    "build": "npm run build:frontend && npm run check:backend",
+    "build:frontend": "npm run build --prefix frontend",
     "start": "node backend/src/server.js",
     "check:frontend": "cd frontend && npm run check",
     "check:backend": "cd backend && npm run check",

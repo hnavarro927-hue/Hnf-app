@@ -20,10 +20,13 @@ export const otModel = {
     'recomendaciones',
     'pdfName',
     'pdfUrl',
+    'equipos',
     'fotografiasAntes',
     'fotografiasDurante',
-    'fotografiasDespues'
+    'fotografiasDespues',
   ],
   statusOptions: ['pendiente', 'en proceso', 'terminado'],
-  serviceTypes: ['clima', 'flota']
+  serviceTypes: ['clima', 'flota'],
+  equipoEstadoOptions: ['operativo', 'mantenimiento', 'falla'],
+  maxEquipos: 12,
 };

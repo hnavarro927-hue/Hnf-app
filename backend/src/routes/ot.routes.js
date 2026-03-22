@@ -2,6 +2,7 @@ import {
   createOT,
   getAllOT,
   patchOTEvidences,
+  patchOTEquipos,
   patchOTReport,
   updateOTStatus,
 } from '../controllers/ot.controller.js';
@@ -26,6 +27,11 @@ export const otRoutes = [
     method: 'PATCH',
     path: '/ots/:id/evidences',
     handler: patchOTEvidences,
+  },
+  {
+    method: 'PATCH',
+    path: '/ots/:id/equipos',
+    handler: patchOTEquipos,
   },
   {
     method: 'PATCH',

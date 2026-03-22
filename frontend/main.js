@@ -1,4 +1,5 @@
-import { appConfig } from './config/app.config.js';
+import './styles/app.css';
+import { appConfig, formatApiBaseLabel } from './config/app.config.js';
 import { createShell } from './components/shell.js';
 import { clientService } from './services/client.service.js';
 import { expenseService } from './services/expense.service.js';
@@ -10,8 +11,18 @@ import { dashboardView } from './views/dashboard.js';
 import { climaView } from './views/clima.js';
 import { flotaView } from './views/flota.js';
 import { adminView } from './views/admin.js';
+import { planificacionService } from './services/planificacion.service.js';
+import { planificacionView } from './views/planificacion.js';
+import {
+  formatEvidenceGapsMessage,
+  getEvidenceGaps,
+  otHasCloseEvidence,
+} from './utils/ot-evidence.js';
 
 const app = document.querySelector('#app');
+if (!app) {
+  throw new Error('No se encontró #app en el DOM.');
+}
 
 const viewRegistry = {
   dashboard: {
@@ -32,6 +43,22 @@ const viewRegistry = {
   clima: {
     render: climaView,
     load: () => otService.getAll(),
+  },
+
+  planificacion: {
+    render: planificacionView,
+    load: async () => {
+      const [cr, tr, mr] = await Promise.all([
+        planificacionService.getClientes(),
+        planificacionService.getTiendas({}),
+        planificacionService.getMantenciones({}),
+      ]);
+      return {
+        planClientes: cr.data ?? [],
+        planTiendas: tr.data ?? [],
+        planMantenciones: mr.data ?? [],
+      };
+    },
   },
 
   flota: {
@@ -60,8 +87,20 @@ const viewRegistry = {
   },
 };
 
-const OT_CLOSE_EVIDENCE_MESSAGE =
-  'Debes cargar evidencias (antes, durante y después) antes de cerrar la OT';
+const openPdfBlobInNewTab = (blob) => {
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.append(a);
+    a.click();
+    a.remove();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 180000);
+};
 
 const state = {
   activeView: 'dashboard',
@@ -73,6 +112,8 @@ const state = {
   isUpdatingOTStatus: false,
   isClosingOT: false,
   isUploadingEvidence: false,
+  isGeneratingPdf: false,
+  isSavingEquipos: false,
 };
 
 const syncSelectedOT = () => {
@@ -84,9 +125,9 @@ const syncSelectedOT = () => {
     return;
   }
 
-  const exists = ots.some(item => item.id === state.selectedOTId);
+  const exists = ots.some((item) => item.id === state.selectedOTId);
   if (!exists) {
-    state.selectedOTId = ots[ots.length - 1].id;
+    state.selectedOTId = ots[0]?.id ?? null;
   }
 };
 
@@ -174,14 +215,54 @@ const createActions = () => ({
     }
   },
 
-  closeAndGenerateReport: async (ot) => {
-    const hasEvidence =
-      (ot.fotografiasAntes?.length || 0) >= 1 &&
-      (ot.fotografiasDurante?.length || 0) >= 1 &&
-      (ot.fotografiasDespues?.length || 0) >= 1;
+  saveEquipos: async (id, equiposPayload) => {
+    state.isSavingEquipos = true;
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.patchEquipos(id, { equipos: equiposPayload });
+      state.otFeedback = { type: 'success', message: 'Equipos guardados correctamente.' };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudieron guardar los equipos.',
+      };
+      render();
+    } finally {
+      state.isSavingEquipos = false;
+      render();
+    }
+  },
 
-    if (!hasEvidence) {
-      state.otFeedback = { type: 'error', message: OT_CLOSE_EVIDENCE_MESSAGE };
+  generatePdfFromOt: async (ot) => {
+    state.isGeneratingPdf = true;
+    state.otFeedback = null;
+    render();
+    try {
+      const { blob, fileName } = await generateOtPdfBlob(ot);
+      openPdfBlobInNewTab(blob);
+      state.otFeedback = {
+        type: 'success',
+        message: `PDF listo: ${fileName}. Desde el visor podés guardar el archivo.`,
+      };
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudo generar el PDF.',
+      };
+    } finally {
+      state.isGeneratingPdf = false;
+      render();
+    }
+  },
+
+  closeAndGenerateReport: async (ot) => {
+    if (!otHasCloseEvidence(ot)) {
+      state.otFeedback = {
+        type: 'error',
+        message: formatEvidenceGapsMessage(getEvidenceGaps(ot)),
+      };
       render();
       return;
     }
@@ -194,9 +275,9 @@ const createActions = () => ({
       await otService.updateStatus(ot.id, { estado: 'terminado' });
       const otClosed = { ...ot, estado: 'terminado' };
       const { blob, fileName } = await generateOtPdfBlob(otClosed);
+      openPdfBlobInNewTab(blob);
       const pdfUrl = await blobToDataUrl(blob);
       await otService.patchReport(ot.id, { pdfName: fileName, pdfUrl });
-      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
       state.otFeedback = {
         type: 'success',
         message: 'OT cerrada: estado terminado, informe PDF generado y guardado de forma persistente.',
@@ -221,7 +302,7 @@ const render = () => {
 
   const shell = createShell({
     activeView: state.activeView,
-    apiBaseUrl: appConfig.apiBaseUrl,
+    apiBaseLabel: formatApiBaseLabel(),
     integrationStatus: state.integrationStatus,
     onNavigate: async (viewId) => {
       state.activeView = viewId;
@@ -238,7 +319,7 @@ const render = () => {
 
   shell.content.append(
     currentView.render({
-      apiBaseUrl: appConfig.apiBaseUrl,
+      apiBaseLabel: formatApiBaseLabel(),
       integrationStatus: state.integrationStatus,
       data: state.viewData,
       actions: createActions(),
@@ -247,7 +328,10 @@ const render = () => {
       isUpdatingStatus: state.isUpdatingOTStatus,
       isClosingOT: state.isClosingOT,
       isUploadingEvidence: state.isUploadingEvidence,
+      isGeneratingPdf: state.isGeneratingPdf,
+      isSavingEquipos: state.isSavingEquipos,
       selectedOTId: state.selectedOTId,
+      reloadApp: loadViewData,
     })
   );
 

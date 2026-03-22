@@ -26,6 +26,7 @@ const ensureDefaults = (item) => ({
   ...item,
   pdfName: item.pdfName ?? null,
   pdfUrl: item.pdfUrl ?? null,
+  equipos: Array.isArray(item.equipos) ? item.equipos : [],
   fotografiasAntes: Array.isArray(item.fotografiasAntes) ? item.fotografiasAntes : [],
   fotografiasDurante: Array.isArray(item.fotografiasDurante) ? item.fotografiasDurante : [],
   fotografiasDespues: Array.isArray(item.fotografiasDespues) ? item.fotografiasDespues : [],
@@ -129,6 +130,18 @@ export const otRepository = {
     if (index === -1) return null;
 
     const updated = { ...items[index], pdfName, pdfUrl };
+    const next = [...items];
+    next[index] = updated;
+    await saveStore(next);
+    return updated;
+  },
+
+  async updateEquipos(id, equipos) {
+    const items = await loadStore();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    const updated = { ...items[index], equipos };
     const next = [...items];
     next[index] = updated;
     await saveStore(next);

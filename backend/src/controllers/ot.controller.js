@@ -1,5 +1,5 @@
 import { otModel } from '../models/ot.model.js';
-import { OT_CLOSE_EVIDENCE_ERROR_MESSAGE, otService } from '../services/ot.service.js';
+import { otService } from '../services/ot.service.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 
 export const getAllOT = async (request, response) => {
@@ -36,7 +36,7 @@ export const updateOTStatus = async (request, response) => {
   );
 
   if (result.error) {
-    const isEvidenceBlock = result.error === OT_CLOSE_EVIDENCE_ERROR_MESSAGE;
+    const isEvidenceBlock = result.code === 'EVIDENCE_INCOMPLETE';
     return sendError(response, isEvidenceBlock ? 422 : 400, result.error, {
       resource: 'ots',
       validStatuses: otModel.statusOptions,
@@ -66,6 +66,26 @@ export const patchOTEvidences = async (request, response) => {
   return sendSuccess(response, 200, result, {
     resource: 'ots',
     action: 'patchOTEvidences',
+  });
+};
+
+export const patchOTEquipos = async (request, response) => {
+  const result = await otService.updateEquipos(request.params.id, request.body || {});
+
+  if (result.errors) {
+    return sendError(response, 400, 'Payload de equipos inválido.', {
+      resource: 'ots',
+      validations: result.errors,
+    });
+  }
+
+  if (result.error) {
+    return sendError(response, 404, result.error, { resource: 'ots' });
+  }
+
+  return sendSuccess(response, 200, result, {
+    resource: 'ots',
+    action: 'patchOTEquipos',
   });
 };
 

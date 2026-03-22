@@ -1,4 +1,5 @@
-import { jsPDF } from '../node_modules/jspdf/dist/jspdf.es.min.js';
+import { jsPDF } from 'jspdf';
+import { getPdfEquipoEvidenceBlock } from '../utils/ot-evidence.js';
 
 const sanitizeSegment = (value, fallback) => {
   const base = String(value ?? fallback ?? '')
@@ -31,118 +32,385 @@ const splitLines = (doc, text, maxWidth) => doc.splitTextToSize(String(text || '
 
 const detectImageFormat = (dataUrl) => {
   if (!dataUrl || typeof dataUrl !== 'string') return null;
-  if (dataUrl.startsWith('data:image/png')) return 'PNG';
-  if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'JPEG';
+  const head = dataUrl.slice(0, 48).toLowerCase();
+  if (head.startsWith('data:image/png')) return 'PNG';
+  if (head.startsWith('data:image/jpeg') || head.startsWith('data:image/jpg')) return 'JPEG';
+  if (head.startsWith('data:image/webp')) return 'WEBP';
+  if (head.startsWith('data:image/gif')) return 'GIF';
   return null;
 };
 
-const appendLines = (doc, lines, x, yStart, lineHeight, pageBottom) => {
-  let y = yStart;
-  const pageHeight = pageBottom || 280;
-  for (const line of lines) {
-    if (y > pageHeight) {
-      doc.addPage();
-      y = 20;
-    }
-    doc.text(line, x, y);
-    y += lineHeight;
-  }
-  return y;
+const drawHeaderBar = (doc, margin, y, pageWidth) => {
+  doc.setFillColor(29, 78, 216);
+  doc.rect(0, 0, pageWidth, 28, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.rect(margin, 6, 16, 16, 'F');
+  doc.setTextColor(29, 78, 216);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('HNF', margin + 3, 15);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text('HNF Servicios Integrales', margin + 20, 12);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Informe técnico · Orden de trabajo HVAC / Clima', margin + 20, 20);
+  doc.setTextColor(0, 0, 0);
+  return 36;
 };
 
-const appendEvidenceBlock = (doc, title, items, yStart) => {
-  let y = yStart;
-  const margin = 14;
-  const pageBottom = 275;
+/** Solo data URLs de imagen base64 reales; descarta referencias rotas o no técnicas. */
+const isValidTechnicalEvidenceDataUrl = (url) => {
+  if (typeof url !== 'string') return false;
+  const u = url.trim();
+  if (!u.startsWith('data:image/')) return false;
+  const comma = u.indexOf(',');
+  if (comma < 12 || comma > 4096) return false;
+  const head = u.slice(0, comma).toLowerCase();
+  if (!head.includes(';base64')) return false;
+  const b64 = u.slice(comma + 1).replace(/\s/g, '');
+  return b64.length >= 32;
+};
+
+const filterPdfEvidenceItems = (items) => {
+  const list = Array.isArray(items) ? items : [];
+  return list.filter((item) => item && isValidTechnicalEvidenceDataUrl(item.url));
+};
+
+const sectionTitle = (doc, margin, y, title) => {
+  doc.setDrawColor(200, 210, 225);
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, 196, y);
+  y += 6;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  y = appendLines(doc, [title], margin, y, 7, pageBottom);
+  doc.setTextColor(29, 78, 216);
+  doc.text(title, margin, y);
+  doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  return y + 6;
+};
 
-  const list = Array.isArray(items) ? items : [];
-  if (!list.length) {
-    return appendLines(doc, ['(Sin evidencias en este bloque)'], margin + 4, y, 6, pageBottom) + 4;
-  }
-
-  for (const item of list) {
-    const nameLines = splitLines(doc, item.name || 'Sin nombre', 180);
-    y = appendLines(doc, nameLines, margin + 4, y, 5, pageBottom);
-
-    const fmt = detectImageFormat(item.url);
-    if (fmt && item.url) {
-      try {
-        if (y > 200) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.addImage(item.url, fmt, margin + 4, y, 90, 68);
-        y += 72;
-      } catch {
-        y = appendLines(doc, ['(No se pudo incrustar la imagen)'], margin + 4, y, 5, pageBottom);
-      }
+const appendParagraph = (doc, margin, y, label, body, maxW, bottom) => {
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${label}`, margin, y);
+  y += 4;
+  doc.setFont('helvetica', 'normal');
+  const lines = splitLines(doc, body, maxW);
+  for (const line of lines) {
+    if (y > bottom) {
+      doc.addPage();
+      y = 22;
     }
-    y += 2;
+    doc.text(line, margin, y);
+    y += 4;
   }
+  return y + 3;
+};
 
-  return y + 4;
+const appendEvidencePhotos = (doc, margin, y, items, bottom, aliasPrefix = 'ev') => {
+  const list = filterPdfEvidenceItems(items);
+  doc.setFontSize(8);
+  let imgIdx = 0;
+  for (const item of list) {
+    const fmt = detectImageFormat(item.url);
+    if (!fmt) continue;
+    try {
+      if (y > bottom - 75) {
+        doc.addPage();
+        y = 22;
+      }
+      const safeId = String(item.id || imgIdx).replace(/[^\w-]/g, '').slice(0, 40);
+      const alias = `${aliasPrefix}-${imgIdx}-${safeId}`;
+      imgIdx += 1;
+      doc.setFont('helvetica', 'italic');
+      doc.text(item.name || 'Imagen', margin, y);
+      y += 4;
+      doc.addImage(item.url, fmt, margin, y, 85, 62, alias);
+      y += 66;
+      doc.setFont('helvetica', 'normal');
+    } catch {
+      doc.text(`(imagen no disponible: ${item.name || ''})`, margin, y);
+      y += 5;
+    }
+  }
+  if (
+    !list.length &&
+    Array.isArray(items) &&
+    items.some((i) => typeof i?.url === 'string' && i.url.trim().length > 0)
+  ) {
+    if (y > bottom) {
+      doc.addPage();
+      y = 22;
+    }
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.text('(Hay referencias de imagen no válidas para PDF en este bloque — vuelva a cargar fotos)', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+  }
+  return y;
 };
 
 export const generateOtPdfBlob = async (ot) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const margin = 14;
-  let y = 18;
-
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('HNF Servicios Integrales', margin, y);
-  y += 10;
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Informe OT ${ot.id || ''}`, margin, y);
-  y += 8;
-
-  const blocks = [
-    ['Cliente', ot.cliente || '—'],
-    ['Dirección', ot.direccion || '—'],
-    ['Comuna', ot.comuna || '—'],
-    ['Contacto en terreno', ot.contactoTerreno || '—'],
-    ['Teléfono', ot.telefonoContacto || '—'],
-    ['Tipo / subtipo', `${ot.tipoServicio || '—'} / ${ot.subtipoServicio || '—'}`],
-    ['Técnico asignado', ot.tecnicoAsignado || '—'],
-    ['Fecha y hora', `${ot.fecha || '—'} · ${ot.hora || '—'}`],
-    ['Estado', ot.estado || '—'],
-  ];
+  const pageW = doc.internal.pageSize.getWidth();
+  const bottom = 282;
+  let y = drawHeaderBar(doc, margin, 0, pageW);
 
   doc.setFontSize(10);
-  for (const [label, value] of blocks) {
-    const lines = splitLines(doc, `${label}: ${value}`, 182);
-    y = appendLines(doc, lines, margin, y, 5, 275);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`OT ${ot.id || ''} · ${ot.fecha || ''} ${ot.hora || ''}`, margin, y);
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+
+  const meta = [
+    `Cliente: ${ot.cliente || '—'}`,
+    `Ubicación: ${ot.direccion || '—'}, ${ot.comuna || '—'}`,
+    `Contacto terreno: ${ot.contactoTerreno || '—'} · Tel: ${ot.telefonoContacto || '—'}`,
+    `Servicio: ${ot.tipoServicio || '—'} / ${ot.subtipoServicio || '—'}`,
+    `Técnico: ${ot.tecnicoAsignado || '—'} · Estado OT: ${ot.estado || '—'}`,
+  ];
+  for (const line of meta) {
+    const lines = splitLines(doc, line, 182);
+    for (const ln of lines) {
+      if (y > bottom) {
+        doc.addPage();
+        y = 22;
+      }
+      doc.text(ln, margin, y);
+      y += 5;
+    }
   }
 
   y += 4;
-  doc.setFont('helvetica', 'bold');
-  y = appendLines(doc, ['Observaciones'], margin, y, 7, 275);
-  doc.setFont('helvetica', 'normal');
-  y = appendLines(doc, splitLines(doc, ot.observaciones || 'Sin observaciones.', 182), margin, y, 5, 275);
+  y = sectionTitle(doc, margin, y, 'Resumen general');
+  y = appendParagraph(doc, margin, y, 'Observaciones generales', ot.observaciones || 'Sin observaciones.', 182, bottom);
+  y = appendParagraph(doc, margin, y, 'Resumen del trabajo', ot.resumenTrabajo || 'Sin resumen.', 182, bottom);
+  y = appendParagraph(doc, margin, y, 'Recomendaciones generales', ot.recomendaciones || 'Sin recomendaciones.', 182, bottom);
 
-  doc.setFont('helvetica', 'bold');
-  y = appendLines(doc, ['Resumen del trabajo'], margin, y, 7, 275);
-  doc.setFont('helvetica', 'normal');
-  y = appendLines(doc, splitLines(doc, ot.resumenTrabajo || 'Sin resumen.', 182), margin, y, 5, 275);
+  const equipos = Array.isArray(ot.equipos) ? ot.equipos : [];
 
-  doc.setFont('helvetica', 'bold');
-  y = appendLines(doc, ['Recomendaciones'], margin, y, 7, 275);
-  doc.setFont('helvetica', 'normal');
-  y = appendLines(doc, splitLines(doc, ot.recomendaciones || 'Sin recomendaciones.', 182), margin, y, 5, 275);
+  if (equipos.length > 0) {
+    equipos.forEach((eq, idx) => {
+      if (y > bottom - 40) {
+        doc.addPage();
+        y = 22;
+      }
+      y += 4;
+      y = sectionTitle(
+        doc,
+        margin,
+        y,
+        `Equipo ${idx + 1}: ${eq.nombreEquipo || 'Sin nombre'} · Estado: ${eq.estadoEquipo || '—'}`
+      );
 
-  y += 2;
-  y = appendEvidenceBlock(doc, 'Evidencias antes', ot.fotografiasAntes, y);
-  y = appendEvidenceBlock(doc, 'Evidencias durante', ot.fotografiasDurante, y);
-  appendEvidenceBlock(doc, 'Evidencias después', ot.fotografiasDespues, y);
+      y = appendParagraph(doc, margin, y, 'Observaciones del equipo', eq.observaciones || '—', 182, bottom);
+      y = appendParagraph(doc, margin, y, 'Acciones realizadas', eq.accionesRealizadas || '—', 182, bottom);
+      y = appendParagraph(doc, margin, y, 'Recomendaciones', eq.recomendaciones || '—', 182, bottom);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      if (y > bottom - 20) {
+        doc.addPage();
+        y = 22;
+      }
+      doc.text('Evidencias — Antes', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      y = appendEvidencePhotos(
+        doc,
+        margin,
+        y,
+        getPdfEquipoEvidenceBlock(eq, 'antes'),
+        bottom,
+        `${ot.id || 'OT'}-e${idx}-antes`
+      );
+
+      doc.setFont('helvetica', 'bold');
+      if (y > bottom - 10) {
+        doc.addPage();
+        y = 22;
+      }
+      doc.text('Evidencias — Durante', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      y = appendEvidencePhotos(
+        doc,
+        margin,
+        y,
+        getPdfEquipoEvidenceBlock(eq, 'durante'),
+        bottom,
+        `${ot.id || 'OT'}-e${idx}-durante`
+      );
+
+      doc.setFont('helvetica', 'bold');
+      if (y > bottom - 10) {
+        doc.addPage();
+        y = 22;
+      }
+      doc.text('Evidencias — Después', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      y = appendEvidencePhotos(
+        doc,
+        margin,
+        y,
+        getPdfEquipoEvidenceBlock(eq, 'despues'),
+        bottom,
+        `${ot.id || 'OT'}-e${idx}-despues`
+      );
+    });
+  } else {
+    y += 4;
+    y = sectionTitle(doc, margin, y, 'Evidencias generales de la visita');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Antes', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    y = appendEvidencePhotos(doc, margin, y, ot.fotografiasAntes, bottom, `${ot.id || 'OT'}-visita-antes`);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Durante', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    y = appendEvidencePhotos(doc, margin, y, ot.fotografiasDurante, bottom, `${ot.id || 'OT'}-visita-durante`);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Después', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    appendEvidencePhotos(doc, margin, y, ot.fotografiasDespues, bottom, `${ot.id || 'OT'}-visita-despues`);
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`HNF Servicios Integrales · ${ot.id || ''} · Pág. ${p}/${pageCount}`, margin, 290);
+    doc.setTextColor(0, 0, 0);
+  }
 
   const fileName = buildOtPdfFileName(ot);
+  const arrayBuffer = doc.output('arraybuffer');
+  const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+  return { blob, fileName };
+};
+
+const drawPlanificacionHeader = (doc, margin, pageWidth) => {
+  doc.setFillColor(29, 78, 216);
+  doc.rect(0, 0, pageWidth, 28, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.rect(margin, 6, 16, 16, 'F');
+  doc.setTextColor(29, 78, 216);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('HNF', margin + 3, 15);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('HNF Servicios Integrales', margin + 20, 11);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Calendario de mantenciones · Clima / HVAC', margin + 20, 19);
+  doc.setTextColor(0, 0, 0);
+  return 34;
+};
+
+export const buildClienteCalendarioFileName = (clienteNombre) => {
+  const c = sanitizeSegment(clienteNombre, 'cliente');
+  const d = sanitizeSegment(new Date().toISOString().slice(0, 10), 'fecha');
+  return `Calendario-Mantenciones-${c}-${d}.pdf`;
+};
+
+/**
+ * @param {object} params
+ * @param {string} params.clienteNombre
+ * @param {Array<{ tiendaNombre: string, direccion: string, comuna: string, fecha: string, horarioAM: string, horarioPM: string, tecnico: string, tipo: string, estado: string }>} params.rows
+ */
+export const generateClienteCalendarioPdfBlob = ({ clienteNombre, rows = [] }) => {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const margin = 14;
+  const pageW = doc.internal.pageSize.getWidth();
+  const bottom = 282;
+  let y = drawPlanificacionHeader(doc, margin, pageW);
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Cliente: ${clienteNombre || '—'}`, margin, y);
+  y += 7;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Registros incluidos: ${rows.length}`, margin, y);
+  doc.setTextColor(0, 0, 0);
+  y += 10;
+
+  const sorted = [...rows].sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
+
+  if (!sorted.length) {
+    doc.setFont('helvetica', 'italic');
+    doc.text('No hay mantenciones registradas para este cliente.', margin, y);
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+  }
+
+  for (const r of sorted) {
+    if (y > bottom - 28) {
+      doc.addPage();
+      y = 22;
+    }
+    doc.setDrawColor(210, 218, 230);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 5;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(r.tiendaNombre || '—'), margin, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const ubiLines = splitLines(doc, `${r.direccion || '—'}, ${r.comuna || '—'}`, pageW - margin * 2);
+    for (const line of ubiLines) {
+      if (y > bottom - 8) {
+        doc.addPage();
+        y = 22;
+      }
+      doc.text(line, margin, y);
+      y += 3.6;
+    }
+    if (y > bottom - 12) {
+      doc.addPage();
+      y = 22;
+    }
+    doc.text(
+      `Fecha mantención: ${r.fecha || '—'}  ·  Horario AM: ${r.horarioAM || '—'}  ·  Horario PM: ${r.horarioPM || '—'}`,
+      margin,
+      y
+    );
+    y += 4;
+    doc.text(
+      `Técnico: ${r.tecnico || '—'}  ·  Tipo: ${r.tipo || '—'}  ·  Estado: ${r.estado || '—'}`,
+      margin,
+      y
+    );
+    y += 7;
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`HNF · Planificación Clima · ${clienteNombre || ''} · Pág. ${p}/${pageCount}`, margin, 290);
+    doc.setTextColor(0, 0, 0);
+  }
+
+  const fileName = buildClienteCalendarioFileName(clienteNombre);
   const arrayBuffer = doc.output('arraybuffer');
   const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
   return { blob, fileName };

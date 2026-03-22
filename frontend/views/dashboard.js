@@ -1,6 +1,6 @@
 import { createCard } from '../components/card.js';
 
-export const dashboardView = ({ apiBaseUrl, integrationStatus, data } = {}) => {
+export const dashboardView = ({ apiBaseLabel, integrationStatus, data } = {}) => {
   const section = document.createElement('section');
   section.innerHTML = `
     <p class="muted">Vista inicial</p>
@@ -21,7 +21,7 @@ export const dashboardView = ({ apiBaseUrl, integrationStatus, data } = {}) => {
     { title: 'Flota', description: 'Gestión vehicular.', items: [`Vehículos: ${vehicles.length}`, `Gastos asociados: ${expenses.length}`] },
     { title: 'Administración', description: 'Gestión comercial.', items: [`Clientes: ${clients.length}`, `Gastos: ${expenses.length}`] },
     { title: 'Gastos', description: 'Control operacional.', items: ['Categorías', 'Comprobantes', 'Centro de costo'] },
-    { title: 'Integración API', description: 'Configuración centralizada.', items: [`Base URL: ${apiBaseUrl || 'No configurada'}`, `Health: ${data?.health?.data?.status || integrationStatus}`] },
+    { title: 'Integración API', description: 'Configuración centralizada.', items: [`Base: ${apiBaseLabel || '—'}`, `Health: ${data?.health?.data?.status || integrationStatus}`] },
   ].forEach((item) => cards.append(createCard(item)));
 
   section.append(cards);

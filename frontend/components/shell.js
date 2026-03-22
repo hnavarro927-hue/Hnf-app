@@ -1,11 +1,12 @@
 const menu = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'clima', label: 'Clima' },
+  { id: 'planificacion', label: 'Planificación Clima' },
   { id: 'flota', label: 'Flota' },
   { id: 'admin', label: 'Administración' },
 ];
 
-export const createShell = ({ activeView, onNavigate, apiBaseUrl, integrationStatus }) => {
+export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationStatus }) => {
   const element = document.createElement('div');
   element.className = 'shell';
 
@@ -16,7 +17,7 @@ export const createShell = ({ activeView, onNavigate, apiBaseUrl, integrationSta
       <p class="muted">HNF Servicios Integrales</p>
       <h1>Base de aplicación</h1>
       <p class="muted">Frontend preparado para integración limpia con backend.</p>
-      <p class="muted"><strong>API:</strong> ${apiBaseUrl || 'No configurada'}</p>
+      <p class="muted"><strong>API:</strong> ${apiBaseLabel || '—'}</p>
       <p class="muted"><strong>Health:</strong> ${integrationStatus}</p>
     </div>
   `;

@@ -7,4 +7,5 @@ export const otService = {
   updateStatus: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/status`, payload),
   patchEvidences: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/evidences`, payload),
   patchReport: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/report`, payload),
+  patchEquipos: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/equipos`, payload),
 };

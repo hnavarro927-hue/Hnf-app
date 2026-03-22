@@ -2,7 +2,8 @@ import { createCard } from '../components/card.js';
 
 export const adminView = ({ data } = {}) => {
   const section = document.createElement('section');
-  section.innerHTML = '<h2>Administración</h2><p class="muted">Vista conectada a clientes, OT y gastos.</p>';
+  section.innerHTML =
+    '<h2>Administración</h2><p class="muted">Vista conectada a clientes, OT y gastos.</p><p class="muted">Planificación de mantenciones HVAC (clientes/tiendas/calendario y PDF para cliente): usá el menú <strong>Planificación Clima</strong>.</p>';
 
   const clients = data?.clients?.data || [];
   const ots = data?.ots?.data || [];

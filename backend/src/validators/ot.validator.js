@@ -72,6 +72,24 @@ export const validateEvidencePatchBody = (payload = {}) => {
   };
 };
 
+export const validateEquiposPatchBody = (payload = {}) => {
+  const errors = [];
+
+  if (!Array.isArray(payload.equipos)) {
+    errors.push('equipos debe ser un arreglo.');
+    return { valid: false, errors };
+  }
+
+  if (payload.equipos.length > (otModel.maxEquipos ?? 12)) {
+    errors.push(`Máximo ${otModel.maxEquipos ?? 12} equipos por OT.`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};
+
 export const validateReportPayload = (payload = {}) => {
   const errors = [];
 

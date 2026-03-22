@@ -4,4 +4,7 @@ export const apiEndpoints = {
   clients: '/clients',
   vehicles: '/vehicles',
   expenses: '/expenses',
+  planClientes: '/clientes',
+  planTiendas: '/tiendas',
+  planMantenciones: '/mantenciones',
 };

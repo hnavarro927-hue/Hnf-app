@@ -5,8 +5,13 @@
   "dependencies": {
     "jspdf": "^2.5.2"
   },
+  "devDependencies": {
+    "vite": "^5.4.14"
+  },
   "scripts": {
-    "dev": "python3 -m http.server 4173",
-    "check": "find . -maxdepth 3 -name '*.js' -print0 | xargs -0 -n1 node --check"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "vite build"
   }
 }
