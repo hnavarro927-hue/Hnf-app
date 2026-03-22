@@ -18,6 +18,8 @@ export const otModel = {
     'observaciones',
     'resumenTrabajo',
     'recomendaciones',
+    'pdfName',
+    'pdfUrl',
     'fotografiasAntes',
     'fotografiasDurante',
     'fotografiasDespues'
