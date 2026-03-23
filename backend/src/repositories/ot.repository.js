@@ -52,6 +52,8 @@ const ensureDefaults = (item) => {
     cerradoEn: item.cerradoEn ?? null,
     createdAt: item.createdAt || creado || null,
     updatedAt: item.updatedAt || creado || now,
+    creadoPor: item.creadoPor ?? null,
+    actualizadoPor: item.actualizadoPor ?? null,
     historial: Array.isArray(item.historial) ? item.historial : [],
     equipos: Array.isArray(item.equipos) ? item.equipos : [],
     fotografiasAntes: Array.isArray(item.fotografiasAntes) ? item.fotografiasAntes : [],
@@ -66,10 +68,11 @@ const ensureDefaults = (item) => {
   return computeOtEconomics(base);
 };
 
-const touch = (item, accion, detalle) => ({
+const touch = (item, accion, detalle, actor = 'sistema') => ({
   ...item,
   updatedAt: new Date().toISOString(),
-  historial: appendHistorial(item, accion, detalle),
+  actualizadoPor: actor,
+  historial: appendHistorial(item, accion, detalle, actor),
 });
 
 const loadStore = async () => {
@@ -104,7 +107,7 @@ export const otRepository = {
     return items.find((item) => item.id === id) || null;
   },
 
-  async create(data) {
+  async create(data, actor = 'sistema') {
     const items = await loadStore();
     const now = new Date().toISOString();
     const item = ensureDefaults({
@@ -113,14 +116,16 @@ export const otRepository = {
       creadoEn: data.creadoEn || now,
       createdAt: data.createdAt || data.creadoEn || now,
       updatedAt: now,
-      historial: appendHistorial({}, 'alta', `OT creada · ${data.estado || 'pendiente'}`),
+      creadoPor: data.creadoPor || actor,
+      actualizadoPor: actor,
+      historial: appendHistorial({}, 'alta', `OT creada · ${data.estado || 'pendiente'}`, actor),
     });
     const next = [...items, item];
     await saveStore(next);
     return item;
   },
 
-  async updateStatus(id, estado) {
+  async updateStatus(id, estado, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
@@ -132,7 +137,7 @@ export const otRepository = {
     } else if (prev.estado === 'terminado' && estado !== 'terminado') {
       updated.cerradoEn = null;
     }
-    updated = touch(updated, 'estado', `${prev.estado} → ${estado}`);
+    updated = touch(updated, 'estado', `${prev.estado} → ${estado}`, actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;
@@ -140,7 +145,7 @@ export const otRepository = {
     return updated;
   },
 
-  async updateVisitFields(id, fields) {
+  async updateVisitFields(id, fields, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
@@ -156,7 +161,7 @@ export const otRepository = {
     if ('observaciones' in fields) {
       updated.observaciones = String(fields.observaciones ?? '').trim();
     }
-    let out = touch(updated, 'visita', 'Textos de visita actualizados');
+    let out = touch(updated, 'visita', 'Textos de visita actualizados', actor);
     out = ensureDefaults(out);
     const next = [...items];
     next[index] = out;
@@ -164,7 +169,7 @@ export const otRepository = {
     return out;
   },
 
-  async updateEconomics(id, fields) {
+  async updateEconomics(id, fields, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
@@ -172,9 +177,9 @@ export const otRepository = {
     const cur = ensureDefaults(items[index]);
     const updated = { ...cur };
     for (const k of ['costoMateriales', 'costoManoObra', 'costoTraslado', 'costoOtros', 'montoCobrado']) {
-      if (k in fields) updated[k] = Number(fields[k]);
+      if (k in fields) updated[k] = round2(fields[k]);
     }
-    let out = touch(updated, 'economia', 'Costos / ingreso actualizados');
+    let out = touch(updated, 'economia', 'Costos / ingreso actualizados', actor);
     out = ensureDefaults(out);
     const next = [...items];
     next[index] = out;
@@ -182,7 +187,7 @@ export const otRepository = {
     return out;
   },
 
-  async appendEvidences(id, patch) {
+  async appendEvidences(id, patch, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
@@ -212,7 +217,7 @@ export const otRepository = {
         ? mergeBlock(current.fotografiasDespues, patch.fotografiasDespues)
         : current.fotografiasDespues,
     };
-    updated = touch(updated, 'evidencias', 'Fotos agregadas');
+    updated = touch(updated, 'evidencias', 'Fotos agregadas', actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;
@@ -220,13 +225,13 @@ export const otRepository = {
     return updated;
   },
 
-  async updateReport(id, { pdfName, pdfUrl }) {
+  async updateReport(id, { pdfName, pdfUrl }, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
 
     let updated = { ...ensureDefaults(items[index]), pdfName, pdfUrl };
-    updated = touch(updated, 'informe', 'PDF asociado a la OT');
+    updated = touch(updated, 'informe', 'PDF asociado a la OT', actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;
@@ -234,13 +239,13 @@ export const otRepository = {
     return updated;
   },
 
-  async updateEquipos(id, equipos) {
+  async updateEquipos(id, equipos, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
 
     let updated = { ...ensureDefaults(items[index]), equipos };
-    updated = touch(updated, 'equipos', 'Equipos / checklist / evidencias actualizados');
+    updated = touch(updated, 'equipos', 'Equipos / checklist / evidencias actualizados', actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;

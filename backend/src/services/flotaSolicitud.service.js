@@ -74,13 +74,13 @@ export const flotaSolicitudService = {
     return solicitudFlotaRepository.findAll(filters);
   },
 
-  async create(body) {
+  async create(body, actor = 'sistema') {
     const v = validateSolicitudFlotaCreate(body);
     if (!v.valid) return { errors: v.errors };
-    return solicitudFlotaRepository.create(buildCreatePayload(body));
+    return solicitudFlotaRepository.create(buildCreatePayload(body), actor);
   },
 
-  async patch(id, body) {
+  async patch(id, body, actor = 'sistema') {
     const v = validateSolicitudFlotaPatch(body);
     if (!v.valid) return { errors: v.errors };
     const current = await solicitudFlotaRepository.findById(id);
@@ -132,6 +132,6 @@ export const flotaSolicitudService = {
     if (patch.vehiculo !== undefined) histParts.push('vehículo actualizado');
     const detalle = histParts.length ? histParts.join(' · ') : 'Actualización de datos';
 
-    return solicitudFlotaRepository.update(id, patch, { accion: 'edicion', detalle });
+    return solicitudFlotaRepository.update(id, patch, { accion: 'edicion', detalle }, actor);
   },
 };

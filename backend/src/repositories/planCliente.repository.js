@@ -13,6 +13,8 @@ const normalizeCliente = (c) => ({
   estado: String(c.estado || 'activo').trim(),
   createdAt: c.createdAt || null,
   updatedAt: c.updatedAt || c.createdAt || null,
+  creadoPor: c.creadoPor ?? null,
+  actualizadoPor: c.actualizadoPor ?? null,
   historial: Array.isArray(c.historial) ? c.historial : [],
 });
 
@@ -53,7 +55,7 @@ export const planClienteRepository = {
     return items.find((c) => c.id === id) || null;
   },
 
-  async create({ nombre }) {
+  async create({ nombre }, actor = 'sistema') {
     const items = await loadStore();
     const now = new Date().toISOString();
     const item = normalizeCliente({
@@ -62,7 +64,9 @@ export const planClienteRepository = {
       estado: 'activo',
       createdAt: now,
       updatedAt: now,
-      historial: appendHistorial({}, 'alta', 'Cliente de planificación creado'),
+      creadoPor: actor,
+      actualizadoPor: actor,
+      historial: appendHistorial({}, 'alta', 'Cliente de planificación creado', actor),
     });
     const next = [...items, item];
     await saveStore(next);

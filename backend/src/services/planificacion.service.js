@@ -15,10 +15,10 @@ export const planificacionService = {
     return planClienteRepository.findAll();
   },
 
-  async createCliente(body) {
+  async createCliente(body, actor = 'sistema') {
     const v = validatePlanClienteCreate(body);
     if (!v.valid) return { errors: v.errors };
-    return planClienteRepository.create({ nombre: body.nombre });
+    return planClienteRepository.create({ nombre: body.nombre }, actor);
   },
 
   async listTiendas(clienteId) {
@@ -37,7 +37,7 @@ export const planificacionService = {
     return planMantencionRepository.findAll(filters);
   },
 
-  async createMantencion(body) {
+  async createMantencion(body, actor = 'sistema') {
     const v = validatePlanMantencionCreate(body);
     if (!v.valid) return { errors: v.errors };
     const tienda = await planTiendaRepository.findById(String(body.tiendaId).trim());
@@ -57,10 +57,10 @@ export const planificacionService = {
         code: 'SCHEDULE_CONFLICT',
       };
     }
-    return planMantencionRepository.create(body);
+    return planMantencionRepository.create(body, actor);
   },
 
-  async patchMantencion(id, body) {
+  async patchMantencion(id, body, actor = 'sistema') {
     const v = validatePlanMantencionPatch(body);
     if (!v.valid) return { errors: v.errors };
     const current = await planMantencionRepository.findById(id);
@@ -104,6 +104,6 @@ export const planificacionService = {
     if (!Object.keys(patch).length) {
       return current;
     }
-    return planMantencionRepository.update(id, patch);
+    return planMantencionRepository.update(id, patch, actor);
   },
 };

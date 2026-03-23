@@ -17,6 +17,12 @@ import {
 export const OT_CLOSE_EVIDENCE_ERROR_MESSAGE =
   'Debes cargar evidencias (antes, durante y después) antes de cerrar la OT';
 
+const roundMoney = (v) => {
+  const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(Math.max(0, n) * 100) / 100;
+};
+
 const blockHasPhoto = (arr) =>
   Array.isArray(arr) &&
   arr.some((e) => typeof e?.url === 'string' && e.url.trim().length > 0);
@@ -191,7 +197,7 @@ export const otService = {
     return otRepository.findAll();
   },
 
-  async create(data) {
+  async create(data, actor = 'sistema') {
     const validation = validateOTPayload(data);
     if (!validation.valid) {
       return { errors: validation.errors };
@@ -224,10 +230,10 @@ export const otService = {
       fotografiasAntes: normalizeFiles(data, 'fotografiasAntes'),
       fotografiasDurante: normalizeFiles(data, 'fotografiasDurante'),
       fotografiasDespues: normalizeFiles(data, 'fotografiasDespues'),
-    });
+    }, actor);
   },
 
-  async updateStatus(id, estado, statusOptions) {
+  async updateStatus(id, estado, statusOptions, actor = 'sistema') {
     if (!statusOptions.includes(estado)) {
       return { error: 'Estado inválido.' };
     }
@@ -249,9 +255,16 @@ export const otService = {
           code: 'QUALITY_INCOMPLETE',
         };
       }
+      if (roundMoney(current.montoCobrado) <= 0 || roundMoney(current.costoTotal) <= 0) {
+        return {
+          error:
+            'No se puede cerrar: el monto cobrado y el costo total guardados en la OT deben ser mayores que cero.',
+          code: 'ECONOMICS_INCOMPLETE',
+        };
+      }
     }
 
-    const item = await otRepository.updateStatus(id, estado);
+    const item = await otRepository.updateStatus(id, estado, actor);
     if (!item) {
       return { error: 'OT no encontrada.' };
     }
@@ -259,7 +272,7 @@ export const otService = {
     return item;
   },
 
-  async appendEvidences(id, body) {
+  async appendEvidences(id, body, actor = 'sistema') {
     const validation = validateEvidencePatchBody(body);
     if (!validation.valid) {
       return { errors: validation.errors };
@@ -276,7 +289,7 @@ export const otService = {
       patch.fotografiasDespues = normalizeFiles(body, 'fotografiasDespues');
     }
 
-    const item = await otRepository.appendEvidences(id, patch);
+    const item = await otRepository.appendEvidences(id, patch, actor);
     if (!item) {
       return { error: 'OT no encontrada.' };
     }
@@ -284,14 +297,14 @@ export const otService = {
     return item;
   },
 
-  async updateEquipos(id, body) {
+  async updateEquipos(id, body, actor = 'sistema') {
     const validation = validateEquiposPatchBody(body);
     if (!validation.valid) {
       return { errors: validation.errors };
     }
 
     const equipos = normalizeEquiposList(body.equipos);
-    const item = await otRepository.updateEquipos(id, equipos);
+    const item = await otRepository.updateEquipos(id, equipos, actor);
     if (!item) {
       return { error: 'OT no encontrada.' };
     }
@@ -299,16 +312,20 @@ export const otService = {
     return item;
   },
 
-  async updateReport(id, body) {
+  async updateReport(id, body, actor = 'sistema') {
     const validation = validateReportPayload(body);
     if (!validation.valid) {
       return { errors: validation.errors };
     }
 
-    const item = await otRepository.updateReport(id, {
-      pdfName: body.pdfName.trim(),
-      pdfUrl: body.pdfUrl.trim(),
-    });
+    const item = await otRepository.updateReport(
+      id,
+      {
+        pdfName: body.pdfName.trim(),
+        pdfUrl: body.pdfUrl.trim(),
+      },
+      actor
+    );
 
     if (!item) {
       return { error: 'OT no encontrada.' };
@@ -317,7 +334,7 @@ export const otService = {
     return item;
   },
 
-  async patchVisitFields(id, body) {
+  async patchVisitFields(id, body, actor = 'sistema') {
     const validation = validateVisitFieldsPatch(body);
     if (!validation.valid) {
       return { errors: validation.errors };
@@ -326,14 +343,14 @@ export const otService = {
     for (const k of ['resumenTrabajo', 'recomendaciones', 'observaciones']) {
       if (k in body) patch[k] = body[k];
     }
-    const item = await otRepository.updateVisitFields(id, patch);
+    const item = await otRepository.updateVisitFields(id, patch, actor);
     if (!item) {
       return { error: 'OT no encontrada.' };
     }
     return item;
   },
 
-  async patchEconomics(id, body) {
+  async patchEconomics(id, body, actor = 'sistema') {
     const validation = validateEconomicsPatch(body);
     if (!validation.valid) {
       return { errors: validation.errors };
@@ -342,7 +359,7 @@ export const otService = {
     for (const k of ['costoMateriales', 'costoManoObra', 'costoTraslado', 'costoOtros', 'montoCobrado']) {
       if (k in body) patch[k] = body[k];
     }
-    const item = await otRepository.updateEconomics(id, patch);
+    const item = await otRepository.updateEconomics(id, patch, actor);
     if (!item) {
       return { error: 'OT no encontrada.' };
     }

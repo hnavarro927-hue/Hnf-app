@@ -1,4 +1,5 @@
 import { createCard } from '../components/card.js';
+import { getStoredOperatorName, setStoredOperatorName } from '../config/operator.config.js';
 import {
   exportBackupAdminClientes,
   exportBackupCompleto,
@@ -36,7 +37,7 @@ export const adminView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Administración</h2><p class="muted"><strong>Qué hacés acá:</strong> ver clientes generales, gastos y descargar respaldos en JSON. Las <strong>mantenciones por cliente</strong> se cargan en <strong>Planificación</strong>, no acá.</p>';
+    '<h2>Administración y respaldos</h2><p class="muted">Pantalla corporativa: <strong>operador</strong> (trazabilidad en cambios), <strong>clientes</strong> del padrón general, referencia de gastos y <strong>exportación JSON</strong> por módulo o paquete completo. Planificación detallada (tiendas / mantenciones) vive en <strong>Planificación</strong>.</p>';
 
   if (adminFeedback?.message) {
     const notice = document.createElement('div');
@@ -58,6 +59,42 @@ export const adminView = ({
     <p class="muted"><strong>Última actualización en esta sesión:</strong> ${formatRefresh(lastDataRefreshAt)}</p>
     <p class="muted">Si ves «Sin conexión», los respaldos no se podrán generar hasta restablecer el servidor.</p>
   `;
+
+  const operatorCard = document.createElement('article');
+  operatorCard.className = 'admin-operator-card';
+  operatorCard.innerHTML = `
+    <h3>Operador (auditoría)</h3>
+    <p class="muted">Hasta que exista login, el nombre que guardes acá se envía en cada guardado al servidor como <code>X-HNF-Actor</code> (quién creó o actualizó registros). Si lo dejás vacío, el backend registra «sistema».</p>
+  `;
+  const opRow = document.createElement('div');
+  opRow.className = 'admin-operator-row';
+  const opIn = document.createElement('input');
+  opIn.type = 'text';
+  opIn.className = 'admin-operator-input';
+  opIn.placeholder = 'Ej. Romina, Gery, Hernán…';
+  opIn.value = getStoredOperatorName();
+  opIn.maxLength = 80;
+  const opSave = document.createElement('button');
+  opSave.type = 'button';
+  opSave.className = 'primary-button';
+  opSave.textContent = 'Guardar nombre';
+  const opStatus = document.createElement('p');
+  opStatus.className = 'muted admin-operator-status';
+  opStatus.textContent = getStoredOperatorName()
+    ? `Activo: «${getStoredOperatorName()}»`
+    : 'Sin nombre: el servidor usará «sistema».';
+  opSave.addEventListener('click', () => {
+    setStoredOperatorName(opIn.value);
+    opStatus.textContent = getStoredOperatorName()
+      ? `Activo: «${getStoredOperatorName()}»`
+      : 'Sin nombre: el servidor usará «sistema».';
+    actions?.setAdminFeedback?.({
+      type: 'success',
+      message: 'Nombre de operador guardado en este navegador. Los próximos cambios quedarán asociados a esa identidad en el historial.',
+    });
+  });
+  opRow.append(opIn, opSave);
+  operatorCard.append(opRow, opStatus);
 
   const backupCard = document.createElement('article');
   backupCard.className = 'admin-backup-card';
@@ -164,6 +201,6 @@ export const adminView = ({
     { title: 'Gastos', description: 'Control inicial.', items: [`Gastos: ${expenses.length}`, 'Centro de costo', 'Comprobante'] },
   ].forEach((item) => cards.append(createCard(item)));
 
-  section.append(header, diagMini, backupCard, cards);
+  section.append(header, diagMini, operatorCard, backupCard, cards);
   return section;
 };

@@ -24,6 +24,8 @@ const normalizeItem = (m) => ({
   estado: String(m.estado || 'programado').trim(),
   createdAt: m.createdAt || null,
   updatedAt: m.updatedAt || m.createdAt || null,
+  creadoPor: m.creadoPor ?? null,
+  actualizadoPor: m.actualizadoPor ?? null,
   historial: Array.isArray(m.historial) ? m.historial : [],
 });
 
@@ -64,7 +66,7 @@ export const planMantencionRepository = {
     return f ? normalizeItem(f) : null;
   },
 
-  async create(payload) {
+  async create(payload, actor = 'sistema') {
     const items = await loadStore();
     const now = new Date().toISOString();
     const item = normalizeItem({
@@ -78,14 +80,16 @@ export const planMantencionRepository = {
       estado: String(payload.estado || 'programado').trim(),
       createdAt: now,
       updatedAt: now,
-      historial: appendHistorial({}, 'alta', 'Mantención programada'),
+      creadoPor: payload.creadoPor || actor,
+      actualizadoPor: actor,
+      historial: appendHistorial({}, 'alta', 'Mantención programada', actor),
     });
     const next = [...items, item];
     await saveStore(next);
     return item;
   },
 
-  async update(id, patch) {
+  async update(id, patch, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((m) => m.id === id);
     if (index === -1) return null;
@@ -99,7 +103,8 @@ export const planMantencionRepository = {
     if ('horaInicio' in patch) updated.horaInicio = String(patch.horaInicio ?? '').trim();
     if ('horaFin' in patch) updated.horaFin = String(patch.horaFin ?? '').trim();
     updated.updatedAt = new Date().toISOString();
-    updated.historial = appendHistorial(cur, 'edicion', 'Mantención actualizada');
+    updated.actualizadoPor = actor;
+    updated.historial = appendHistorial(cur, 'edicion', 'Mantención actualizada', actor);
     const next = [...items];
     next[index] = normalizeItem(updated);
     await saveStore(next);

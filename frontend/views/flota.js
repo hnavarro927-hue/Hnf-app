@@ -1,4 +1,10 @@
 import { createCard } from '../components/card.js';
+import {
+  FLOTA_ESTADO_CHAIN,
+  FLOTA_ESTADO_LABELS,
+  flotaNextEstado,
+} from '../constants/flotaPipeline.js';
+import { buildFlotaOperationalBrief } from '../domain/operational-intelligence.js';
 import { flotaSolicitudService } from '../services/flota-solicitud.service.js';
 
 const TIPO_SERVICIO_OPTS = [
@@ -7,35 +13,25 @@ const TIPO_SERVICIO_OPTS = [
   { value: 'otro', label: 'Otro' },
 ];
 
-const ESTADO_CHAIN = [
-  'recibida',
-  'evaluacion',
-  'cotizada',
-  'aprobada',
-  'programada',
-  'en_ruta',
-  'completada',
-  'cerrada',
-];
-
-const ESTADO_LABELS = {
-  recibida: 'Recibida',
-  evaluacion: 'Evaluación',
-  cotizada: 'Cotizada',
-  aprobada: 'Aprobada',
-  programada: 'Programada',
-  en_ruta: 'En ruta',
-  completada: 'Completada',
-  cerrada: 'Cerrada',
-};
-
 const labelTipo = (v) => TIPO_SERVICIO_OPTS.find((t) => t.value === v)?.label || v;
-const labelEstado = (e) => ESTADO_LABELS[e] || e;
+const labelEstado = (e) => FLOTA_ESTADO_LABELS[e] || e;
 
-const nextEstado = (e) => {
-  const i = ESTADO_CHAIN.indexOf(e);
-  if (i < 0 || i >= ESTADO_CHAIN.length - 1) return null;
-  return ESTADO_CHAIN[i + 1];
+const flotaPipelineHint = (sel) => {
+  const next = flotaNextEstado(sel.estado);
+  if (!next) return 'Circuito completo: no quedan estados posteriores.';
+  const parts = [`Próximo paso del flujo: «${FLOTA_ESTADO_LABELS[next]}».`];
+  if (next === 'en_ruta') {
+    parts.push('Antes de avanzar: conductor y vehículo distintos de «Por asignar».');
+  }
+  if (next === 'cerrada') {
+    parts.push(
+      'Para cerrar: costo total guardado > 0, observación de cierre u observación general, y si cambiaste el formulario usá «Guardar datos» antes de «Siguiente estado».'
+    );
+  }
+  if (next === 'programada' || next === 'aprobada') {
+    parts.push('Revisá que origen, destino y responsable estén claros para quien ejecuta.');
+  }
+  return parts.join(' ');
 };
 
 const monthPrefix = () => {
@@ -88,6 +84,7 @@ export const flotaView = ({
   actions,
   flotaFeedback,
   selectedFlotaId,
+  integrationStatus,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'flota-module';
@@ -105,7 +102,7 @@ export const flotaView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Flota · solicitudes de clientes</h2><p class="muted"><strong>Qué hacés acá:</strong> cargar pedidos (traslados u otros), llevar el estado paso a paso y registrar costos al cerrar. <strong>Guardar datos</strong> graba el formulario; <strong>Siguiente estado</strong> solo avanza el estado (si el servidor lo permite).</p>';
+    '<h2>Flota · solicitudes</h2><p class="muted"><strong>Seguimiento:</strong> tipo de servicio, <strong>origen / destino</strong>, conductor, vehículo y <strong>pipeline</strong> de estados. <strong>Guardar datos</strong> graba costos e ingresos en servidor; <strong>Siguiente estado</strong> solo avanza el circuito (validaciones en backend). Para <strong>cerrar</strong> el circuito: costos con total &gt; 0 y observación de cierre u observación general.</p>';
 
   if (flotaFeedback?.message) {
     const notice = document.createElement('div');
@@ -131,7 +128,10 @@ export const flotaView = ({
     {
       title: 'Solicitudes',
       description: 'En el sistema.',
-      items: [`Activas en pantalla: ${solicitudes.length}`, 'Orden típico: ' + ESTADO_CHAIN.map((e) => ESTADO_LABELS[e]).join(' → ')],
+      items: [
+        `Activas en pantalla: ${solicitudes.length}`,
+        'Orden típico: ' + FLOTA_ESTADO_CHAIN.map((e) => FLOTA_ESTADO_LABELS[e]).join(' → '),
+      ],
     },
   ].forEach((item) => cards.append(createCard(item)));
 
@@ -254,7 +254,7 @@ export const flotaView = ({
 
   const estadoCreate = document.createElement('select');
   estadoCreate.name = 'estado';
-  ESTADO_CHAIN.forEach((e) => estadoCreate.append(new Option(ESTADO_LABELS[e], e)));
+  FLOTA_ESTADO_CHAIN.forEach((e) => estadoCreate.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
   estadoCreate.value = 'recibida';
 
   const detalleTa = document.createElement('textarea');
@@ -323,7 +323,7 @@ export const flotaView = ({
   fCliente.placeholder = 'Filtrar por cliente (contiene)';
   const fEstado = document.createElement('select');
   fEstado.append(new Option('Todos los estados', ''));
-  ESTADO_CHAIN.forEach((e) => fEstado.append(new Option(ESTADO_LABELS[e], e)));
+  FLOTA_ESTADO_CHAIN.forEach((e) => fEstado.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
   const refresh = document.createElement('button');
   refresh.type = 'button';
   refresh.className = 'secondary-button';
@@ -367,7 +367,10 @@ export const flotaView = ({
     if (!rows.length) {
       const empty = document.createElement('p');
       empty.className = 'muted';
-      empty.textContent = 'No hay solicitudes con este criterio.';
+      empty.textContent =
+        integrationStatus === 'sin conexión' && !solicitudes.length
+          ? 'Sin conexión al servidor: no hay datos cargados. Revisá la red y tocá «Actualizar datos».'
+          : 'No hay solicitudes con este criterio.';
       list.append(empty);
       return;
     }
@@ -415,7 +418,9 @@ export const flotaView = ({
 
     if (!sel) {
       detailCard.innerHTML =
-        '<h3>Detalle</h3><p class="muted">Creá una solicitud o elegí una del listado.</p>';
+        integrationStatus === 'sin conexión' && !solicitudes.length
+          ? '<h3>Detalle</h3><p class="muted">Sin datos del servidor. No se puede mostrar el detalle hasta reconectar.</p>'
+          : '<h3>Detalle</h3><p class="muted">Creá una solicitud o elegí una del listado.</p>';
       return;
     }
 
@@ -426,14 +431,80 @@ export const flotaView = ({
     titleRow.append(titleBlock, createEstadoBadge(sel.estado));
     detailCard.append(titleRow);
 
+    const idxCur = FLOTA_ESTADO_CHAIN.indexOf(sel.estado);
+    const pipeWrap = document.createElement('div');
+    pipeWrap.className = 'flota-pipeline-wrap';
+    const pipeRow = document.createElement('div');
+    pipeRow.className = 'flota-pipeline';
+    pipeRow.setAttribute('role', 'list');
+    FLOTA_ESTADO_CHAIN.forEach((st, stepIdx) => {
+      const sp = document.createElement('span');
+      sp.className = 'flota-pipeline__step';
+      sp.setAttribute('role', 'listitem');
+      if (sel.estado === st) sp.classList.add('flota-pipeline__step--current');
+      else if (idxCur >= 0 && stepIdx < idxCur) sp.classList.add('flota-pipeline__step--past');
+      sp.textContent = FLOTA_ESTADO_LABELS[st];
+      pipeRow.append(sp);
+    });
+    const pipeHint = document.createElement('p');
+    pipeHint.className = 'muted flota-pipeline-hint';
+    pipeHint.textContent = flotaPipelineHint(sel);
+    pipeWrap.append(pipeRow, pipeHint);
+    const flotaMeta = document.createElement('p');
+    flotaMeta.className = 'muted flota-detail-meta';
+    const ua = sel.updatedAt
+      ? new Date(sel.updatedAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
+      : '—';
+    flotaMeta.textContent = `Última actualización en servidor: ${ua} · Alta por: ${sel.creadoPor || '—'} · Último cambio por: ${sel.actualizadoPor || '—'}`;
+    detailCard.append(pipeWrap, flotaMeta);
+
+    const fBrief = buildFlotaOperationalBrief(sel);
+    const opCtx = document.createElement('div');
+    opCtx.className = 'hnf-operational-context hnf-operational-context--flota';
+    opCtx.setAttribute('data-hnf-domain', 'flota-solicitud');
+    opCtx.setAttribute('data-hnf-schema', fBrief.schema);
+    const opTitle = document.createElement('h4');
+    opTitle.className = 'hnf-operational-context__title';
+    if (fBrief.flags.isTerminal) {
+      opTitle.textContent = 'Circuito completado';
+      const opP = document.createElement('p');
+      opP.className = 'muted hnf-operational-context__lead';
+      opP.textContent = 'Solicitud en estado cerrado. Los datos quedan solo lectura salvo que operaciones habilite corrección.';
+      opCtx.append(opTitle, opP);
+    } else {
+      opTitle.textContent = 'Contexto operativo (siguiente paso)';
+      const lead = document.createElement('p');
+      lead.className = 'muted hnf-operational-context__lead';
+      const nx = fBrief.nextEstado;
+      lead.textContent = nx
+        ? `Siguiente en circuito: «${FLOTA_ESTADO_LABELS[nx] || nx}». ${
+            fBrief.blockers.length
+              ? 'Antes de avanzar, resolvé lo siguiente:'
+              : 'Sin bloqueos detectados en servidor para el siguiente paso (si cambiaste el formulario, usá Guardar datos).'
+          }`
+        : 'Sin siguiente estado.';
+      opCtx.append(opTitle, lead);
+      if (fBrief.blockers.length) {
+        const ul = document.createElement('ul');
+        ul.className = 'hnf-operational-context__list';
+        fBrief.blockers.forEach((b) => {
+          const li = document.createElement('li');
+          li.textContent = b.detail;
+          ul.append(li);
+        });
+        opCtx.append(ul);
+      }
+    }
+    detailCard.append(opCtx);
+
     const formDetail = document.createElement('form');
     formDetail.className = 'flota-detail-form';
     formDetail.addEventListener('submit', (ev) => ev.preventDefault());
 
     const gridClass = 'ot-form__grid';
-    const addGrid = (title) => {
+    const addGrid = (title, { panel = false } = {}) => {
       const h = document.createElement('h4');
-      h.className = 'flota-detail-subtitle';
+      h.className = `flota-detail-subtitle${panel ? ' flota-detail-subtitle--panel' : ''}`.trim();
       h.textContent = title;
       const g = document.createElement('div');
       g.className = gridClass;
@@ -451,7 +522,7 @@ export const flotaView = ({
       grid.append(w);
     };
 
-    let g1 = addGrid('Servicio y ruta');
+    let g1 = addGrid('Datos operativos (servicio y ruta)');
     addLabeled(g1, 'Cliente', mkInput('cliente', 'text', sel.cliente));
     const tipoD = document.createElement('select');
     tipoD.name = 'tipoServicio';
@@ -468,7 +539,7 @@ export const flotaView = ({
 
     const estadoD = document.createElement('select');
     estadoD.name = 'estado';
-    ESTADO_CHAIN.forEach((e) => estadoD.append(new Option(ESTADO_LABELS[e], e)));
+    FLOTA_ESTADO_CHAIN.forEach((e) => estadoD.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
     estadoD.value = sel.estado || 'recibida';
     addLabeled(g1, 'Estado (selector libre)', estadoD);
 
@@ -501,19 +572,19 @@ export const flotaView = ({
     plates.forEach((p) => dl2.append(new Option(p)));
     formDetail.append(dl2);
 
-    let g2 = addGrid('Costos operación (combustible, peaje, chofer, externo)');
+    let g2 = addGrid('Costos de operación', { panel: true });
     addLabeled(g2, 'Combustible', mkInput('costoCombustible', 'number', sel.costoCombustible));
     addLabeled(g2, 'Peaje', mkInput('costoPeaje', 'number', sel.costoPeaje));
     addLabeled(g2, 'Chofer', mkInput('costoChofer', 'number', sel.costoChofer));
     addLabeled(g2, 'Externo', mkInput('costoExterno', 'number', sel.costoExterno));
 
-    let g3 = addGrid('Costos agregados (materiales, MO, traslado, otros)');
+    let g3 = addGrid('Costos agregados', { panel: true });
     addLabeled(g3, 'Materiales', mkInput('materiales', 'number', sel.materiales));
     addLabeled(g3, 'Mano de obra', mkInput('manoObra', 'number', sel.manoObra));
     addLabeled(g3, 'Traslado', mkInput('costoTraslado', 'number', sel.costoTraslado));
     addLabeled(g3, 'Otros', mkInput('otros', 'number', sel.otros));
 
-    let g4 = addGrid('Totales e ingresos (indicador interno)');
+    let g4 = addGrid('Totales e ingreso (control interno)', { panel: true });
     addLabeled(
       g4,
       'Costo total (servidor)',
@@ -566,22 +637,28 @@ export const flotaView = ({
     btnSave.textContent = 'Guardar datos';
     btnSave.title = 'Graba en el servidor todo lo que figura en el formulario (incluye estado si lo cambiaste en el selector).';
     btnSave.addEventListener('click', async () => {
+      if (btnSave.disabled) return;
+      const prevLabel = btnSave.textContent;
+      btnSave.disabled = true;
+      btnSave.textContent = 'Guardando…';
       try {
         await flotaSolicitudService.patch(sel.id, collectPayload());
-        notifyGlobal('success', `Guardado ${sel.id}.`);
+        notifyGlobal('success', `Solicitud ${sel.id} guardada en el servidor.`);
         await runReload();
       } catch (err) {
         notifyGlobal('error', err.message || 'No se pudo guardar.');
+        btnSave.textContent = prevLabel;
+        btnSave.disabled = false;
       }
     });
 
-    const next = nextEstado(sel.estado);
+    const next = flotaNextEstado(sel.estado);
     const btnNext = document.createElement('button');
     btnNext.type = 'button';
     btnNext.className = 'secondary-button flota-btn-next';
-    btnNext.textContent = next ? `Siguiente: ${ESTADO_LABELS[next]}` : 'Último estado alcanzado';
+    btnNext.textContent = next ? `Siguiente: ${FLOTA_ESTADO_LABELS[next]}` : 'Último estado alcanzado';
     btnNext.title = next
-      ? `Solo cambia el estado a «${ESTADO_LABELS[next]}». No guarda el resto del formulario: usá Guardar datos si cargaste costos u observaciones.`
+      ? `Solo cambia el estado a «${FLOTA_ESTADO_LABELS[next]}». No guarda el resto del formulario: usá Guardar datos si cargaste costos u observaciones.`
       : '';
     btnNext.disabled = !next;
 
@@ -607,20 +684,25 @@ export const flotaView = ({
     }
 
     btnNext.addEventListener('click', async () => {
-      if (!next) return;
+      if (!next || btnNext.disabled) return;
+      const prevLabel = btnNext.textContent;
+      btnNext.disabled = true;
+      btnNext.textContent = 'Avanzando…';
       try {
         await flotaSolicitudService.patch(sel.id, { estado: next });
-        notifyGlobal('success', `Estado avanzado a «${ESTADO_LABELS[next]}».`);
+        notifyGlobal('success', `Estado actualizado a «${FLOTA_ESTADO_LABELS[next]}».`);
         await runReload();
       } catch (err) {
         notifyGlobal('error', err.message || 'No se pudo cambiar el estado.');
+        btnNext.textContent = prevLabel;
+        btnNext.disabled = false;
       }
     });
 
     [formDetail.querySelector('[name=conductor]'), formDetail.querySelector('[name=vehiculo]')].forEach(
       (inp) => {
         inp?.addEventListener('input', () => {
-          const nxt = nextEstado(sel.estado);
+          const nxt = flotaNextEstado(sel.estado);
           if (nxt !== 'en_ruta') return;
           const c = formDetail.querySelector('[name=conductor]')?.value;
           const v = formDetail.querySelector('[name=vehiculo]')?.value;
@@ -645,7 +727,7 @@ export const flotaView = ({
       'observacion',
     ].forEach((nm) => {
       formDetail.querySelector(`[name=${nm}]`)?.addEventListener('input', () => {
-        const nxt = nextEstado(sel.estado);
+        const nxt = flotaNextEstado(sel.estado);
         if (nxt !== 'cerrada') return;
         const t = sumCostosForm(formDetail);
         const o1 = formDetail.querySelector('[name=observacionCierre]')?.value?.trim();
@@ -664,7 +746,7 @@ export const flotaView = ({
     if (Array.isArray(hist) && hist.length) {
       const hh = document.createElement('h4');
       hh.className = 'flota-detail-subtitle';
-      hh.textContent = 'Historial reciente';
+      hh.textContent = 'Historial y auditoría reciente';
       const ul = document.createElement('ul');
       ul.className = 'flota-historial';
       [...hist]
@@ -673,7 +755,8 @@ export const flotaView = ({
         .forEach((entry) => {
           const li = document.createElement('li');
           const at = entry.at ? new Date(entry.at).toLocaleString('es-CL') : '';
-          li.textContent = `${at} · ${entry.accion || '—'} · ${entry.detalle || ''}`;
+          const who = entry.actor ? ` · ${entry.actor}` : '';
+          li.textContent = `${at} · ${entry.accion || '—'} · ${entry.detalle || ''}${who}`;
           ul.append(li);
         });
       formDetail.append(hh, ul);
@@ -697,8 +780,21 @@ export const flotaView = ({
   renderList();
   buildDetail(selected);
 
+  const offlineBanner =
+    integrationStatus === 'sin conexión'
+      ? (() => {
+          const b = document.createElement('div');
+          b.className = 'integration-banner integration-banner--offline';
+          b.setAttribute('role', 'status');
+          b.textContent =
+            'Sin conexión al servidor. El listado puede estar vacío o desactualizado. Revisá la red y usá «Actualizar datos».';
+          return b;
+        })()
+      : null;
+
   section.append(
     header,
+    ...(offlineBanner ? [offlineBanner] : []),
     cards,
     resumenTitle,
     resumenWrap,

@@ -50,6 +50,9 @@ const normalizeTienda = (t) => ({
   horarioAM: normalizeHorario(t.horarioAM),
   horarioPM: normalizeHorario(t.horarioPM),
   ordenRuta: normalizeOrdenRuta(t.ordenRuta),
+  creadoPor: t.creadoPor ?? null,
+  actualizadoPor: t.actualizadoPor ?? null,
+  historial: Array.isArray(t.historial) ? t.historial : [],
 });
 
 export const planTiendaRepository = {
@@ -64,7 +67,7 @@ export const planTiendaRepository = {
     return items.find((t) => t.id === id) || null;
   },
 
-  async create(payload) {
+  async create(payload, actor = 'sistema') {
     const items = await loadStore();
     const now = new Date().toISOString();
     const item = normalizeTienda({
@@ -79,14 +82,16 @@ export const planTiendaRepository = {
       estado: 'activo',
       createdAt: now,
       updatedAt: now,
-      historial: appendHistorial({}, 'alta', `Tienda creada: ${String(payload.nombre || '').trim()}`),
+      creadoPor: payload.creadoPor || actor,
+      actualizadoPor: actor,
+      historial: appendHistorial({}, 'alta', `Tienda creada: ${String(payload.nombre || '').trim()}`, actor),
     });
     const next = [...items, item];
     await saveStore(next);
     return item;
   },
 
-  async update(id, patch) {
+  async update(id, patch, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((t) => t.id === id);
     if (index === -1) return null;
@@ -100,7 +105,8 @@ export const planTiendaRepository = {
       ...('horarioPM' in patch ? { horarioPM: normalizeHorario(patch.horarioPM) } : {}),
       ...('ordenRuta' in patch ? { ordenRuta: normalizeOrdenRuta(patch.ordenRuta) } : {}),
       updatedAt: new Date().toISOString(),
-      historial: appendHistorial(cur, 'edicion', 'Datos de tienda actualizados'),
+      actualizadoPor: actor,
+      historial: appendHistorial(cur, 'edicion', 'Datos de tienda actualizados', actor),
     };
     const next = [...items];
     next[index] = normalizeTienda(updated);

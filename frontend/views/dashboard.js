@@ -115,6 +115,15 @@ const flotaRespKey = (s) =>
 const monthLabelEs = (d = new Date()) =>
   d.toLocaleString('es-CL', { month: 'long', year: 'numeric' });
 
+const parseActivityTs = (raw) => {
+  if (raw == null || raw === '') return NaN;
+  const s = String(raw);
+  const t = new Date(s).getTime();
+  if (Number.isFinite(t)) return t;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T12:00:00`).getTime();
+  return NaN;
+};
+
 const formatRefresh = (iso) => {
   if (!iso) return '— (aún no hubo una carga exitosa con el servidor)';
   try {
@@ -133,9 +142,10 @@ export const dashboardView = ({
   lastDataRefreshAt,
   data,
   reloadApp,
+  navigateToView,
 } = {}) => {
   const section = document.createElement('section');
-  section.className = 'dashboard-module';
+  section.className = 'dashboard-module dashboard-module--stack dashboard-portal-root';
 
   const today = toYmd(new Date());
   const weekStart = toYmd(mondayOf(new Date()));
@@ -391,9 +401,11 @@ export const dashboardView = ({
         : 'No se pudo contactar al API. Revisá que el backend esté en marcha y la URL en la configuración.';
 
   section.innerHTML = `
-    <p class="muted">Panel operativo</p>
-    <h2>Inicio</h2>
-    <p class="muted">Vista general para el día a día: números del mes, rentabilidad por cliente, quién lleva qué carga y alertas para no dejar tareas colgadas. Los importes siguen las reglas que ya definimos (ingreso real vs estimado en flota).</p>
+    <header class="module-header module-header--portal">
+      <p class="dashboard-eyebrow">HNF · plataforma operativa</p>
+      <h2>Portal principal</h2>
+      <p class="muted">Estado de la operación en segundos: accesos directos, alertas, números del mes y rentabilidad. Criterio financiero: ingreso real en Clima (<code>montoCobrado</code>); en Flota solo con <code>ingresoFinal</code> positivo.</p>
+    </header>
   `;
 
   const pilotBar = document.createElement('div');
@@ -406,7 +418,7 @@ export const dashboardView = ({
   const refreshHint = document.createElement('span');
   refreshHint.className = 'muted module-toolbar__hint';
   refreshHint.textContent =
-    'Usalo si otra persona cargó datos o si cambiaste de pestaña hace rato. Al entrar en Inicio también se actualiza solo.';
+    'Sincroniza OT, flota y planificación. Al entrar en Inicio también se actualiza solo.';
   refreshBtn.addEventListener('click', async () => {
     const label = refreshBtn.textContent;
     refreshBtn.disabled = true;
@@ -420,6 +432,180 @@ export const dashboardView = ({
   });
   pilotBar.append(refreshBtn, refreshHint);
   section.append(pilotBar);
+
+  const portalSection = document.createElement('div');
+  portalSection.className = 'portal-stack';
+  const portalHero = document.createElement('div');
+  portalHero.className = 'portal-hero';
+  const phInner = document.createElement('div');
+  phInner.className = 'portal-hero__inner';
+  const phEyebrow = document.createElement('p');
+  phEyebrow.className = 'portal-hero__eyebrow';
+  phEyebrow.textContent = 'Centro de comando';
+  const phTitle = document.createElement('h3');
+  phTitle.className = 'portal-hero__title';
+  phTitle.textContent = 'Líneas de negocio';
+  const phLead = document.createElement('p');
+  phLead.className = 'portal-hero__lead muted';
+  phLead.textContent =
+    'Elegí un módulo para trabajar. La misma barra lateral está siempre disponible; acá tenés acceso ejecutivo rápido.';
+  phInner.append(phEyebrow, phTitle, phLead);
+  portalHero.append(phInner);
+
+  const portalGrid = document.createElement('div');
+  portalGrid.className = 'portal-grid';
+
+  const mkPortalTile = (viewId, modClass, kicker, title, desc) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `portal-tile portal-tile--${modClass}`;
+    const k = document.createElement('span');
+    k.className = 'portal-tile__kicker';
+    k.textContent = kicker;
+    const t = document.createElement('span');
+    t.className = 'portal-tile__title';
+    t.textContent = title;
+    const d = document.createElement('span');
+    d.className = 'portal-tile__desc';
+    d.textContent = desc;
+    b.append(k, t, d);
+    b.addEventListener('click', () => {
+      if (typeof navigateToView === 'function') navigateToView(viewId);
+    });
+    return b;
+  };
+
+  portalGrid.append(
+    mkPortalTile(
+      'clima',
+      'clima',
+      'HVAC / Clima',
+      'Gestión integral Clima',
+      'OT, equipos, fotos, economía, cierre e informe PDF.'
+    ),
+    mkPortalTile(
+      'planificacion',
+      'plan',
+      'Agenda',
+      'Planificación y control',
+      'Clientes, tiendas, comuna, AM/PM, técnico y mantenciones.'
+    ),
+    mkPortalTile(
+      'flota',
+      'flota',
+      'Movilidad',
+      'Gestión integral de flotas',
+      'Solicitudes, pipeline, costos, ingreso y utilidad.'
+    ),
+    mkPortalTile(
+      'admin',
+      'admin',
+      'Corporativo',
+      'Administración y respaldos',
+      'Clientes maestros, operador y exportación JSON.'
+    ),
+    mkPortalTile(
+      'asistente',
+      'ia',
+      'Inteligencia',
+      'Asistente IA HNF',
+      'Pendientes, cierres y diagnóstico sobre datos reales.'
+    )
+  );
+
+  portalSection.append(portalHero, portalGrid);
+
+  const execStrip = document.createElement('div');
+  execStrip.className = 'exec-strip';
+  const mesRef = monthLabelEs(new Date(monthStart + 'T12:00:00'));
+  const mkExecStat = (label, value, sub) => {
+    const w = document.createElement('div');
+    w.className = 'exec-strip__stat';
+    const lb = document.createElement('span');
+    lb.className = 'exec-strip__label';
+    lb.textContent = label;
+    const val = document.createElement('span');
+    val.className = 'exec-strip__value';
+    val.textContent = value;
+    const su = document.createElement('span');
+    su.className = 'exec-strip__sub';
+    su.textContent = sub;
+    w.append(lb, val, su);
+    return w;
+  };
+  execStrip.append(
+    mkExecStat('OT abiertas', String(otAbiertas.length), 'Sin cerrar (terminado)'),
+    mkExecStat('Alertas operativas', String(alerts.length), 'Requieren seguimiento'),
+    mkExecStat('Ingreso real del mes', formatMoney(ingresoRealTotalMes), mesRef),
+    mkExecStat('Flota en curso', String(flotaActivas.length), 'Pipeline hasta completada'),
+    mkExecStat('Mantenciones 7 días', String(mantProx.length), 'Programadas o pendientes')
+  );
+
+  const activityBox = document.createElement('article');
+  activityBox.className = 'activity-feed';
+  const actH = document.createElement('h3');
+  actH.className = 'activity-feed__title';
+  actH.textContent = 'Actividad reciente (referencia)';
+  const actSub = document.createElement('p');
+  actSub.className = 'muted activity-feed__sub';
+  actSub.textContent =
+    'Últimos movimientos detectados por fecha de actualización o alta. Útil para ver qué tocó el equipo; no reemplaza auditoría completa.';
+  activityBox.append(actH, actSub);
+
+  const actItems = [];
+  for (const o of ots) {
+    const ts = parseActivityTs(o.updatedAt ?? o.creadoEn ?? o.createdAt);
+    if (!Number.isFinite(ts)) continue;
+    actItems.push({
+      ts,
+      line: `OT ${o.id} · ${clienteNorm(o.cliente)}`,
+      meta: String(o.estado || '—'),
+      tag: 'Clima',
+    });
+  }
+  for (const s of flotaSolicitudes) {
+    const ts = parseActivityTs(s.updatedAt ?? s.createdAt ?? s.fecha);
+    if (!Number.isFinite(ts)) continue;
+    actItems.push({
+      ts,
+      line: `Flota ${s.id} · ${clienteNorm(s.cliente)}`,
+      meta: String(s.estado || '—'),
+      tag: 'Flota',
+    });
+  }
+  actItems.sort((a, b) => b.ts - a.ts);
+  const topAct = actItems.slice(0, 10);
+
+  if (!topAct.length) {
+    const p = document.createElement('p');
+    p.className = 'muted activity-feed__empty';
+    p.textContent =
+      'Sin marcas de tiempo recientes en los datos cargados. Creá o editá registros y sincronizá de nuevo.';
+    activityBox.append(p);
+  } else {
+    const ul = document.createElement('ul');
+    ul.className = 'activity-feed__list';
+    topAct.forEach((row) => {
+      const li = document.createElement('li');
+      li.className = 'activity-feed__item';
+      const t = document.createElement('span');
+      t.className = 'activity-feed__time';
+      try {
+        t.textContent = new Date(row.ts).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+      } catch {
+        t.textContent = '—';
+      }
+      const main = document.createElement('span');
+      main.className = 'activity-feed__main';
+      main.textContent = row.line;
+      const badge = document.createElement('span');
+      badge.className = 'activity-feed__badge';
+      badge.textContent = `${row.tag} · ${row.meta}`;
+      li.append(t, main, badge);
+      ul.append(li);
+    });
+    activityBox.append(ul);
+  }
 
   const diag = document.createElement('article');
   diag.className = 'diagnostico-panel';
@@ -456,8 +642,8 @@ export const dashboardView = ({
   gerencial.className = 'dashboard-gerencial';
   const mesTitulo = monthLabelEs(new Date(monthStart + 'T12:00:00'));
   gerencial.innerHTML = `
-    <h2 class="dashboard-gerencial__title">Resumen mensual</h2>
-    <p class="muted dashboard-gerencial__eyebrow">Hernan · Lyn · ${mesTitulo}</p>
+    <h2 class="dashboard-gerencial__title">Métricas mensuales y rentabilidad</h2>
+    <p class="muted dashboard-gerencial__eyebrow">Control de números · ${mesTitulo}</p>
     <p class="dashboard-gerencial__criterio">
       <strong>Criterio financiero:</strong> Clima → ingreso real = <code>montoCobrado</code>, utilidad = <code>montoCobrado − costoTotal</code>.
       Flota (solicitudes) → ingreso real solo si <code>ingresoFinal &gt; 0</code>; utilidad real = <code>ingresoFinal − costoTotal</code> en esos casos.
@@ -695,7 +881,11 @@ export const dashboardView = ({
   const cierreTitle = document.createElement('h3');
   cierreTitle.className = 'dashboard-cierre-gerencial__title';
   cierreTitle.textContent = 'Alertas de cierre gerencial';
-  cierreGerencial.append(cierreTitle);
+  const cierreSub = document.createElement('p');
+  cierreSub.className = 'muted dashboard-cierre-gerencial__sub';
+  cierreSub.textContent =
+    'Revisión administrativa: facturación, informes archivados, ingresos finales en flota y continuidad de mantenciones. No reemplaza el seguimiento operativo del día a día.';
+  cierreGerencial.append(cierreTitle, cierreSub);
 
   const cierreList = [
     {
@@ -790,7 +980,7 @@ export const dashboardView = ({
   const alertBox = document.createElement('div');
   alertBox.className = 'dashboard-alerts';
   alertBox.innerHTML =
-    '<h3>Otras alertas operativas</h3><p class="muted dashboard-alerts__sub">Complementan el cuadro naranja de <strong>cierre gerencial</strong> arriba.</p>';
+    '<h3>Alertas operativas</h3><p class="muted dashboard-alerts__sub">Ejecución en terreno, evidencias, plazos en flota y mantenciones vencidas. Para control administrativo y facturación usá el bloque <strong>Alertas de cierre gerencial</strong> (más abajo).</p>';
   if (!alerts.length) {
     const p = document.createElement('p');
     p.className = 'muted';
@@ -831,6 +1021,18 @@ export const dashboardView = ({
     },
   ].forEach((item) => cards.append(createCard(item)));
 
-  section.append(diag, gerencial, cierreGerencial, kpi, estadoRow, tecRow, alertBox, cards);
+  section.append(
+    portalSection,
+    execStrip,
+    activityBox,
+    alertBox,
+    diag,
+    gerencial,
+    cierreGerencial,
+    kpi,
+    estadoRow,
+    tecRow,
+    cards
+  );
   return section;
 };

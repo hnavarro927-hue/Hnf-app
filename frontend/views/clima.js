@@ -1,6 +1,7 @@
 import { createCard } from '../components/card.js';
 import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
+import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
 
 const MAX_EQUIPOS = 12;
@@ -579,10 +580,52 @@ const parseMoneyInput = (v) => {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
+const roundEcon = (v) => {
+  const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+};
+
+const formatClp = (n) => {
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+};
+
+const formatAuditTs = (iso) => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return String(iso);
+  }
+};
+
+const computeLiveEconomicsFrom = (root) => {
+  if (!root) {
+    return { costoTotal: 0, monto: 0, utilidad: 0, margenPct: null };
+  }
+  const q = (name) => roundEcon(root.querySelector(`[name="${name}"]`)?.value);
+  const costoTotal = roundEcon(
+    q('costoMateriales') + q('costoManoObra') + q('costoTraslado') + q('costoOtros')
+  );
+  const monto = roundEcon(root.querySelector('[name="montoCobrado"]')?.value);
+  const utilidad = roundEcon(monto - costoTotal);
+  const margenPct = monto > 0 ? roundEcon((utilidad / monto) * 100) : null;
+  return { costoTotal, monto, utilidad, margenPct };
+};
+
+const utilidadToneClass = (utilidad, monto) => {
+  if (!(monto > 0)) return 'ot-econ-kpi--neutral';
+  if (utilidad > 0) return 'ot-econ-kpi--pos';
+  if (utilidad < 0) return 'ot-econ-kpi--neg';
+  return 'ot-econ-kpi--neutral';
+};
+
 export const climaView = ({
   data,
   actions,
   feedback,
+  integrationStatus,
   isSubmitting,
   isUpdatingStatus,
   isClosingOT,
@@ -591,6 +634,7 @@ export const climaView = ({
   isSavingEquipos,
   isSavingVisitText,
   isSavingOtEconomics,
+  otEconomicsSaved,
   selectedOTId,
   reloadApp,
 } = {}) => {
@@ -600,7 +644,7 @@ export const climaView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Clima · visitas y órdenes de trabajo (OT)</h2><p class="muted"><strong>Flujo recomendado:</strong> crear la OT → cargar equipos y fotos → guardar → completar resumen de visita → generar PDF de prueba → cerrar la OT (genera el informe final guardado). El estado <em>terminado</em> es el cierre oficial.</p>';
+    '<h2>Clima · visitas y órdenes de trabajo</h2><p class="muted"><strong>Flujo operativo:</strong> <strong>1</strong> Crear OT · <strong>2</strong> Cargar equipos y fotos (antes / durante / después) · <strong>3</strong> Guardar equipos · <strong>4</strong> Completar resumen de visita y checklist · <strong>5</strong> Guardar resultado económico · <strong>6</strong> PDF borrador (opcional) · <strong>7</strong> Cerrar OT e informe final (solo estado <em>terminado</em> archiva en servidor).</p>';
 
   if (feedback?.message) {
     const notice = document.createElement('div');
@@ -619,17 +663,17 @@ export const climaView = ({
   climaRefresh.title = 'Vuelve a cargar la lista de OT desde el servidor.';
   const climaRefreshHint = document.createElement('span');
   climaRefreshHint.className = 'muted module-toolbar__hint';
-  climaRefreshHint.textContent = 'Útil si otra persona cerró una visita o si hace tiempo que tenés la pantalla abierta.';
+  climaRefreshHint.textContent = 'Sincronizá si otra persona editó o llevás la pantalla abierta mucho tiempo.';
   climaRefresh.addEventListener('click', async () => {
     if (typeof reloadApp !== 'function') return;
     const prev = climaRefresh.textContent;
     climaRefresh.disabled = true;
     climaRefresh.textContent = 'Actualizando…';
-    actions?.showFeedback?.({ type: 'neutral', message: 'Actualizando lista de órdenes…' });
+    actions?.showFeedback?.({ type: 'neutral', message: 'Sincronizando órdenes…' });
     const ok = await reloadApp();
     actions?.showFeedback?.({
       type: ok ? 'success' : 'error',
-      message: ok ? 'Lista de OT actualizada.' : 'No se pudo actualizar. Revisá la conexión con el servidor.',
+      message: ok ? 'Datos al día con el servidor.' : 'Sin conexión o error al actualizar.',
     });
     climaRefresh.textContent = ok ? 'Listo' : 'Error';
     setTimeout(() => {
@@ -780,7 +824,10 @@ export const climaView = ({
   if (!ots.length) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'No hay OT.';
+    empty.textContent =
+      integrationStatus === 'sin conexión'
+        ? 'Sin conexión al servidor: no hay órdenes cargadas. Revisá la red y tocá «Actualizar datos».'
+        : 'No hay OT. Creá una visita arriba o sincronizá cuando el servidor esté disponible.';
     list.append(empty);
   } else {
     ots.forEach((item) => {
@@ -834,76 +881,55 @@ export const climaView = ({
     });
     detailCard.append(summaryGrid);
 
-    const econWrap = document.createElement('div');
-    econWrap.className = 'ot-economics-block';
-    const econTitle = document.createElement('h3');
-    econTitle.className = 'ot-section-title';
-    econTitle.textContent = 'Costos e ingreso de la visita (uso interno)';
-    const econHint = document.createElement('p');
-    econHint.className = 'muted';
-    econHint.textContent =
-      'Materiales, mano de obra, traslado y otros suman el costo total. La utilidad es monto cobrado menos costo total (calculada en el servidor).';
-    const econGrid = document.createElement('div');
-    econGrid.className = 'ot-form__grid';
+    const lastHist = (() => {
+      const h = selectedOT.historial;
+      if (!Array.isArray(h) || !h.length) return null;
+      return h[h.length - 1];
+    })();
+    const audit = document.createElement('div');
+    audit.className = 'ot-audit-strip';
+    audit.setAttribute('role', 'region');
+    audit.setAttribute('aria-label', 'Auditoría y trazabilidad');
+    const lh = lastHist;
+    const histLine = lh
+      ? `${lh.accion || '—'}${lh.detalle ? ` · ${lh.detalle}` : ''}${lh.actor ? ` · por ${lh.actor}` : ''} · ${formatAuditTs(lh.at)}`
+      : 'Sin movimientos en historial todavía.';
+    audit.innerHTML = `
+      <p class="ot-audit-strip__line"><strong>Última actualización (servidor):</strong> ${formatAuditTs(selectedOT.updatedAt)}</p>
+      <p class="ot-audit-strip__line"><strong>Alta:</strong> ${formatAuditTs(selectedOT.createdAt || selectedOT.creadoEn)} · <strong>Creado por:</strong> ${selectedOT.creadoPor || '—'} · <strong>Último cambio por:</strong> ${selectedOT.actualizadoPor || '—'}</p>
+      <p class="ot-audit-strip__line"><strong>Última acción registrada:</strong> ${histLine}</p>
+    `;
+    detailCard.append(audit);
 
-    const mkNum = (name, label, value, readOnly) => {
-      const w = document.createElement('label');
-      w.className = 'form-field';
-      const lb = document.createElement('span');
-      lb.className = 'form-field__label';
-      lb.textContent = label;
-      const inp = document.createElement('input');
-      inp.type = readOnly ? 'text' : 'number';
-      inp.min = readOnly ? undefined : '0';
-      inp.step = readOnly ? undefined : 'any';
-      inp.name = name;
-      inp.readOnly = Boolean(readOnly);
-      if (readOnly) {
-        inp.className = 'ot-economics-readonly';
-        inp.value =
-          name === 'utilidad'
-            ? String(value ?? '—')
-            : typeof value === 'number'
-              ? value.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-              : String(value ?? '—');
+    if (selectedOT.estado !== 'terminado') {
+      const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
+      const opPanel = document.createElement('div');
+      opPanel.className = 'hnf-operational-context hnf-operational-context--clima';
+      opPanel.setAttribute('data-hnf-domain', 'clima-ot');
+      opPanel.setAttribute('data-hnf-schema', brief.schema);
+      const opTitle = document.createElement('h4');
+      opTitle.className = 'hnf-operational-context__title';
+      opTitle.textContent = 'Checklist operativo (cierre)';
+      if (!brief.blockers.length) {
+        const ok = document.createElement('p');
+        ok.className = 'hnf-operational-context__ok';
+        ok.textContent =
+          'Sin bloqueos detectados en este resumen. Confirmá siempre con «Guardar» en cada bloque y con el servidor antes de «Cerrar OT».';
+        opPanel.append(opTitle, ok);
       } else {
-        inp.value = String(value ?? 0);
+        const ul = document.createElement('ul');
+        ul.className = 'hnf-operational-context__list';
+        brief.blockers.forEach((b) => {
+          const li = document.createElement('li');
+          li.textContent = b.detail;
+          ul.append(li);
+        });
+        opPanel.append(opTitle, ul);
       }
-      w.append(lb, inp);
-      return w;
-    };
+      detailCard.append(opPanel);
+    }
 
     const ro = selectedOT.estado === 'terminado';
-    econGrid.append(
-      mkNum('costoMateriales', 'Materiales', selectedOT.costoMateriales, ro),
-      mkNum('costoManoObra', 'Mano de obra', selectedOT.costoManoObra, ro),
-      mkNum('costoTraslado', 'Traslado', selectedOT.costoTraslado, ro),
-      mkNum('costoOtros', 'Otros', selectedOT.costoOtros, ro),
-      mkNum('costoTotal', 'Costo total (calculado)', selectedOT.costoTotal, true),
-      mkNum('montoCobrado', 'Monto cobrado', selectedOT.montoCobrado, ro),
-      mkNum('utilidad', 'Utilidad (calculada)', selectedOT.utilidad, true)
-    );
-
-    const saveEcon = document.createElement('button');
-    saveEcon.type = 'button';
-    saveEcon.className = 'primary-button';
-    saveEcon.textContent = isSavingOtEconomics ? 'Guardando…' : 'Guardar costos e ingreso';
-    saveEcon.disabled = Boolean(
-      ro || isSavingOtEconomics || isClosingOT || isSavingEquipos || isSavingVisitText
-    );
-    saveEcon.addEventListener('click', async () => {
-      const q = (n) => econGrid.querySelector(`[name=${n}]`);
-      await actions.saveOtEconomics(selectedOT.id, {
-        costoMateriales: parseMoneyInput(q('costoMateriales')?.value),
-        costoManoObra: parseMoneyInput(q('costoManoObra')?.value),
-        costoTraslado: parseMoneyInput(q('costoTraslado')?.value),
-        costoOtros: parseMoneyInput(q('costoOtros')?.value),
-        montoCobrado: parseMoneyInput(q('montoCobrado')?.value),
-      });
-    });
-
-    econWrap.append(econTitle, econHint, econGrid, saveEcon);
-    detailCard.append(econWrap);
 
     if (selectedOT.estado !== 'terminado') {
       const visitWrap = document.createElement('div');
@@ -1049,6 +1075,153 @@ export const climaView = ({
       detailCard.append(reportRow);
     }
 
+    let updateCloseButtonState = () => {};
+
+    const econModern = document.createElement('div');
+    econModern.className = 'ot-economics-modern';
+
+    const econHead = document.createElement('div');
+    econHead.className = 'ot-economics-modern__head';
+    const econTitle = document.createElement('h3');
+    econTitle.className = 'ot-economics-modern__title';
+    econTitle.textContent = 'Resultado económico (CLP · panel interno)';
+    const econHint = document.createElement('p');
+    econHint.className = 'muted ot-economics-modern__hint';
+    econHint.textContent = ro
+      ? 'Valores guardados al cerrar la visita. Solo lectura.'
+      : 'Los indicadores grandes se calculan al instante al escribir. Guardá para grabar en el servidor. Para usar «Cerrar OT» necesitás monto cobrado y costo total (suma de costos) mayores que cero.';
+    const econSavedRow = document.createElement('p');
+    econSavedRow.className =
+      ro || otEconomicsSaved
+        ? 'ot-econ-saved-badge ot-econ-saved-badge--ok'
+        : 'ot-econ-saved-badge ot-econ-saved-badge--pending';
+    econSavedRow.setAttribute('role', 'status');
+    econSavedRow.textContent = ro
+      ? '✔ Resultado económico guardado (OT cerrada).'
+      : otEconomicsSaved
+        ? '✔ Resultado económico guardado'
+        : '⚠ Cambios pendientes por guardar';
+    econHead.append(econTitle, econHint, econSavedRow);
+
+    const econLiveRoot = document.createElement('div');
+    econLiveRoot.className = 'ot-economics-live-root';
+
+    const inputsRow = document.createElement('div');
+    inputsRow.className = 'ot-econ-inputs-grid';
+
+    const mkCostCard = (name, label, value) => {
+      const card = document.createElement('div');
+      card.className = 'ot-econ-field-card';
+      const lb = document.createElement('span');
+      lb.className = 'ot-econ-field-card__label';
+      lb.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.min = '0';
+      inp.step = 'any';
+      inp.name = name;
+      inp.value = String(value ?? 0);
+      inp.className = 'ot-econ-field-card__input';
+      inp.readOnly = ro;
+      card.append(lb, inp);
+      return card;
+    };
+
+    if (!ro) {
+      inputsRow.append(
+        mkCostCard('costoMateriales', 'Materiales', selectedOT.costoMateriales),
+        mkCostCard('costoManoObra', 'Mano de obra', selectedOT.costoManoObra),
+        mkCostCard('costoTraslado', 'Traslado', selectedOT.costoTraslado),
+        mkCostCard('costoOtros', 'Otros', selectedOT.costoOtros),
+        mkCostCard('montoCobrado', 'Monto cobrado (CLP)', selectedOT.montoCobrado)
+      );
+    }
+
+    const kpiRow = document.createElement('div');
+    kpiRow.className = 'ot-econ-kpi-row';
+
+    const mkKpi = (label, variantClass) => {
+      const card = document.createElement('div');
+      card.className = `ot-econ-kpi ${variantClass}`.trim();
+      const lb = document.createElement('span');
+      lb.className = 'ot-econ-kpi__label';
+      lb.textContent = label;
+      const val = document.createElement('span');
+      val.className = 'ot-econ-kpi__value';
+      val.textContent = formatClp(0);
+      card.append(lb, val);
+      return { card, val };
+    };
+
+    const kCosto = mkKpi('Costo total (CLP)', 'ot-econ-kpi--costo');
+    const kMonto = mkKpi('Monto cobrado (CLP)', 'ot-econ-kpi--ingreso');
+    const kUtil = mkKpi('Utilidad (CLP)', 'ot-econ-kpi--util ot-econ-kpi--neutral');
+    const kMar = mkKpi('Margen %', 'ot-econ-kpi--margen');
+
+    kpiRow.append(kCosto.card, kMonto.card, kUtil.card, kMar.card);
+
+    if (!ro) {
+      econLiveRoot.append(inputsRow, kpiRow);
+    } else {
+      econLiveRoot.append(kpiRow);
+    }
+
+    const updateLiveEconomics = () => {
+      if (ro) {
+        const ct = roundEcon(selectedOT.costoTotal);
+        const mc = roundEcon(selectedOT.montoCobrado);
+        const ut = roundEcon(selectedOT.utilidad ?? mc - ct);
+        const mp = mc > 0 ? roundEcon((ut / mc) * 100) : null;
+        kCosto.val.textContent = formatClp(ct);
+        kMonto.val.textContent = formatClp(mc);
+        kUtil.val.textContent = formatClp(ut);
+        kMar.val.textContent = mc > 0 && mp != null ? `${mp.toFixed(1)}%` : '—';
+        kUtil.card.className = `ot-econ-kpi ot-econ-kpi--util ${utilidadToneClass(ut, mc)}`.trim();
+        return;
+      }
+      const { costoTotal, monto, utilidad, margenPct } = computeLiveEconomicsFrom(econLiveRoot);
+      kCosto.val.textContent = formatClp(costoTotal);
+      kMonto.val.textContent = formatClp(monto);
+      kUtil.val.textContent = formatClp(utilidad);
+      kMar.val.textContent = monto > 0 && margenPct != null ? `${margenPct.toFixed(1)}%` : '—';
+      kUtil.card.className = `ot-econ-kpi ot-econ-kpi--util ${utilidadToneClass(utilidad, monto)}`.trim();
+    };
+
+    updateLiveEconomics();
+
+    if (!ro) {
+      inputsRow.querySelectorAll('input').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          actions?.invalidateOtEconomicsSaved?.();
+          updateLiveEconomics();
+          updateCloseButtonState();
+        });
+      });
+    }
+
+    const saveEcon = document.createElement('button');
+    saveEcon.type = 'button';
+    saveEcon.className = 'primary-button ot-economics-modern__save';
+    saveEcon.textContent = isSavingOtEconomics ? 'Guardando…' : 'Guardar resultado económico';
+    saveEcon.title = 'Envía materiales, mano de obra, traslado, otros y monto cobrado al servidor.';
+    saveEcon.disabled = Boolean(
+      ro || isSavingOtEconomics || isClosingOT || isSavingEquipos || isSavingVisitText
+    );
+    saveEcon.addEventListener('click', async () => {
+      const q = (n) => econLiveRoot.querySelector(`[name="${n}"]`);
+      await actions.saveOtEconomics(selectedOT.id, {
+        costoMateriales: parseMoneyInput(q('costoMateriales')?.value),
+        costoManoObra: parseMoneyInput(q('costoManoObra')?.value),
+        costoTraslado: parseMoneyInput(q('costoTraslado')?.value),
+        costoOtros: parseMoneyInput(q('costoOtros')?.value),
+        montoCobrado: parseMoneyInput(q('montoCobrado')?.value),
+      });
+    });
+
+    econModern.append(econHead, econLiveRoot);
+    if (!ro) econModern.append(saveEcon);
+    detailCard.append(econModern);
+
     const statusActions = document.createElement('div');
     statusActions.className = 'status-actions';
     statusActions.innerHTML = '<p class="muted">Cambiar estado (sin cerrar definitivamente)</p>';
@@ -1074,7 +1247,7 @@ export const climaView = ({
     const closeLabel = document.createElement('p');
     closeLabel.className = 'muted';
     closeLabel.textContent =
-      'Cierre definitivo: la OT pasa a terminada, se genera el PDF y queda guardado. Requisitos: fotos por equipo, checklist completo, resumen y recomendaciones de la OT (guardá equipos y texto de visita antes).';
+      'Cierre definitivo: la OT pasa a terminada, se genera el PDF con los datos ya guardados en el servidor y queda el informe archivado. Requisitos: fotos por equipo, checklist completo, resumen y recomendaciones; resultado económico guardado con monto cobrado y costo total mayores que cero (si tocaste los importes, guardá antes o se guardarán al intentar cerrar).';
     const canCloseNow = selectedOT.estado === 'terminado' || otCanClose(selectedOT);
     if (!canCloseNow && selectedOT.estado !== 'terminado') {
       const gapHint = document.createElement('p');
@@ -1088,20 +1261,53 @@ export const climaView = ({
     closeBtn.type = 'button';
     closeBtn.className = 'primary-button';
     closeBtn.textContent = isClosingOT ? 'Procesando…' : 'Cerrar OT e informe final';
-    closeBtn.disabled = Boolean(
-      isClosingOT ||
-        isUploadingEvidence ||
-        isSavingEquipos ||
-        isSavingVisitText ||
-        isSavingOtEconomics ||
-        selectedOT.estado === 'terminado' ||
-        !otCanClose(selectedOT)
-    );
-    if (!otCanClose(selectedOT) && selectedOT.estado !== 'terminado') {
-      closeBtn.title = formatAllCloseBlockersMessage(selectedOT);
-    }
+
+    updateCloseButtonState = () => {
+      if (selectedOT.estado === 'terminado') {
+        closeBtn.disabled = true;
+        closeBtn.title = '';
+        return;
+      }
+      const mcSrv = roundEcon(selectedOT.montoCobrado);
+      const ctSrv = roundEcon(selectedOT.costoTotal);
+      const econBlocked =
+        !otEconomicsSaved || mcSrv <= 0 || ctSrv <= 0;
+      const evidenceOk = otCanClose(selectedOT);
+      closeBtn.disabled = Boolean(
+        isClosingOT ||
+          isUploadingEvidence ||
+          isSavingEquipos ||
+          isSavingVisitText ||
+          isSavingOtEconomics ||
+          !evidenceOk ||
+          econBlocked
+      );
+      const hints = [];
+      if (!evidenceOk) hints.push(formatAllCloseBlockersMessage(selectedOT));
+      if (!otEconomicsSaved) {
+        hints.push('Guardá el resultado económico en el servidor (botón Guardar). Si ya cargaste los montos, se intentará guardar automáticamente al cerrar.');
+      } else if (mcSrv <= 0 || ctSrv <= 0) {
+        hints.push(
+          'En el servidor el monto cobrado y el costo total deben ser mayores que cero. Ajustá y guardá de nuevo.'
+        );
+      }
+      closeBtn.title = hints.filter(Boolean).join(' ');
+    };
+
+    updateCloseButtonState();
+
     closeBtn.addEventListener('click', async () => {
-      await actions.closeAndGenerateReport(selectedOT);
+      const collectEconPayload = () => {
+        const q = (n) => econLiveRoot.querySelector(`[name="${n}"]`);
+        return {
+          costoMateriales: parseMoneyInput(q('costoMateriales')?.value),
+          costoManoObra: parseMoneyInput(q('costoManoObra')?.value),
+          costoTraslado: parseMoneyInput(q('costoTraslado')?.value),
+          costoOtros: parseMoneyInput(q('costoOtros')?.value),
+          montoCobrado: parseMoneyInput(q('montoCobrado')?.value),
+        };
+      };
+      await actions.closeAndGenerateReport(selectedOT, collectEconPayload());
     });
     closeWrap.append(closeBtn);
     statusActions.append(closeWrap);
@@ -1139,7 +1345,20 @@ export const climaView = ({
   }
 
   overview.append(listCard, detailCard);
-  section.append(header, climaToolbar, cards, formCard, overview);
+
+  const offlineBanner =
+    integrationStatus === 'sin conexión'
+      ? (() => {
+          const b = document.createElement('div');
+          b.className = 'integration-banner integration-banner--offline';
+          b.setAttribute('role', 'status');
+          b.textContent =
+            'Sin conexión al servidor. El listado puede estar vacío o desactualizado. Revisá la red y usá «Actualizar datos».';
+          return b;
+        })()
+      : null;
+
+  section.append(header, ...(offlineBanner ? [offlineBanner] : []), climaToolbar, cards, formCard, overview);
 
   return section;
 };

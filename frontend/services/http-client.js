@@ -1,11 +1,18 @@
 import { appConfig } from '../config/app.config.js';
+import { getStoredOperatorName } from '../config/operator.config.js';
 
 const buildUrl = (path) => `${appConfig.apiBaseUrl}${path}`;
+
+const actorHeaders = () => {
+  const name = getStoredOperatorName();
+  return name ? { 'X-HNF-Actor': name } : {};
+};
 
 const request = async (path, options = {}) => {
   const response = await fetch(buildUrl(path), {
     headers: {
       'Content-Type': 'application/json',
+      ...actorHeaders(),
       ...(options.headers || {}),
     },
     ...options,

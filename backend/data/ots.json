@@ -11,7 +11,7 @@
     "tipoServicio": "clima",
     "subtipoServicio": "Mantenimiento preventivo HVAC",
     "tecnicoAsignado": "Técnico Demo",
-    "estado": "terminado",
+    "estado": "pendiente",
     "fecha": "2026-03-20",
     "hora": "09:00",
     "observaciones": "Visita de diagnóstico inicial.",

@@ -4,9 +4,9 @@ export const createCard = ({ title, description, items }) => {
 
   const list = items.map((item) => `<li>${item}</li>`).join('');
   article.innerHTML = `
-    <h3>${title}</h3>
-    <p class="muted">${description}</p>
-    <ul>${list}</ul>
+    <h3 class="card__title">${title}</h3>
+    <p class="card__desc muted">${description}</p>
+    <ul class="card__list">${list}</ul>
   `;
 
   return article;

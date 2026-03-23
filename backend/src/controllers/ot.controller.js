@@ -1,6 +1,7 @@
 import { otModel } from '../models/ot.model.js';
 import { otService } from '../services/ot.service.js';
 import { sendError, sendSuccess } from '../utils/http.js';
+import { getRequestActor } from '../utils/requestActor.js';
 
 export const getAllOT = async (request, response) => {
   const data = await otService.getAll();
@@ -13,7 +14,8 @@ export const getAllOT = async (request, response) => {
 };
 
 export const createOT = async (request, response) => {
-  const item = await otService.create(request.body || {});
+  const actor = getRequestActor(request);
+  const item = await otService.create(request.body || {}, actor);
 
   if (item.errors) {
     return sendError(response, 400, 'Payload de OT inválido.', {
@@ -29,15 +31,19 @@ export const createOT = async (request, response) => {
 };
 
 export const updateOTStatus = async (request, response) => {
+  const actor = getRequestActor(request);
   const result = await otService.updateStatus(
     request.params.id,
     request.body?.estado,
-    otModel.statusOptions
+    otModel.statusOptions,
+    actor
   );
 
   if (result.error) {
     const isCloseBlock =
-      result.code === 'EVIDENCE_INCOMPLETE' || result.code === 'QUALITY_INCOMPLETE';
+      result.code === 'EVIDENCE_INCOMPLETE' ||
+      result.code === 'QUALITY_INCOMPLETE' ||
+      result.code === 'ECONOMICS_INCOMPLETE';
     return sendError(response, isCloseBlock ? 422 : 400, result.error, {
       resource: 'ots',
       validStatuses: otModel.statusOptions,
@@ -52,7 +58,8 @@ export const updateOTStatus = async (request, response) => {
 };
 
 export const patchOTEvidences = async (request, response) => {
-  const result = await otService.appendEvidences(request.params.id, request.body || {});
+  const actor = getRequestActor(request);
+  const result = await otService.appendEvidences(request.params.id, request.body || {}, actor);
 
   if (result.errors) {
     return sendError(response, 400, 'Payload de evidencias inválido.', {
@@ -72,7 +79,8 @@ export const patchOTEvidences = async (request, response) => {
 };
 
 export const patchOTEquipos = async (request, response) => {
-  const result = await otService.updateEquipos(request.params.id, request.body || {});
+  const actor = getRequestActor(request);
+  const result = await otService.updateEquipos(request.params.id, request.body || {}, actor);
 
   if (result.errors) {
     return sendError(response, 400, 'Payload de equipos inválido.', {
@@ -92,7 +100,8 @@ export const patchOTEquipos = async (request, response) => {
 };
 
 export const patchOTReport = async (request, response) => {
-  const result = await otService.updateReport(request.params.id, request.body || {});
+  const actor = getRequestActor(request);
+  const result = await otService.updateReport(request.params.id, request.body || {}, actor);
 
   if (result.errors) {
     return sendError(response, 400, 'Payload de informe inválido.', {
@@ -112,7 +121,8 @@ export const patchOTReport = async (request, response) => {
 };
 
 export const patchOTVisit = async (request, response) => {
-  const result = await otService.patchVisitFields(request.params.id, request.body || {});
+  const actor = getRequestActor(request);
+  const result = await otService.patchVisitFields(request.params.id, request.body || {}, actor);
 
   if (result.errors) {
     return sendError(response, 400, 'Datos de visita inválidos.', {
@@ -132,7 +142,8 @@ export const patchOTVisit = async (request, response) => {
 };
 
 export const patchOTEconomics = async (request, response) => {
-  const result = await otService.patchEconomics(request.params.id, request.body || {});
+  const actor = getRequestActor(request);
+  const result = await otService.patchEconomics(request.params.id, request.body || {}, actor);
 
   if (result.errors) {
     return sendError(response, 400, 'Datos económicos inválidos.', {

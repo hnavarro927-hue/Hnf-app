@@ -106,6 +106,8 @@ export const normalizeSolicitudShape = (s) => {
     montoCobrado: round2(s.montoCobrado),
     monto: round2(s.monto),
     historial: Array.isArray(s.historial) ? s.historial : [],
+    creadoPor: s.creadoPor ?? null,
+    actualizadoPor: s.actualizadoPor ?? null,
     createdAt,
     updatedAt: s.updatedAt || now,
   };
@@ -163,13 +165,15 @@ export const solicitudFlotaRepository = {
     return found ? normalizeSolicitudShape(found) : null;
   },
 
-  async create(payload) {
+  async create(payload, actor = 'sistema') {
     const items = await loadStore();
     const now = new Date().toISOString();
     const raw = {
       id: nextId(items),
       ...payload,
-      historial: appendHistorial({}, 'alta', `Solicitud creada · ${payload.estado || 'recibida'}`),
+      creadoPor: payload.creadoPor || actor,
+      actualizadoPor: actor,
+      historial: appendHistorial({}, 'alta', `Solicitud creada · ${payload.estado || 'recibida'}`, actor),
       createdAt: now,
       updatedAt: now,
     };
@@ -179,14 +183,15 @@ export const solicitudFlotaRepository = {
     return item;
   },
 
-  async update(id, patch, historialEntry = null) {
+  async update(id, patch, historialEntry = null, actor = 'sistema') {
     const items = await loadStore();
     const index = items.findIndex((s) => s.id === id);
     if (index === -1) return null;
     const cur = normalizeSolicitudShape(items[index]);
     let updated = { ...cur, ...patch };
+    updated.actualizadoPor = actor;
     if (historialEntry) {
-      updated.historial = appendHistorial(cur, historialEntry.accion, historialEntry.detalle);
+      updated.historial = appendHistorial(cur, historialEntry.accion, historialEntry.detalle, actor);
     }
     updated.updatedAt = new Date().toISOString();
     updated = normalizeSolicitudShape(updated);

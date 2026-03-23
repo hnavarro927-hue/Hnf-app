@@ -22,6 +22,8 @@ export const otModel = {
     'cerradoEn',
     'createdAt',
     'updatedAt',
+    'creadoPor',
+    'actualizadoPor',
     'historial',
     'costoMateriales',
     'costoManoObra',

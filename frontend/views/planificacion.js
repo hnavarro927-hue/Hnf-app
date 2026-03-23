@@ -71,7 +71,7 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Planificación · climatización</h2><p class="muted"><strong>Qué hacés acá:</strong> dar de alta clientes de cuenta, sus tiendas, programar mantenciones y, si querés, sacar un PDF para el cliente. Estos clientes son solo para planificación (no reemplazan el listado general de Administración). Si no ves un cambio, tocá <strong>Actualizar datos</strong>.</p>';
+    '<h2>Planificación · climatización</h2><p class="muted"><strong>Uso diario:</strong> registrá <strong>cliente</strong> y <strong>tienda</strong> (dirección, comuna, ventana <strong>AM/PM</strong>, ruta). Luego <strong>mantenciones</strong>: fecha, horario, <strong>técnico</strong>, tipo y <strong>estado</strong> (pendiente → programado → realizado). El padrón general de clientes también vive en Administración. Si otra persona editó, tocá <strong>Actualizar datos</strong>.</p>';
 
   const tabBar = document.createElement('div');
   tabBar.className = 'plan-tabs';
@@ -297,9 +297,10 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
               }
               const win =
                 m.horaInicio && m.horaFin ? `${m.horaInicio}–${m.horaFin}` : 'Día completo';
+              const ampm = [t?.horarioAM, t?.horarioPM].filter(Boolean).join(' · ') || '—';
               const div = document.createElement('div');
               div.className = 'plan-week-item';
-              div.innerHTML = `<strong>${win}</strong><br>${tech || '—'}<br><span class="muted">${c?.nombre || ''} · ${t?.nombre || m.tiendaId}</span>`;
+              div.innerHTML = `<strong>${win}</strong> · <strong>Técnico:</strong> ${tech || '—'}<br><span class="muted"><strong>Cliente:</strong> ${c?.nombre || '—'} · <strong>Tienda:</strong> ${t?.nombre || m.tiendaId}</span><br><span class="muted"><strong>Ventana tienda AM/PM:</strong> ${ampm} · <strong>Estado mant.:</strong> ${m.estado} · <strong>Tipo:</strong> ${m.tipo}</span>`;
               col.append(div);
             });
           }
@@ -367,12 +368,12 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
         const table = document.createElement('table');
         table.className = 'plan-table';
         table.innerHTML =
-          '<thead><tr><th>Fecha</th><th>Franja</th><th>Cliente</th><th>Tienda</th><th>Técnico</th><th>Tipo</th><th>Estado</th></tr></thead>';
+          '<thead><tr><th>Fecha</th><th>Franja visita</th><th>Cliente</th><th>Tienda</th><th>AM/PM tienda</th><th>Técnico</th><th>Tipo</th><th>Estado</th></tr></thead>';
         const tb = document.createElement('tbody');
         if (!rows.length) {
           const tr = document.createElement('tr');
           const td = document.createElement('td');
-          td.colSpan = 7;
+          td.colSpan = 8;
           td.className = 'muted';
           td.textContent = 'Sin registros con ese criterio.';
           tr.append(td);
@@ -384,7 +385,8 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
             const tr = document.createElement('tr');
             const win =
               m.horaInicio && m.horaFin ? `${m.horaInicio}–${m.horaFin}` : '—';
-            tr.innerHTML = `<td>${m.fecha}</td><td>${win}</td><td>${c?.nombre || '—'}</td><td>${t?.nombre || m.tiendaId}</td><td>${m.tecnico}</td><td>${m.tipo}</td><td>${m.estado}</td>`;
+            const ampm = [t?.horarioAM, t?.horarioPM].filter(Boolean).join(' · ') || '—';
+            tr.innerHTML = `<td>${m.fecha}</td><td>${win}</td><td>${c?.nombre || '—'}</td><td>${t?.nombre || m.tiendaId}</td><td>${ampm}</td><td>${m.tecnico}</td><td>${m.tipo}</td><td>${m.estado}</td>`;
             tb.append(tr);
           });
         }

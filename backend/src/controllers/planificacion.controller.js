@@ -3,6 +3,7 @@ import { planMantencionModel } from '../models/planMantencion.model.js';
 import { planTiendaModel } from '../models/planTienda.model.js';
 import { planificacionService } from '../services/planificacion.service.js';
 import { sendError, sendSuccess } from '../utils/http.js';
+import { getRequestActor } from '../utils/requestActor.js';
 
 const searchParams = (request) => new URL(request.url || '/', 'http://localhost').searchParams;
 
@@ -12,7 +13,8 @@ export const getPlanClientes = async (request, response) => {
 };
 
 export const postPlanCliente = async (request, response) => {
-  const result = await planificacionService.createCliente(request.body || {});
+  const actor = getRequestActor(request);
+  const result = await planificacionService.createCliente(request.body || {}, actor);
   if (result.errors) {
     return sendError(response, 400, 'Datos de cliente inválidos.', { validations: result.errors });
   }
@@ -26,7 +28,8 @@ export const getPlanTiendas = async (request, response) => {
 };
 
 export const postPlanTienda = async (request, response) => {
-  const result = await planificacionService.createTienda(request.body || {});
+  const actor = getRequestActor(request);
+  const result = await planificacionService.createTienda(request.body || {}, actor);
   if (result.errors) {
     return sendError(response, 400, 'Datos de tienda inválidos.', { validations: result.errors });
   }
@@ -52,7 +55,8 @@ export const getPlanMantenciones = async (request, response) => {
 };
 
 export const postPlanMantencion = async (request, response) => {
-  const result = await planificacionService.createMantencion(request.body || {});
+  const actor = getRequestActor(request);
+  const result = await planificacionService.createMantencion(request.body || {}, actor);
   if (result.errors) {
     return sendError(response, 400, 'Datos de mantención inválidos.', { validations: result.errors });
   }
@@ -67,7 +71,8 @@ export const postPlanMantencion = async (request, response) => {
 
 export const patchPlanMantencion = async (request, response) => {
   const id = request.params?.id;
-  const result = await planificacionService.patchMantencion(id, request.body || {});
+  const actor = getRequestActor(request);
+  const result = await planificacionService.patchMantencion(id, request.body || {}, actor);
   if (result.errors) {
     return sendError(response, 400, 'Actualización inválida.', { validations: result.errors });
   }
