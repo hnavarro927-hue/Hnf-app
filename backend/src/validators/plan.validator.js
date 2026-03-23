@@ -1,5 +1,29 @@
 import { planMantencionModel } from '../models/planMantencion.model.js';
 
+const HHMM = /^([0-1]?\d|2[0-3]):([0-5]\d)$/;
+
+/** Validar par de horas opcional (vacío = día completo en lógica de conflicto). */
+export const validateMantencionSchedule = (m = {}) => {
+  const errors = [];
+  const hi = String(m.horaInicio ?? '').trim();
+  const hf = String(m.horaFin ?? '').trim();
+  if (!hi && !hf) return errors;
+  if (!hi || !hf) {
+    errors.push('Si informás horario, completá horaInicio y horaFin (HH:MM), o dejá ambos vacíos para la jornada completa.');
+    return errors;
+  }
+  if (!HHMM.test(hi) || !HHMM.test(hf)) {
+    errors.push('horaInicio y horaFin deben tener formato HH:MM.');
+    return errors;
+  }
+  const [ah, am] = hi.split(':').map(Number);
+  const [bh, bm] = hf.split(':').map(Number);
+  if (ah * 60 + am >= bh * 60 + bm) {
+    errors.push('horaInicio debe ser anterior a horaFin.');
+  }
+  return errors;
+};
+
 export const validatePlanClienteCreate = (body = {}) => {
   const errors = [];
   if (!String(body.nombre || '').trim()) {
@@ -44,6 +68,7 @@ export const validatePlanMantencionCreate = (body = {}) => {
   if (!planMantencionModel.estados.includes(estado)) {
     errors.push(`estado inválido. Permitidos: ${planMantencionModel.estados.join(', ')}.`);
   }
+  errors.push(...validateMantencionSchedule(body));
   return { valid: errors.length === 0, errors };
 };
 

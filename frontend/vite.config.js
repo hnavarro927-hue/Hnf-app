@@ -18,7 +18,7 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     proxy: {
-      '^/(health|ots|clients|vehicles|expenses|clientes|tiendas|mantenciones)(/|$)': {
+      '^/(health|ots|clients|vehicles|expenses|clientes|tiendas|mantenciones|flota)(/|$)': {
         target: backend,
         changeOrigin: true,
       },
@@ -28,7 +28,7 @@ export default defineConfig({
     port: 4173,
     strictPort: false,
     proxy: {
-      '^/(health|ots|clients|vehicles|expenses|clientes|tiendas|mantenciones)(/|$)': {
+      '^/(health|ots|clients|vehicles|expenses|clientes|tiendas|mantenciones|flota)(/|$)': {
         target: backend,
         changeOrigin: true,
       },

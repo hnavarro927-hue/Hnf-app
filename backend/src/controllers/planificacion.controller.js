@@ -57,6 +57,9 @@ export const postPlanMantencion = async (request, response) => {
     return sendError(response, 400, 'Datos de mantención inválidos.', { validations: result.errors });
   }
   if (result.error) {
+    if (result.code === 'SCHEDULE_CONFLICT') {
+      return sendError(response, 409, result.error, { resource: 'mantenciones', code: result.code });
+    }
     return sendError(response, 404, result.error, { resource: 'mantenciones' });
   }
   sendSuccess(response, 201, result, { resource: 'mantenciones', action: 'create' });
@@ -69,6 +72,9 @@ export const patchPlanMantencion = async (request, response) => {
     return sendError(response, 400, 'Actualización inválida.', { validations: result.errors });
   }
   if (result.error) {
+    if (result.code === 'SCHEDULE_CONFLICT') {
+      return sendError(response, 409, result.error, { resource: 'mantenciones', code: result.code });
+    }
     return sendError(response, 404, result.error, { resource: 'mantenciones' });
   }
   sendSuccess(response, 200, result, { resource: 'mantenciones', action: 'patch' });

@@ -1,10 +1,34 @@
-const menu = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'clima', label: 'Clima' },
-  { id: 'planificacion', label: 'Planificación Clima' },
-  { id: 'flota', label: 'Flota' },
-  { id: 'admin', label: 'Administración' },
+const groups = [
+  {
+    label: 'Panel',
+    items: [{ id: 'dashboard', label: 'Inicio', hint: 'Resumen del mes, rentabilidad y alertas' }],
+  },
+  {
+    label: 'Clima (HVAC)',
+    items: [
+      { id: 'clima', label: 'Visitas y OT', hint: 'Registrar visitas, fotos e informe' },
+      { id: 'planificacion', label: 'Planificación', hint: 'Mantenciones por cliente y tienda' },
+    ],
+  },
+  {
+    label: 'Flota',
+    items: [{ id: 'flota', label: 'Solicitudes', hint: 'Traslados y servicios a clientes' }],
+  },
+  {
+    label: 'Administración',
+    items: [{ id: 'admin', label: 'Datos y respaldos', hint: 'Clientes, gastos y copias JSON' }],
+  },
 ];
+
+const statusCopy = (integrationStatus) => {
+  const map = {
+    conectado: 'Servidor conectado',
+    'sin conexión': 'Sin conexión con el servidor',
+    cargando: 'Cargando datos…',
+    pendiente: 'Listo',
+  };
+  return map[integrationStatus] || integrationStatus || '—';
+};
 
 export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationStatus }) => {
   const element = document.createElement('div');
@@ -15,23 +39,37 @@ export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationS
   sidebar.innerHTML = `
     <div>
       <p class="muted">HNF Servicios Integrales</p>
-      <h1>Base de aplicación</h1>
-      <p class="muted">Frontend preparado para integración limpia con backend.</p>
-      <p class="muted"><strong>API:</strong> ${apiBaseLabel || '—'}</p>
-      <p class="muted"><strong>Health:</strong> ${integrationStatus}</p>
+      <h1>Panel operativo</h1>
+      <p class="shell-pilot muted"><strong>Versión piloto interna</strong> · Clima · Flota · Administración</p>
+      <p class="muted"><strong>Estado:</strong> ${statusCopy(integrationStatus)}</p>
+      <p class="muted shell-api-hint"><strong>Conexión:</strong> ${apiBaseLabel || '—'}</p>
     </div>
   `;
 
   const nav = document.createElement('nav');
   nav.className = 'nav';
 
-  menu.forEach((item) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = item.label;
-    if (item.id === activeView) button.classList.add('active');
-    button.addEventListener('click', () => onNavigate(item.id));
-    nav.append(button);
+  groups.forEach((group) => {
+    const gl = document.createElement('p');
+    gl.className = 'nav-group__label';
+    gl.textContent = group.label;
+    nav.append(gl);
+
+    group.items.forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'nav-item';
+      const main = document.createElement('span');
+      main.className = 'nav-item__label';
+      main.textContent = item.label;
+      const sub = document.createElement('span');
+      sub.className = 'nav-item__hint muted';
+      sub.textContent = item.hint || '';
+      button.append(main, sub);
+      if (item.id === activeView) button.classList.add('active');
+      button.addEventListener('click', () => onNavigate(item.id));
+      nav.append(button);
+    });
   });
 
   sidebar.append(nav);

@@ -1,6 +1,21 @@
 import { generateClienteCalendarioPdfBlob } from '../services/pdf.service.js';
 import { planificacionService } from '../services/planificacion.service.js';
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const toYmd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const mondayOf = (d) => {
+  const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = c.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  c.setDate(c.getDate() + diff);
+  return c;
+};
+const addDaysYmd = (ymd, delta) => {
+  const [y, m, dd] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, dd + delta);
+  return toYmd(dt);
+};
+
 const TIPOS = ['preventivo', 'correctivo'];
 const ESTADOS = ['pendiente', 'programado', 'realizado'];
 
@@ -23,7 +38,7 @@ const tabIds = [
   { id: 'clientes', label: 'Clientes' },
   { id: 'tiendas', label: 'Tiendas' },
   { id: 'calendario', label: 'Calendario' },
-  { id: 'plan', label: 'Planificación' },
+  { id: 'plan', label: 'Mantenciones' },
 ];
 
 export const planificacionView = ({ data, reloadApp } = {}) => {
@@ -38,19 +53,25 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
   const tiendaById = Object.fromEntries(tiendas.map((t) => [t.id, t]));
 
   let activeTab = 'clientes';
+  let weekAnchorYmd = toYmd(mondayOf(new Date()));
   const feedback = document.createElement('div');
-  feedback.className = 'plan-feedback';
-
-  const showFeedback = (type, message) => {
-    feedback.className = `plan-feedback plan-feedback--${type}`;
-    feedback.textContent = message;
-    feedback.hidden = !message;
-  };
+  feedback.className = 'form-feedback';
   feedback.hidden = true;
 
+  const showFeedback = (type, message) => {
+    if (!message) {
+      feedback.hidden = true;
+      return;
+    }
+    feedback.className = `form-feedback form-feedback--${type}`;
+    feedback.textContent = message;
+    feedback.hidden = false;
+  };
+
   const header = document.createElement('div');
+  header.className = 'module-header';
   header.innerHTML =
-    '<h2>Planificación Clima</h2><p class="muted">Clientes, tiendas y calendario de mantenciones (preventivo / correctivo). PDF para entregar al cliente.</p>';
+    '<h2>Planificación · climatización</h2><p class="muted"><strong>Qué hacés acá:</strong> dar de alta clientes de cuenta, sus tiendas, programar mantenciones y, si querés, sacar un PDF para el cliente. Estos clientes son solo para planificación (no reemplazan el listado general de Administración). Si no ves un cambio, tocá <strong>Actualizar datos</strong>.</p>';
 
   const tabBar = document.createElement('div');
   tabBar.className = 'plan-tabs';
@@ -59,7 +80,8 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
   body.className = 'plan-tab-body';
 
   const runReload = async () => {
-    if (typeof reloadApp === 'function') await reloadApp();
+    if (typeof reloadApp === 'function') return await reloadApp();
+    return false;
   };
 
   const renderBody = () => {
@@ -68,7 +90,8 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
     if (activeTab === 'clientes') {
       const card = document.createElement('article');
       card.className = 'plan-card';
-      card.innerHTML = '<h3>Clientes (planificación)</h3><p class="muted">Registro operativo HNF para mantenciones. Independiente del listado legado <code>/clients</code> del dashboard.</p>';
+      card.innerHTML =
+        '<h3>Clientes de planificación</h3><p class="muted">Son los clientes que usás acá para tiendas y mantenciones. Es independiente del listado general que ves en Inicio / Administración.</p>';
 
       const form = document.createElement('form');
       form.className = 'plan-form-row';
@@ -80,13 +103,13 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const btn = document.createElement('button');
       btn.type = 'submit';
       btn.className = 'primary-button';
-      btn.textContent = 'Crear cliente';
+      btn.textContent = 'Guardar cliente';
       form.append(inp, btn);
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
           await planificacionService.postCliente({ nombre: inp.value.trim() });
-          showFeedback('success', 'Cliente creado.');
+          showFeedback('success', 'Cliente guardado. El listado se actualizó.');
           inp.value = '';
           await runReload();
         } catch (err) {
@@ -146,12 +169,17 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const horarioPM = document.createElement('input');
       horarioPM.type = 'text';
       horarioPM.placeholder = 'Horario PM (ej. Sí)';
+      const ordenRuta = document.createElement('input');
+      ordenRuta.type = 'number';
+      ordenRuta.min = '1';
+      ordenRuta.step = '1';
+      ordenRuta.placeholder = 'Orden ruta (1 = primero)';
 
       const submit = document.createElement('button');
       submit.type = 'submit';
       submit.className = 'primary-button';
-      submit.textContent = 'Agregar tienda';
-      form.append(selCliente, nombre, direccion, comuna, horarioAM, horarioPM, submit);
+      submit.textContent = 'Guardar tienda';
+      form.append(selCliente, nombre, direccion, comuna, horarioAM, horarioPM, ordenRuta, submit);
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -163,13 +191,15 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
             comuna: comuna.value.trim(),
             horarioAM: horarioAM.value.trim(),
             horarioPM: horarioPM.value.trim(),
+            ordenRuta: ordenRuta.value ? Number(ordenRuta.value) : undefined,
           });
-          showFeedback('success', 'Tienda registrada.');
+          showFeedback('success', 'Tienda guardada. Datos actualizados.');
           nombre.value = '';
           direccion.value = '';
           comuna.value = '';
           horarioAM.value = '';
           horarioPM.value = '';
+          ordenRuta.value = '';
           await runReload();
         } catch (err) {
           showFeedback('error', err.message || 'No se pudo guardar la tienda.');
@@ -181,12 +211,12 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const table = document.createElement('table');
       table.className = 'plan-table';
       table.innerHTML =
-        '<thead><tr><th>Cliente</th><th>Tienda</th><th>Dirección</th><th>Comuna</th><th>AM</th><th>PM</th></tr></thead>';
+        '<thead><tr><th>Cliente</th><th>Tienda</th><th>Dirección</th><th>Comuna</th><th>Ruta</th><th>AM</th><th>PM</th></tr></thead>';
       const tb = document.createElement('tbody');
       if (!tiendas.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 6;
+        td.colSpan = 7;
         td.className = 'muted';
         td.textContent = 'Sin tiendas.';
         tr.append(td);
@@ -195,7 +225,7 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
         tiendas.forEach((t) => {
           const tr = document.createElement('tr');
           const c = clienteById[t.clienteId];
-          tr.innerHTML = `<td>${c?.nombre || t.clienteId}</td><td>${t.nombre}</td><td>${t.direccion}</td><td>${t.comuna}</td><td>${t.horarioAM || '—'}</td><td>${t.horarioPM || '—'}</td>`;
+          tr.innerHTML = `<td>${c?.nombre || t.clienteId}</td><td>${t.nombre}</td><td>${t.direccion}</td><td>${t.comuna}</td><td>${t.ordenRuta ?? '—'}</td><td>${t.horarioAM || '—'}</td><td>${t.horarioPM || '—'}</td>`;
           tb.append(tr);
         });
       }
@@ -208,7 +238,107 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
     if (activeTab === 'calendario') {
       const card = document.createElement('article');
       card.className = 'plan-card';
-      card.innerHTML = '<h3>Calendario</h3><p class="muted">Vista simple por fecha y técnico (filtro en pantalla).</p>';
+      card.innerHTML =
+        '<h3>Calendario y semana operativa</h3><p class="muted">Vista semanal por día con técnico y tienda. Abajo, listado filtrable por fecha.</p>';
+
+      const weekBar = document.createElement('div');
+      weekBar.className = 'plan-form-row';
+      const wkLabel = document.createElement('span');
+      wkLabel.className = 'muted';
+      wkLabel.textContent = 'Semana que inicia:';
+      const wkPrev = document.createElement('button');
+      wkPrev.type = 'button';
+      wkPrev.className = 'secondary-button';
+      wkPrev.textContent = '← Semana anterior';
+      const wkNext = document.createElement('button');
+      wkNext.type = 'button';
+      wkNext.className = 'secondary-button';
+      wkNext.textContent = 'Semana siguiente →';
+      const wkToday = document.createElement('button');
+      wkToday.type = 'button';
+      wkToday.className = 'secondary-button';
+      wkToday.textContent = 'Esta semana';
+      weekBar.append(wkLabel, wkPrev, wkNext, wkToday);
+
+      const weekGridHost = document.createElement('div');
+      const weekLoadHost = document.createElement('div');
+      weekLoadHost.className = 'dashboard-row';
+
+      const renderWeek = () => {
+        weekGridHost.replaceChildren();
+        const days = [];
+        for (let i = 0; i < 7; i += 1) days.push(addDaysYmd(weekAnchorYmd, i));
+        const grid = document.createElement('div');
+        grid.className = 'plan-week-grid';
+        const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+        const loadMap = new Map();
+
+        days.forEach((ymd, idx) => {
+          const col = document.createElement('div');
+          col.className = 'plan-week-col';
+          const h = document.createElement('h4');
+          h.textContent = `${dayNames[idx]} ${ymd}`;
+          col.append(h);
+          const dayM = mantenciones.filter((m) => m.fecha === ymd);
+          dayM.sort((a, b) => String(a.tecnico || '').localeCompare(String(b.tecnico || '')));
+          if (!dayM.length) {
+            const p = document.createElement('p');
+            p.className = 'muted';
+            p.style.fontSize = '11px';
+            p.textContent = 'Sin visitas.';
+            col.append(p);
+          } else {
+            dayM.forEach((m) => {
+              const t = tiendaById[m.tiendaId];
+              const c = t ? clienteById[t.clienteId] : null;
+              const tech = (m.tecnico || '').trim();
+              if (tech) {
+                loadMap.set(tech, (loadMap.get(tech) || 0) + 1);
+              }
+              const win =
+                m.horaInicio && m.horaFin ? `${m.horaInicio}–${m.horaFin}` : 'Día completo';
+              const div = document.createElement('div');
+              div.className = 'plan-week-item';
+              div.innerHTML = `<strong>${win}</strong><br>${tech || '—'}<br><span class="muted">${c?.nombre || ''} · ${t?.nombre || m.tiendaId}</span>`;
+              col.append(div);
+            });
+          }
+          grid.append(col);
+        });
+        weekGridHost.append(grid);
+
+        weekLoadHost.replaceChildren();
+        weekLoadHost.innerHTML = '<h3>Carga de trabajo en la semana (cantidad de mantenciones)</h3>';
+        const ul = document.createElement('ul');
+        ul.className = 'dashboard-list';
+        const sortedLoad = [...loadMap.entries()].sort((a, b) => b[1] - a[1]);
+        if (!sortedLoad.length) {
+          const li = document.createElement('li');
+          li.className = 'muted';
+          li.textContent = 'Sin asignaciones en esta semana.';
+          ul.append(li);
+        } else {
+          sortedLoad.forEach(([name, n]) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${name}</strong> · ${n} trabajo(s)`;
+            ul.append(li);
+          });
+        }
+        weekLoadHost.append(ul);
+      };
+
+      wkPrev.addEventListener('click', () => {
+        weekAnchorYmd = addDaysYmd(weekAnchorYmd, -7);
+        renderWeek();
+      });
+      wkNext.addEventListener('click', () => {
+        weekAnchorYmd = addDaysYmd(weekAnchorYmd, 7);
+        renderWeek();
+      });
+      wkToday.addEventListener('click', () => {
+        weekAnchorYmd = toYmd(mondayOf(new Date()));
+        renderWeek();
+      });
 
       const filters = document.createElement('div');
       filters.className = 'plan-form-row';
@@ -237,12 +367,12 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
         const table = document.createElement('table');
         table.className = 'plan-table';
         table.innerHTML =
-          '<thead><tr><th>Fecha</th><th>Cliente</th><th>Tienda</th><th>Técnico</th><th>Tipo</th><th>Estado</th></tr></thead>';
+          '<thead><tr><th>Fecha</th><th>Franja</th><th>Cliente</th><th>Tienda</th><th>Técnico</th><th>Tipo</th><th>Estado</th></tr></thead>';
         const tb = document.createElement('tbody');
         if (!rows.length) {
           const tr = document.createElement('tr');
           const td = document.createElement('td');
-          td.colSpan = 6;
+          td.colSpan = 7;
           td.className = 'muted';
           td.textContent = 'Sin registros con ese criterio.';
           tr.append(td);
@@ -252,7 +382,9 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
             const t = tiendaById[m.tiendaId];
             const c = t ? clienteById[t.clienteId] : null;
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${m.fecha}</td><td>${c?.nombre || '—'}</td><td>${t?.nombre || m.tiendaId}</td><td>${m.tecnico}</td><td>${m.tipo}</td><td>${m.estado}</td>`;
+            const win =
+              m.horaInicio && m.horaFin ? `${m.horaInicio}–${m.horaFin}` : '—';
+            tr.innerHTML = `<td>${m.fecha}</td><td>${win}</td><td>${c?.nombre || '—'}</td><td>${t?.nombre || m.tiendaId}</td><td>${m.tecnico}</td><td>${m.tipo}</td><td>${m.estado}</td>`;
             tb.append(tr);
           });
         }
@@ -261,8 +393,9 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       };
 
       apply.addEventListener('click', renderList);
+      renderWeek();
       renderList();
-      card.append(filters, list);
+      card.append(weekBar, weekGridHost, weekLoadHost, filters, list);
       body.append(card);
     }
 
@@ -270,7 +403,7 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const card = document.createElement('article');
       card.className = 'plan-card';
       card.innerHTML =
-        '<h3>Planificación</h3><p class="muted">Alta y edición de mantenciones. Ideal para cuadros tipo cuenta Puma con fechas programadas.</p>';
+        '<h3>Mantenciones programadas</h3><p class="muted">Agendá visitas, cambiá estado o técnico, y generá un PDF limpio para enviar al cliente.</p>';
 
       const pdfRow = document.createElement('div');
       pdfRow.className = 'plan-form-row plan-pdf-row';
@@ -280,7 +413,7 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const pdfBtn = document.createElement('button');
       pdfBtn.type = 'button';
       pdfBtn.className = 'secondary-button';
-      pdfBtn.textContent = 'Generar calendario cliente (PDF)';
+      pdfBtn.textContent = 'PDF para el cliente (calendario)';
       pdfBtn.addEventListener('click', () => {
         const cid = pdfCliente.value;
         if (!cid) {
@@ -298,9 +431,12 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
               tiendaNombre: t?.nombre || m.tiendaId,
               direccion: t?.direccion || '',
               comuna: t?.comuna || '',
+              ordenRuta: t?.ordenRuta ?? 999,
               fecha: m.fecha,
               horarioAM: t?.horarioAM || '—',
               horarioPM: t?.horarioPM || '—',
+              horaInicio: m.horaInicio || '',
+              horaFin: m.horaFin || '',
               tecnico: m.tecnico,
               tipo: m.tipo,
               estado: m.estado,
@@ -311,7 +447,7 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
           rows,
         });
         openPdfBlob(blob);
-        showFeedback('success', `PDF generado: ${fileName}`);
+        showFeedback('success', `PDF listo (${fileName}). Se abrió en una nueva pestaña.`);
       });
       pdfRow.append(pdfCliente, pdfBtn);
 
@@ -333,6 +469,12 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       tInp.type = 'text';
       tInp.placeholder = 'Técnico';
       tInp.required = true;
+      const hiInp = document.createElement('input');
+      hiInp.type = 'text';
+      hiInp.placeholder = 'Hora inicio (HH:MM) opcional';
+      const hfInp = document.createElement('input');
+      hfInp.type = 'text';
+      hfInp.placeholder = 'Hora fin (HH:MM) opcional';
       const tipoSel = document.createElement('select');
       TIPOS.forEach((t) => tipoSel.append(new Option(t, t)));
       const estSel = document.createElement('select');
@@ -341,8 +483,8 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const addBtn = document.createElement('button');
       addBtn.type = 'submit';
       addBtn.className = 'primary-button';
-      addBtn.textContent = 'Programar';
-      newForm.append(selT, fInp, tInp, tipoSel, estSel, addBtn);
+      addBtn.textContent = 'Agregar mantención';
+      newForm.append(selT, fInp, tInp, hiInp, hfInp, tipoSel, estSel, addBtn);
       newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -350,10 +492,14 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
             tiendaId: selT.value,
             fecha: fInp.value,
             tecnico: tInp.value.trim(),
+            horaInicio: hiInp.value.trim(),
+            horaFin: hfInp.value.trim(),
             tipo: tipoSel.value,
             estado: estSel.value,
           });
-          showFeedback('success', 'Mantención creada.');
+          showFeedback('success', 'Mantención agregada. Listado actualizado.');
+          hiInp.value = '';
+          hfInp.value = '';
           await runReload();
         } catch (err) {
           showFeedback('error', err.message || 'No se pudo crear la mantención.');
@@ -365,14 +511,14 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       const table = document.createElement('table');
       table.className = 'plan-table plan-table--editable';
       table.innerHTML =
-        '<thead><tr><th>Tienda</th><th>Fecha</th><th>Técnico</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>';
+        '<thead><tr><th>Tienda</th><th>Fecha</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>';
       const tb = document.createElement('tbody');
 
       const sorted = [...mantenciones].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
       if (!sorted.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 6;
+        td.colSpan = 8;
         td.className = 'muted';
         td.textContent = 'Sin mantenciones.';
         tr.append(td);
@@ -397,6 +543,20 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
           te.value = m.tecnico;
           tdTe.append(te);
 
+          const tdHi = document.createElement('td');
+          const hi = document.createElement('input');
+          hi.type = 'text';
+          hi.placeholder = 'HH:MM';
+          hi.value = m.horaInicio || '';
+          tdHi.append(hi);
+
+          const tdHf = document.createElement('td');
+          const hf = document.createElement('input');
+          hf.type = 'text';
+          hf.placeholder = 'HH:MM';
+          hf.value = m.horaFin || '';
+          tdHf.append(hf);
+
           const tdTipo = document.createElement('td');
           const stTipo = document.createElement('select');
           TIPOS.forEach((x) => stTipo.append(new Option(x, x)));
@@ -419,10 +579,12 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
               await planificacionService.patchMantencion(m.id, {
                 fecha: fi.value,
                 tecnico: te.value.trim(),
+                horaInicio: hi.value.trim(),
+                horaFin: hf.value.trim(),
                 tipo: stTipo.value,
                 estado: stEst.value,
               });
-              showFeedback('success', `Actualizado ${m.id}.`);
+              showFeedback('success', `Cambios guardados para ${m.id}.`);
               await runReload();
             } catch (err) {
               showFeedback('error', err.message || 'No se pudo guardar.');
@@ -430,7 +592,7 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
           });
           tdGo.append(save);
 
-          tr.append(tdT, tdF, tdTe, tdTipo, tdEst, tdGo);
+          tr.append(tdT, tdF, tdTe, tdHi, tdHf, tdTipo, tdEst, tdGo);
           tb.append(tr);
         });
       }
@@ -458,7 +620,27 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
     tabBar.append(b);
   });
 
-  section.append(header, feedback, tabBar, body);
+  const toolBar = document.createElement('div');
+  toolBar.className = 'plan-toolbar';
+  const reloadBtn = document.createElement('button');
+  reloadBtn.type = 'button';
+  reloadBtn.className = 'secondary-button';
+  reloadBtn.textContent = 'Actualizar datos';
+  reloadBtn.title = 'Vuelve a pedir clientes, tiendas y mantenciones al servidor.';
+  reloadBtn.addEventListener('click', async () => {
+    showFeedback('neutral', 'Actualizando información…');
+    const ok = await runReload();
+    showFeedback(
+      ok ? 'success' : 'error',
+      ok ? 'Listo: datos actualizados desde el servidor.' : 'No se pudo actualizar. Revisá la conexión o el servidor.'
+    );
+  });
+  const toolHint = document.createElement('span');
+  toolHint.className = 'muted plan-toolbar-hint';
+  toolHint.textContent = 'Hace lo mismo que entrar de nuevo al módulo: trae la última versión guardada.';
+  toolBar.append(reloadBtn, toolHint);
+
+  section.append(header, feedback, tabBar, toolBar, body);
   renderBody();
 
   return section;

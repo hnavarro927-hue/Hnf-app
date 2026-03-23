@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { appendHistorial } from '../utils/historialUtil.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.resolve(__dirname, '../../data/plan_tiendas.json');
@@ -21,7 +22,7 @@ const loadStore = async () => {
   try {
     const raw = await readFile(dataFile, 'utf8');
     const parsed = JSON.parse(raw);
-    cache = Array.isArray(parsed) ? parsed : [];
+    cache = Array.isArray(parsed) ? parsed.map(normalizeTienda) : [];
   } catch {
     cache = [];
   }
@@ -39,6 +40,18 @@ const normalizeHorario = (v) => {
   return String(v ?? '').trim();
 };
 
+const normalizeOrdenRuta = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 999;
+};
+
+const normalizeTienda = (t) => ({
+  ...t,
+  horarioAM: normalizeHorario(t.horarioAM),
+  horarioPM: normalizeHorario(t.horarioPM),
+  ordenRuta: normalizeOrdenRuta(t.ordenRuta),
+});
+
 export const planTiendaRepository = {
   async findAll(clienteId) {
     const items = await loadStore();
@@ -53,7 +66,8 @@ export const planTiendaRepository = {
 
   async create(payload) {
     const items = await loadStore();
-    const item = {
+    const now = new Date().toISOString();
+    const item = normalizeTienda({
       id: nextId(items),
       clienteId: String(payload.clienteId || '').trim(),
       nombre: String(payload.nombre || '').trim(),
@@ -61,7 +75,12 @@ export const planTiendaRepository = {
       comuna: String(payload.comuna || '').trim(),
       horarioAM: normalizeHorario(payload.horarioAM),
       horarioPM: normalizeHorario(payload.horarioPM),
-    };
+      ordenRuta: normalizeOrdenRuta(payload.ordenRuta),
+      estado: 'activo',
+      createdAt: now,
+      updatedAt: now,
+      historial: appendHistorial({}, 'alta', `Tienda creada: ${String(payload.nombre || '').trim()}`),
+    });
     const next = [...items, item];
     await saveStore(next);
     return item;
@@ -71,7 +90,7 @@ export const planTiendaRepository = {
     const items = await loadStore();
     const index = items.findIndex((t) => t.id === id);
     if (index === -1) return null;
-    const cur = items[index];
+    const cur = normalizeTienda(items[index]);
     const updated = {
       ...cur,
       ...('nombre' in patch ? { nombre: String(patch.nombre || '').trim() } : {}),
@@ -79,9 +98,12 @@ export const planTiendaRepository = {
       ...('comuna' in patch ? { comuna: String(patch.comuna || '').trim() } : {}),
       ...('horarioAM' in patch ? { horarioAM: normalizeHorario(patch.horarioAM) } : {}),
       ...('horarioPM' in patch ? { horarioPM: normalizeHorario(patch.horarioPM) } : {}),
+      ...('ordenRuta' in patch ? { ordenRuta: normalizeOrdenRuta(patch.ordenRuta) } : {}),
+      updatedAt: new Date().toISOString(),
+      historial: appendHistorial(cur, 'edicion', 'Datos de tienda actualizados'),
     };
     const next = [...items];
-    next[index] = updated;
+    next[index] = normalizeTienda(updated);
     await saveStore(next);
     return updated;
   },

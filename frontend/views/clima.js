@@ -1,9 +1,7 @@
 import { createCard } from '../components/card.js';
+import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
-import {
-  formatEvidenceGapsMessage,
-  getEvidenceGaps,
-} from '../utils/ot-evidence.js';
+import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
 
 const MAX_EQUIPOS = 12;
 const EQ_ESTADOS = ['operativo', 'mantenimiento', 'falla'];
@@ -171,6 +169,35 @@ const attachEvidenceUI = (parent, evidenceStore, fieldKey, title, readOnly) => {
   rerender();
 };
 
+const attachChecklistUI = (parent, checklistRef, readOnly) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'form-field ot-checklist-block';
+  const lb = document.createElement('span');
+  lb.className = 'form-field__label';
+  lb.textContent = 'Checklist técnico HVAC (obligatorio al cerrar la OT)';
+  wrap.append(lb);
+  const rerender = () => {
+    wrap.querySelectorAll('.ot-checklist-row').forEach((n) => n.remove());
+    checklistRef.forEach((item, idx) => {
+      const row = document.createElement('label');
+      row.className = 'ot-checklist-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = item.realizado;
+      cb.disabled = readOnly;
+      cb.addEventListener('change', () => {
+        checklistRef[idx].realizado = cb.checked;
+      });
+      const span = document.createElement('span');
+      span.textContent = item.label;
+      row.append(cb, span);
+      wrap.append(row);
+    });
+  };
+  parent.append(wrap);
+  rerender();
+};
+
 const buildField = (field) => {
   const wrapper = document.createElement('label');
   wrapper.className = 'form-field';
@@ -273,6 +300,8 @@ const createEquipoFormRow = () => {
   attachEvidenceUI(grid, fs._evidence, 'fotografiasAntes', 'Fotos ANTES', false);
   attachEvidenceUI(grid, fs._evidence, 'fotografiasDurante', 'Fotos DURANTE', false);
   attachEvidenceUI(grid, fs._evidence, 'fotografiasDespues', 'Fotos DESPUÉS', false);
+  fs._checklist = mergeEquipoChecklist({});
+  attachChecklistUI(grid, fs._checklist, false);
 
   const rm = document.createElement('button');
   rm.type = 'button';
@@ -308,12 +337,14 @@ const collectEquiposFromCreateForm = (container) => {
     const accionesRealizadas = row.querySelector('[name=accionesRealizadas]')?.value?.trim() || '';
     const recomendaciones = row.querySelector('[name=recomendaciones]')?.value?.trim() || '';
     const ev = row._evidence || initRowEvidence({});
+    const cl = row._checklist || mergeEquipoChecklist({});
     out.push({
       nombreEquipo: nombre,
       estadoEquipo: estado,
       observaciones,
       accionesRealizadas,
       recomendaciones,
+      checklist: cl.map(({ id, label, realizado }) => ({ id, label, realizado: Boolean(realizado) })),
       ...collectEquipoEvidencePayload(ev),
     });
     idx += 1;
@@ -388,6 +419,8 @@ const buildDetailEquipoRow = (equipo, index, readOnly = false) => {
   attachEvidenceUI(grid, fs._evidence, 'fotografiasAntes', 'Evidencias ANTES', readOnly);
   attachEvidenceUI(grid, fs._evidence, 'fotografiasDurante', 'Evidencias DURANTE', readOnly);
   attachEvidenceUI(grid, fs._evidence, 'fotografiasDespues', 'Evidencias DESPUÉS', readOnly);
+  fs._checklist = mergeEquipoChecklist(equipo);
+  attachChecklistUI(grid, fs._checklist, readOnly);
 
   const rm = document.createElement('button');
   rm.type = 'button';
@@ -419,6 +452,7 @@ const collectEquiposFromDetail = (container, ot) => {
     const accionesRealizadas = row.querySelector('[name=accionesRealizadas]')?.value?.trim() || '';
     const recomendaciones = row.querySelector('[name=recomendaciones]')?.value?.trim() || '';
     const ev = row._evidence || initRowEvidence({});
+    const cl = row._checklist || mergeEquipoChecklist(base);
 
     out.push({
       id: base.id || eid || `eq-${Date.now()}-${i}`,
@@ -427,6 +461,7 @@ const collectEquiposFromDetail = (container, ot) => {
       observaciones,
       accionesRealizadas,
       recomendaciones,
+      checklist: cl.map(({ id, label, realizado }) => ({ id, label, realizado: Boolean(realizado) })),
       ...collectEquipoEvidencePayload(ev),
     });
   }
@@ -539,6 +574,11 @@ const createEvidenceSection = (title, items = []) => {
   return article;
 };
 
+const parseMoneyInput = (v) => {
+  const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+
 export const climaView = ({
   data,
   actions,
@@ -549,14 +589,55 @@ export const climaView = ({
   isUploadingEvidence,
   isGeneratingPdf,
   isSavingEquipos,
+  isSavingVisitText,
+  isSavingOtEconomics,
   selectedOTId,
+  reloadApp,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'ot-workspace';
 
   const header = document.createElement('div');
+  header.className = 'module-header';
   header.innerHTML =
-    '<h2>Clima · OT en terreno</h2><p class="muted">Equipos (hasta 12), evidencias por equipo, informe PDF.</p>';
+    '<h2>Clima · visitas y órdenes de trabajo (OT)</h2><p class="muted"><strong>Flujo recomendado:</strong> crear la OT → cargar equipos y fotos → guardar → completar resumen de visita → generar PDF de prueba → cerrar la OT (genera el informe final guardado). El estado <em>terminado</em> es el cierre oficial.</p>';
+
+  if (feedback?.message) {
+    const notice = document.createElement('div');
+    notice.className = `form-feedback form-feedback--${feedback.type} workspace-notice`;
+    notice.setAttribute('role', 'status');
+    notice.textContent = feedback.message;
+    header.append(notice);
+  }
+
+  const climaToolbar = document.createElement('div');
+  climaToolbar.className = 'module-toolbar';
+  const climaRefresh = document.createElement('button');
+  climaRefresh.type = 'button';
+  climaRefresh.className = 'secondary-button';
+  climaRefresh.textContent = 'Actualizar datos';
+  climaRefresh.title = 'Vuelve a cargar la lista de OT desde el servidor.';
+  const climaRefreshHint = document.createElement('span');
+  climaRefreshHint.className = 'muted module-toolbar__hint';
+  climaRefreshHint.textContent = 'Útil si otra persona cerró una visita o si hace tiempo que tenés la pantalla abierta.';
+  climaRefresh.addEventListener('click', async () => {
+    if (typeof reloadApp !== 'function') return;
+    const prev = climaRefresh.textContent;
+    climaRefresh.disabled = true;
+    climaRefresh.textContent = 'Actualizando…';
+    actions?.showFeedback?.({ type: 'neutral', message: 'Actualizando lista de órdenes…' });
+    const ok = await reloadApp();
+    actions?.showFeedback?.({
+      type: ok ? 'success' : 'error',
+      message: ok ? 'Lista de OT actualizada.' : 'No se pudo actualizar. Revisá la conexión con el servidor.',
+    });
+    climaRefresh.textContent = ok ? 'Listo' : 'Error';
+    setTimeout(() => {
+      climaRefresh.textContent = prev;
+      climaRefresh.disabled = false;
+    }, 1600);
+  });
+  climaToolbar.append(climaRefresh, climaRefreshHint);
 
   const ots = [...(data?.data || [])].reverse();
   const selectedOT = ots.find((item) => item.id === selectedOTId) || ots[0] || null;
@@ -568,19 +649,22 @@ export const climaView = ({
   cards.className = 'cards';
   [
     {
-      title: 'OT',
-      description: 'Operación.',
+      title: 'Órdenes de trabajo',
+      description: 'Resumen rápido.',
       items: [`Total: ${ots.length}`, `Pendientes: ${pendingCount}`, `En proceso: ${inProgressCount}`],
     },
     {
       title: 'Equipos',
-      description: 'Registrados en todas las OT.',
-      items: [`Total equipos: ${eqTotal}`, `Máx. por OT: ${MAX_EQUIPOS}`],
+      description: 'En todas las visitas.',
+      items: [`Equipos cargados: ${eqTotal}`, `Tope por visita: ${MAX_EQUIPOS}`],
     },
     {
-      title: 'Cierre',
-      description: 'Informe.',
-      items: ['PDF por equipo', 'Estado terminado con evidencias completas'],
+      title: 'Antes de cerrar',
+      description: 'Requisitos.',
+      items: [
+        'Fotos antes, durante y después por equipo',
+        'Checklist completo y texto de resumen de visita',
+      ],
     },
   ].forEach((item) => cards.append(createCard(item)));
 
@@ -591,17 +675,11 @@ export const climaView = ({
   formHeader.className = 'ot-form-card__header';
   formHeader.innerHTML = `
     <div>
-      <p class="muted">Nueva OT</p>
-      <h3>Crear orden de trabajo</h3>
+      <p class="muted">Paso 1 · Nueva visita</p>
+      <h3>Crear OT</h3>
+      <p class="muted" style="margin-top:8px;font-size:13px;">Completá los datos del cliente y del servicio. Más abajo podés sumar equipos y fotos ya en el alta.</p>
     </div>
   `;
-
-  if (feedback?.message) {
-    const feedbackBox = document.createElement('div');
-    feedbackBox.className = `form-feedback form-feedback--${feedback.type}`;
-    feedbackBox.textContent = feedback.message;
-    formHeader.append(feedbackBox);
-  }
 
   const form = document.createElement('form');
   form.className = 'ot-form';
@@ -659,7 +737,7 @@ export const climaView = ({
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
   submitButton.className = 'primary-button';
-  submitButton.textContent = isSubmitting ? 'Guardando...' : 'Crear OT';
+  submitButton.textContent = isSubmitting ? 'Guardando…' : 'Crear OT';
   submitButton.disabled = Boolean(isSubmitting);
   footer.append(submitButton);
   form.append(footer);
@@ -694,7 +772,7 @@ export const climaView = ({
   const listCard = document.createElement('article');
   listCard.className = 'ot-list-card';
   listCard.innerHTML =
-    '<div class="ot-list-card__header"><h3>Listado de OT</h3><p class="muted">Seleccioná una para operar.</p></div>';
+    '<div class="ot-list-card__header"><h3>Visitas / OT</h3><p class="muted">Paso 2 · Tocá una fila para ver el detalle y cargar evidencias.</p></div>';
 
   const list = document.createElement('div');
   list.className = 'ot-list';
@@ -728,19 +806,13 @@ export const climaView = ({
   detailCard.className = 'ot-detail-card';
 
   if (!selectedOT) {
-    detailCard.innerHTML = '<h3>Detalle</h3><p class="muted">Creá una OT o elegí una del listado.</p>';
+    detailCard.innerHTML =
+      '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado del medio.</p>';
   } else {
-    if (feedback?.message) {
-      const detailFeedback = document.createElement('div');
-      detailFeedback.className = `form-feedback form-feedback--${feedback.type} detail-feedback`;
-      detailFeedback.textContent = feedback.message;
-      detailCard.append(detailFeedback);
-    }
-
     const titleRow = document.createElement('div');
     titleRow.className = 'ot-detail-card__header';
     const titleBlock = document.createElement('div');
-    titleBlock.innerHTML = `<p class="muted">Detalle OT</p><h3>${selectedOT.id} · ${selectedOT.cliente}</h3>`;
+    titleBlock.innerHTML = `<p class="muted">Paso 3 · Detalle y cierre</p><h3>${selectedOT.id} · ${selectedOT.cliente}</h3>`;
     titleRow.append(titleBlock, createStatusBadge(selectedOT.estado));
     detailCard.append(titleRow);
 
@@ -762,6 +834,131 @@ export const climaView = ({
     });
     detailCard.append(summaryGrid);
 
+    const econWrap = document.createElement('div');
+    econWrap.className = 'ot-economics-block';
+    const econTitle = document.createElement('h3');
+    econTitle.className = 'ot-section-title';
+    econTitle.textContent = 'Costos e ingreso de la visita (uso interno)';
+    const econHint = document.createElement('p');
+    econHint.className = 'muted';
+    econHint.textContent =
+      'Materiales, mano de obra, traslado y otros suman el costo total. La utilidad es monto cobrado menos costo total (calculada en el servidor).';
+    const econGrid = document.createElement('div');
+    econGrid.className = 'ot-form__grid';
+
+    const mkNum = (name, label, value, readOnly) => {
+      const w = document.createElement('label');
+      w.className = 'form-field';
+      const lb = document.createElement('span');
+      lb.className = 'form-field__label';
+      lb.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = readOnly ? 'text' : 'number';
+      inp.min = readOnly ? undefined : '0';
+      inp.step = readOnly ? undefined : 'any';
+      inp.name = name;
+      inp.readOnly = Boolean(readOnly);
+      if (readOnly) {
+        inp.className = 'ot-economics-readonly';
+        inp.value =
+          name === 'utilidad'
+            ? String(value ?? '—')
+            : typeof value === 'number'
+              ? value.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+              : String(value ?? '—');
+      } else {
+        inp.value = String(value ?? 0);
+      }
+      w.append(lb, inp);
+      return w;
+    };
+
+    const ro = selectedOT.estado === 'terminado';
+    econGrid.append(
+      mkNum('costoMateriales', 'Materiales', selectedOT.costoMateriales, ro),
+      mkNum('costoManoObra', 'Mano de obra', selectedOT.costoManoObra, ro),
+      mkNum('costoTraslado', 'Traslado', selectedOT.costoTraslado, ro),
+      mkNum('costoOtros', 'Otros', selectedOT.costoOtros, ro),
+      mkNum('costoTotal', 'Costo total (calculado)', selectedOT.costoTotal, true),
+      mkNum('montoCobrado', 'Monto cobrado', selectedOT.montoCobrado, ro),
+      mkNum('utilidad', 'Utilidad (calculada)', selectedOT.utilidad, true)
+    );
+
+    const saveEcon = document.createElement('button');
+    saveEcon.type = 'button';
+    saveEcon.className = 'primary-button';
+    saveEcon.textContent = isSavingOtEconomics ? 'Guardando…' : 'Guardar costos e ingreso';
+    saveEcon.disabled = Boolean(
+      ro || isSavingOtEconomics || isClosingOT || isSavingEquipos || isSavingVisitText
+    );
+    saveEcon.addEventListener('click', async () => {
+      const q = (n) => econGrid.querySelector(`[name=${n}]`);
+      await actions.saveOtEconomics(selectedOT.id, {
+        costoMateriales: parseMoneyInput(q('costoMateriales')?.value),
+        costoManoObra: parseMoneyInput(q('costoManoObra')?.value),
+        costoTraslado: parseMoneyInput(q('costoTraslado')?.value),
+        costoOtros: parseMoneyInput(q('costoOtros')?.value),
+        montoCobrado: parseMoneyInput(q('montoCobrado')?.value),
+      });
+    });
+
+    econWrap.append(econTitle, econHint, econGrid, saveEcon);
+    detailCard.append(econWrap);
+
+    if (selectedOT.estado !== 'terminado') {
+      const visitWrap = document.createElement('div');
+      visitWrap.className = 'ot-visit-text';
+      const vtTitle = document.createElement('h3');
+      vtTitle.className = 'ot-section-title';
+      vtTitle.textContent = 'Resumen de visita (obligatorio para cerrar OT)';
+      const vtHint = document.createElement('p');
+      vtHint.className = 'muted';
+      vtHint.textContent =
+        'Completá y guardá resumen, recomendaciones y observaciones antes de usar «Cerrar OT».';
+
+      const vGrid = document.createElement('div');
+      vGrid.className = 'ot-form__grid';
+
+      const mkTa = (name, label, value) => {
+        const w = document.createElement('label');
+        w.className = 'form-field';
+        const lb = document.createElement('span');
+        lb.className = 'form-field__label';
+        lb.textContent = label;
+        const ta = document.createElement('textarea');
+        ta.name = name;
+        ta.rows = 3;
+        ta.value = value || '';
+        w.append(lb, ta);
+        return w;
+      };
+
+      vGrid.append(
+        mkTa('visitObs', 'Observaciones generales', selectedOT.observaciones),
+        mkTa('visitResumen', 'Resumen del trabajo', selectedOT.resumenTrabajo),
+        mkTa('visitReco', 'Recomendaciones generales', selectedOT.recomendaciones)
+      );
+
+      const saveVisit = document.createElement('button');
+      saveVisit.type = 'button';
+      saveVisit.className = 'primary-button';
+      saveVisit.textContent = isSavingVisitText ? 'Guardando…' : 'Guardar resumen de visita';
+      saveVisit.disabled = Boolean(isSavingVisitText || isClosingOT || isSavingOtEconomics);
+      saveVisit.addEventListener('click', async () => {
+        const obs = vGrid.querySelector('[name=visitObs]')?.value?.trim() ?? '';
+        const res = vGrid.querySelector('[name=visitResumen]')?.value?.trim() ?? '';
+        const rec = vGrid.querySelector('[name=visitReco]')?.value?.trim() ?? '';
+        await actions.saveVisitText(selectedOT.id, {
+          observaciones: obs,
+          resumenTrabajo: res,
+          recomendaciones: rec,
+        });
+      });
+
+      visitWrap.append(vtTitle, vtHint, vGrid, saveVisit);
+      detailCard.append(visitWrap);
+    }
+
     const equiposTitle = document.createElement('h3');
     equiposTitle.className = 'ot-section-title';
     equiposTitle.textContent = 'Equipos de la OT';
@@ -780,7 +977,9 @@ export const climaView = ({
     addDetailEq.type = 'button';
     addDetailEq.className = 'secondary-button';
     addDetailEq.textContent = '+ Agregar equipo';
-    addDetailEq.disabled = Boolean(isSavingEquipos || selectedOT.estado === 'terminado');
+    addDetailEq.disabled = Boolean(
+      isSavingEquipos || isSavingOtEconomics || selectedOT.estado === 'terminado'
+    );
     addDetailEq.addEventListener('click', () => {
       if (detailEqHost.querySelectorAll('.ot-equipo-detail-row').length >= MAX_EQUIPOS) return;
       if (selectedOT.estado === 'terminado') return;
@@ -793,9 +992,9 @@ export const climaView = ({
     const saveEq = document.createElement('button');
     saveEq.type = 'button';
     saveEq.className = 'primary-button';
-    saveEq.textContent = isSavingEquipos ? 'Guardando equipos...' : 'Guardar equipos';
+    saveEq.textContent = isSavingEquipos ? 'Guardando…' : 'Guardar equipos y fotos';
     saveEq.disabled = Boolean(
-      isSavingEquipos || isClosingOT || selectedOT.estado === 'terminado'
+      isSavingEquipos || isClosingOT || isSavingOtEconomics || selectedOT.estado === 'terminado'
     );
     saveEq.addEventListener('click', async () => {
       const built = collectEquiposFromDetail(detailEqHost, selectedOT);
@@ -812,14 +1011,14 @@ export const climaView = ({
     const pdfBtn = document.createElement('button');
     pdfBtn.type = 'button';
     pdfBtn.className = 'secondary-button';
-    pdfBtn.textContent = isGeneratingPdf ? 'Generando PDF...' : 'Generar PDF (informe actual)';
-    pdfBtn.disabled = Boolean(isGeneratingPdf || isClosingOT);
+    pdfBtn.textContent = isGeneratingPdf ? 'Generando…' : 'Generar informe (PDF borrador)';
+    pdfBtn.disabled = Boolean(isGeneratingPdf || isClosingOT || isSavingOtEconomics);
     pdfBtn.addEventListener('click', async () => {
       await actions.generatePdfFromOt(selectedOT);
     });
     const pdfHelp = document.createElement('p');
     pdfHelp.className = 'muted';
-    pdfHelp.textContent = 'Informe técnico con datos y equipos actuales.';
+    pdfHelp.textContent = 'No cierra la OT: solo abre un PDF con lo que hay ahora para revisar o imprimir.';
     pdfRow.append(pdfBtn, pdfHelp);
     detailCard.append(pdfRow);
 
@@ -852,7 +1051,7 @@ export const climaView = ({
 
     const statusActions = document.createElement('div');
     statusActions.className = 'status-actions';
-    statusActions.innerHTML = '<p class="muted">Estado de la OT</p>';
+    statusActions.innerHTML = '<p class="muted">Cambiar estado (sin cerrar definitivamente)</p>';
     const statusButtons = document.createElement('div');
     statusButtons.className = 'status-actions__buttons';
 
@@ -861,7 +1060,7 @@ export const climaView = ({
       button.type = 'button';
       button.className = `secondary-button ${selectedOT.estado === status ? 'is-active' : ''}`.trim();
       button.textContent = status;
-      button.disabled = Boolean(isUpdatingStatus);
+      button.disabled = Boolean(isUpdatingStatus || isSavingOtEconomics);
       button.addEventListener('click', async () => {
         if (status === selectedOT.estado) return;
         await actions.updateOTStatus(selectedOT.id, status);
@@ -875,12 +1074,12 @@ export const climaView = ({
     const closeLabel = document.createElement('p');
     closeLabel.className = 'muted';
     closeLabel.textContent =
-      'Cerrar y generar informe: pasa a terminado, PDF y guardado en la OT (cada equipo debe tener al menos una foto con archivo en ANTES, DURANTE y DESPUÉS).';
-    const closeGaps = getEvidenceGaps(selectedOT);
-    if (closeGaps.length && selectedOT.estado !== 'terminado') {
+      'Cierre definitivo: la OT pasa a terminada, se genera el PDF y queda guardado. Requisitos: fotos por equipo, checklist completo, resumen y recomendaciones de la OT (guardá equipos y texto de visita antes).';
+    const canCloseNow = selectedOT.estado === 'terminado' || otCanClose(selectedOT);
+    if (!canCloseNow && selectedOT.estado !== 'terminado') {
       const gapHint = document.createElement('p');
       gapHint.className = 'ot-close-hint';
-      gapHint.textContent = formatEvidenceGapsMessage(closeGaps);
+      gapHint.textContent = formatAllCloseBlockersMessage(selectedOT);
       closeWrap.append(closeLabel, gapHint);
     } else {
       closeWrap.append(closeLabel);
@@ -888,10 +1087,18 @@ export const climaView = ({
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'primary-button';
-    closeBtn.textContent = isClosingOT ? 'Procesando...' : 'Cerrar y generar informe';
-    closeBtn.disabled = Boolean(isClosingOT || isUploadingEvidence || isSavingEquipos || selectedOT.estado === 'terminado');
-    if (closeGaps.length && selectedOT.estado !== 'terminado') {
-      closeBtn.title = formatEvidenceGapsMessage(closeGaps);
+    closeBtn.textContent = isClosingOT ? 'Procesando…' : 'Cerrar OT e informe final';
+    closeBtn.disabled = Boolean(
+      isClosingOT ||
+        isUploadingEvidence ||
+        isSavingEquipos ||
+        isSavingVisitText ||
+        isSavingOtEconomics ||
+        selectedOT.estado === 'terminado' ||
+        !otCanClose(selectedOT)
+    );
+    if (!otCanClose(selectedOT) && selectedOT.estado !== 'terminado') {
+      closeBtn.title = formatAllCloseBlockersMessage(selectedOT);
     }
     closeBtn.addEventListener('click', async () => {
       await actions.closeAndGenerateReport(selectedOT);
@@ -900,19 +1107,21 @@ export const climaView = ({
     statusActions.append(closeWrap);
     detailCard.append(statusActions);
 
-    const textBlocks = document.createElement('div');
-    textBlocks.className = 'ot-text-blocks';
-    [
-      ['Observaciones generales', selectedOT.observaciones || '—'],
-      ['Resumen del trabajo', selectedOT.resumenTrabajo || '—'],
-      ['Recomendaciones generales', selectedOT.recomendaciones || '—'],
-    ].forEach(([label, value]) => {
-      const block = document.createElement('article');
-      block.className = 'ot-text-card';
-      block.innerHTML = `<h4>${label}</h4><p class="muted">${value}</p>`;
-      textBlocks.append(block);
-    });
-    detailCard.append(textBlocks);
+    if (selectedOT.estado === 'terminado') {
+      const textBlocks = document.createElement('div');
+      textBlocks.className = 'ot-text-blocks';
+      [
+        ['Observaciones generales', selectedOT.observaciones || '—'],
+        ['Resumen del trabajo', selectedOT.resumenTrabajo || '—'],
+        ['Recomendaciones generales', selectedOT.recomendaciones || '—'],
+      ].forEach(([label, value]) => {
+        const block = document.createElement('article');
+        block.className = 'ot-text-card';
+        block.innerHTML = `<h4>${label}</h4><p class="muted">${value}</p>`;
+        textBlocks.append(block);
+      });
+      detailCard.append(textBlocks);
+    }
 
     const legTitle = document.createElement('h4');
     legTitle.textContent = 'Evidencias a nivel visita (OT sin equipos o legado)';
@@ -930,7 +1139,7 @@ export const climaView = ({
   }
 
   overview.append(listCard, detailCard);
-  section.append(header, cards, formCard, overview);
+  section.append(header, climaToolbar, cards, formCard, overview);
 
   return section;
 };

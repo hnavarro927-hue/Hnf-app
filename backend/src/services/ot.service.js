@@ -1,3 +1,4 @@
+import { HVAC_CHECKLIST_TEMPLATE } from '../constants/hvacChecklist.js';
 import {
   normalizeEvidenceItem,
   normalizeFiles,
@@ -5,10 +6,12 @@ import {
 import { otModel } from '../models/ot.model.js';
 import { otRepository } from '../repositories/ot.repository.js';
 import {
+  validateEconomicsPatch,
   validateEquiposPatchBody,
   validateEvidencePatchBody,
   validateOTPayload,
   validateReportPayload,
+  validateVisitFieldsPatch,
 } from '../validators/ot.validator.js';
 
 export const OT_CLOSE_EVIDENCE_ERROR_MESSAGE =
@@ -71,6 +74,44 @@ const formatCloseEvidenceMessage = (gaps) => {
     .join(' ');
 };
 
+const mergeEquipoChecklist = (raw) => {
+  const rawList = Array.isArray(raw?.checklist) ? raw.checklist : [];
+  const byId = Object.fromEntries(rawList.map((c) => [c.id, c]));
+  return HVAC_CHECKLIST_TEMPLATE.map((t) => ({
+    id: t.id,
+    label: t.label,
+    realizado: Boolean(byId[t.id]?.realizado),
+  }));
+};
+
+const getQualityGapsForOt = (ot) => {
+  const gaps = [];
+  if (!String(ot?.resumenTrabajo || '').trim()) {
+    gaps.push({ kind: 'ot', detail: 'Falta el resumen del trabajo en la OT.' });
+  }
+  if (!String(ot?.recomendaciones || '').trim()) {
+    gaps.push({ kind: 'ot', detail: 'Faltan las recomendaciones generales de la OT.' });
+  }
+  const eqs = ot?.equipos || [];
+  if (eqs.length > 0) {
+    eqs.forEach((eq, idx) => {
+      const name = String(eq?.nombreEquipo || '').trim() || `Equipo ${idx + 1}`;
+      const list = mergeEquipoChecklist(eq);
+      list.forEach((it) => {
+        if (!it.realizado) {
+          gaps.push({ kind: 'checklist', equipo: name, detail: `Checklist: «${it.label}» no marcado como realizado.` });
+        }
+      });
+    });
+  }
+  return gaps;
+};
+
+const formatQualityCloseMessage = (gaps) =>
+  gaps.map((g) => (g.kind === 'ot' ? g.detail : `En «${g.equipo}»: ${g.detail}`)).join(' ');
+
+const hasQualityForClose = (ot) => getQualityGapsForOt(ot).length === 0;
+
 const normalizeEvidenceList = (arr, prefix) => {
   if (!Array.isArray(arr)) return [];
   return arr.map((file, index) => normalizeEvidenceItem(file, prefix, index));
@@ -113,6 +154,7 @@ const normalizeEquipo = (raw, index) => {
     observaciones: String(raw?.observaciones || '').trim(),
     accionesRealizadas: String(raw?.accionesRealizadas || '').trim(),
     recomendaciones: String(raw?.recomendaciones || '').trim(),
+    checklist: mergeEquipoChecklist(raw),
     evidencias,
     fotografiasAntes: evidencias.antes,
     fotografiasDurante: evidencias.durante,
@@ -174,6 +216,8 @@ export const otService = {
       observaciones: data.observaciones || '',
       resumenTrabajo: data.resumenTrabajo || '',
       recomendaciones: data.recomendaciones || '',
+      creadoEn: new Date().toISOString(),
+      cerradoEn: null,
       pdfName: null,
       pdfUrl: null,
       equipos,
@@ -197,6 +241,12 @@ export const otService = {
         return {
           error: formatCloseEvidenceMessage(getEvidenceGapsForOt(current)),
           code: 'EVIDENCE_INCOMPLETE',
+        };
+      }
+      if (!hasQualityForClose(current)) {
+        return {
+          error: formatQualityCloseMessage(getQualityGapsForOt(current)),
+          code: 'QUALITY_INCOMPLETE',
         };
       }
     }
@@ -264,6 +314,38 @@ export const otService = {
       return { error: 'OT no encontrada.' };
     }
 
+    return item;
+  },
+
+  async patchVisitFields(id, body) {
+    const validation = validateVisitFieldsPatch(body);
+    if (!validation.valid) {
+      return { errors: validation.errors };
+    }
+    const patch = {};
+    for (const k of ['resumenTrabajo', 'recomendaciones', 'observaciones']) {
+      if (k in body) patch[k] = body[k];
+    }
+    const item = await otRepository.updateVisitFields(id, patch);
+    if (!item) {
+      return { error: 'OT no encontrada.' };
+    }
+    return item;
+  },
+
+  async patchEconomics(id, body) {
+    const validation = validateEconomicsPatch(body);
+    if (!validation.valid) {
+      return { errors: validation.errors };
+    }
+    const patch = {};
+    for (const k of ['costoMateriales', 'costoManoObra', 'costoTraslado', 'costoOtros', 'montoCobrado']) {
+      if (k in body) patch[k] = body[k];
+    }
+    const item = await otRepository.updateEconomics(id, patch);
+    if (!item) {
+      return { error: 'OT no encontrada.' };
+    }
     return item;
   },
 };

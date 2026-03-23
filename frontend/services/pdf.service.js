@@ -350,7 +350,15 @@ export const generateClienteCalendarioPdfBlob = ({ clienteNombre, rows = [] }) =
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  const sorted = [...rows].sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')));
+  const sorted = [...rows].sort((a, b) => {
+    const ro = (Number(a.ordenRuta) || 999) - (Number(b.ordenRuta) || 999);
+    if (ro !== 0) return ro;
+    const co = String(a.comuna || '').localeCompare(String(b.comuna || ''));
+    if (co !== 0) return co;
+    const ti = String(a.tiendaNombre || '').localeCompare(String(b.tiendaNombre || ''));
+    if (ti !== 0) return ti;
+    return String(a.fecha || '').localeCompare(String(b.fecha || ''));
+  });
 
   if (!sorted.length) {
     doc.setFont('helvetica', 'italic');
@@ -387,14 +395,16 @@ export const generateClienteCalendarioPdfBlob = ({ clienteNombre, rows = [] }) =
       doc.addPage();
       y = 22;
     }
+    const ventana =
+      r.horaInicio && r.horaFin ? `${r.horaInicio}–${r.horaFin}` : 'Jornada completa / sin franja';
     doc.text(
-      `Fecha mantención: ${r.fecha || '—'}  ·  Horario AM: ${r.horarioAM || '—'}  ·  Horario PM: ${r.horarioPM || '—'}`,
+      `Fecha mantención: ${r.fecha || '—'}  ·  Ventana técnico: ${ventana}  ·  AM tienda: ${r.horarioAM || '—'}  ·  PM: ${r.horarioPM || '—'}`,
       margin,
       y
     );
     y += 4;
     doc.text(
-      `Técnico: ${r.tecnico || '—'}  ·  Tipo: ${r.tipo || '—'}  ·  Estado: ${r.estado || '—'}`,
+      `Técnico: ${r.tecnico || '—'}  ·  Tipo: ${r.tipo || '—'}  ·  Estado: ${r.estado || '—'}  ·  Ruta: ${r.ordenRuta ?? '—'}`,
       margin,
       y
     );

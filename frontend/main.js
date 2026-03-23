@@ -2,6 +2,7 @@ import './styles/app.css';
 import { appConfig, formatApiBaseLabel } from './config/app.config.js';
 import { createShell } from './components/shell.js';
 import { clientService } from './services/client.service.js';
+import { flotaSolicitudService } from './services/flota-solicitud.service.js';
 import { expenseService } from './services/expense.service.js';
 import { healthService } from './services/health.service.js';
 import { blobToDataUrl, generateOtPdfBlob } from './services/pdf.service.js';
@@ -14,9 +15,8 @@ import { adminView } from './views/admin.js';
 import { planificacionService } from './services/planificacion.service.js';
 import { planificacionView } from './views/planificacion.js';
 import {
-  formatEvidenceGapsMessage,
-  getEvidenceGaps,
-  otHasCloseEvidence,
+  formatAllCloseBlockersMessage,
+  otCanClose,
 } from './utils/ot-evidence.js';
 
 const app = document.querySelector('#app');
@@ -28,15 +28,29 @@ const viewRegistry = {
   dashboard: {
     render: dashboardView,
     load: async () => {
-      const [health, ots, clients, vehicles, expenses] = await Promise.all([
+      const [health, ots, clients, vehicles, expenses, cr, tr, mr, sol] = await Promise.all([
         healthService.getStatus(),
         otService.getAll(),
         clientService.getAll(),
         vehicleService.getAll(),
         expenseService.getAll(),
+        planificacionService.getClientes(),
+        planificacionService.getTiendas({}),
+        planificacionService.getMantenciones({}),
+        flotaSolicitudService.getAll({}),
       ]);
 
-      return { health, ots, clients, vehicles, expenses };
+      return {
+        health,
+        ots,
+        clients,
+        vehicles,
+        expenses,
+        planClientes: cr.data ?? [],
+        planTiendas: tr.data ?? [],
+        planMantenciones: mr.data ?? [],
+        flotaSolicitudes: sol.data ?? [],
+      };
     },
   },
 
@@ -64,12 +78,13 @@ const viewRegistry = {
   flota: {
     render: flotaView,
     load: async () => {
-      const [vehicles, expenses] = await Promise.all([
+      const [vehicles, expenses, sol] = await Promise.all([
         vehicleService.getAll(),
         expenseService.getAll(),
+        flotaSolicitudService.getAll({}),
       ]);
 
-      return { vehicles, expenses };
+      return { vehicles, expenses, flotaSolicitudes: sol.data ?? [] };
     },
   },
 
@@ -107,13 +122,19 @@ const state = {
   integrationStatus: 'pendiente',
   viewData: null,
   selectedOTId: null,
+  selectedFlotaId: null,
   otFeedback: null,
+  flotaFeedback: null,
+  adminFeedback: null,
+  lastSuccessfulFetchAt: null,
   isSubmittingOT: false,
   isUpdatingOTStatus: false,
   isClosingOT: false,
   isUploadingEvidence: false,
   isGeneratingPdf: false,
   isSavingEquipos: false,
+  isSavingVisitText: false,
+  isSavingOtEconomics: false,
 };
 
 const syncSelectedOT = () => {
@@ -131,6 +152,19 @@ const syncSelectedOT = () => {
   }
 };
 
+const syncSelectedFlota = () => {
+  if (state.activeView !== 'flota') return;
+  const list = state.viewData?.flotaSolicitudes || [];
+  if (!list.length) {
+    state.selectedFlotaId = null;
+    return;
+  }
+  const exists = list.some((s) => s.id === state.selectedFlotaId);
+  if (!exists) {
+    state.selectedFlotaId = list[0]?.id ?? null;
+  }
+};
+
 const createActions = () => ({
   selectOT: (id) => {
     state.selectedOTId = id;
@@ -139,6 +173,21 @@ const createActions = () => ({
 
   showFeedback: (fb) => {
     state.otFeedback = fb;
+    render();
+  },
+
+  setFlotaFeedback: (fb) => {
+    state.flotaFeedback = fb;
+    render();
+  },
+
+  selectFlota: (id) => {
+    state.selectedFlotaId = id;
+    render();
+  },
+
+  setAdminFeedback: (fb) => {
+    state.adminFeedback = fb;
     render();
   },
 
@@ -152,13 +201,14 @@ const createActions = () => ({
       state.selectedOTId = response.data.id;
       state.otFeedback = {
         type: 'success',
-        message: 'OT creada correctamente y lista para revisión en pantalla o futuro PDF.',
+        message:
+          'Orden de trabajo creada. Elegila en el listado de la derecha para cargar equipos, fotos y cerrar la visita.',
       };
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
         type: 'error',
-        message: error.message || 'No fue posible crear la OT.',
+        message: error.message || 'No se pudo crear la orden de trabajo. Revisá los datos o la conexión.',
       };
       render();
     } finally {
@@ -176,13 +226,15 @@ const createActions = () => ({
       await otService.updateStatus(id, { estado: status });
       state.otFeedback = {
         type: 'success',
-        message: `Estado de la OT actualizado a ${status}.`,
+        message: `Estado de la OT actualizado a «${status}». Los cambios ya están guardados.`,
       };
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
         type: 'error',
-        message: error.message || 'No fue posible actualizar el estado de la OT.',
+        message:
+          error.message ||
+          'No se pudo cambiar el estado. Revisá fotos por equipo, checklist, resumen y recomendaciones si intentás cerrar la OT.',
       };
       render();
     } finally {
@@ -215,18 +267,67 @@ const createActions = () => ({
     }
   },
 
+  saveOtEconomics: async (id, payload) => {
+    state.isSavingOtEconomics = true;
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.patchEconomics(id, payload);
+      state.otFeedback = {
+        type: 'success',
+        message: 'Costos e ingreso guardados. La utilidad se recalculó automáticamente.',
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudieron guardar los datos económicos.',
+      };
+      render();
+    } finally {
+      state.isSavingOtEconomics = false;
+      render();
+    }
+  },
+
+  saveVisitText: async (id, payload) => {
+    state.isSavingVisitText = true;
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.patchVisit(id, payload);
+      state.otFeedback = {
+        type: 'success',
+        message: 'Resumen, recomendaciones y observaciones guardados.',
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudieron guardar los textos de la visita.',
+      };
+      render();
+    } finally {
+      state.isSavingVisitText = false;
+      render();
+    }
+  },
+
   saveEquipos: async (id, equiposPayload) => {
     state.isSavingEquipos = true;
     state.otFeedback = null;
     render();
     try {
       await otService.patchEquipos(id, { equipos: equiposPayload });
-      state.otFeedback = { type: 'success', message: 'Equipos guardados correctamente.' };
+      state.otFeedback = {
+        type: 'success',
+        message: 'Datos de equipos y fotos guardados en el servidor. Podés seguir editando o generar el PDF.',
+      };
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
         type: 'error',
-        message: error.message || 'No se pudieron guardar los equipos.',
+        message: error.message || 'No se pudieron guardar equipos y fotos. Reintentá o revisá la conexión.',
       };
       render();
     } finally {
@@ -244,7 +345,7 @@ const createActions = () => ({
       openPdfBlobInNewTab(blob);
       state.otFeedback = {
         type: 'success',
-        message: `PDF listo: ${fileName}. Desde el visor podés guardar el archivo.`,
+        message: `Se abrió el informe PDF (${fileName}). En el navegador podés imprimirlo o guardarlo como archivo.`,
       };
     } catch (error) {
       state.otFeedback = {
@@ -258,10 +359,10 @@ const createActions = () => ({
   },
 
   closeAndGenerateReport: async (ot) => {
-    if (!otHasCloseEvidence(ot)) {
+    if (!otCanClose(ot)) {
       state.otFeedback = {
         type: 'error',
-        message: formatEvidenceGapsMessage(getEvidenceGaps(ot)),
+        message: formatAllCloseBlockersMessage(ot),
       };
       render();
       return;
@@ -280,13 +381,14 @@ const createActions = () => ({
       await otService.patchReport(ot.id, { pdfName: fileName, pdfUrl });
       state.otFeedback = {
         type: 'success',
-        message: 'OT cerrada: estado terminado, informe PDF generado y guardado de forma persistente.',
+        message:
+          'OT cerrada: quedó en estado terminado y el informe PDF quedó guardado en esta orden. Revisá el PDF en la pestaña que se abrió.',
       };
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
         type: 'error',
-        message: error.message || 'No fue posible completar el cierre con informe.',
+        message: error.message || 'No se pudo cerrar la visita con informe. Revisá evidencias y conexión.',
       };
       render();
     } finally {
@@ -311,6 +413,12 @@ const render = () => {
       if (viewId !== 'clima') {
         state.otFeedback = null;
       }
+      if (viewId !== 'flota') {
+        state.flotaFeedback = null;
+      }
+      if (viewId !== 'admin') {
+        state.adminFeedback = null;
+      }
 
       render();
       await loadViewData();
@@ -321,16 +429,22 @@ const render = () => {
     currentView.render({
       apiBaseLabel: formatApiBaseLabel(),
       integrationStatus: state.integrationStatus,
+      lastDataRefreshAt: state.lastSuccessfulFetchAt,
       data: state.viewData,
       actions: createActions(),
       feedback: state.otFeedback,
+      flotaFeedback: state.flotaFeedback,
+      adminFeedback: state.adminFeedback,
       isSubmitting: state.isSubmittingOT,
       isUpdatingStatus: state.isUpdatingOTStatus,
       isClosingOT: state.isClosingOT,
       isUploadingEvidence: state.isUploadingEvidence,
       isGeneratingPdf: state.isGeneratingPdf,
       isSavingEquipos: state.isSavingEquipos,
+      isSavingVisitText: state.isSavingVisitText,
+      isSavingOtEconomics: state.isSavingOtEconomics,
       selectedOTId: state.selectedOTId,
+      selectedFlotaId: state.selectedFlotaId,
       reloadApp: loadViewData,
     })
   );
@@ -338,17 +452,22 @@ const render = () => {
   app.append(shell.element);
 };
 
+/** Recarga datos de la vista activa. Devuelve true si el servidor respondió bien. */
 const loadViewData = async () => {
   try {
     state.viewData = await viewRegistry[state.activeView].load();
     state.integrationStatus = 'conectado';
+    state.lastSuccessfulFetchAt = new Date().toISOString();
     syncSelectedOT();
+    syncSelectedFlota();
+    render();
+    return true;
   } catch (error) {
     state.viewData = null;
     state.integrationStatus = 'sin conexión';
+    render();
+    return false;
   }
-
-  render();
 };
 
 loadViewData();

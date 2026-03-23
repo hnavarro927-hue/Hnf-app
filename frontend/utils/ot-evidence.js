@@ -1,3 +1,5 @@
+import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
+
 export const BLOCK_LABELS = {
   antes: 'ANTES',
   durante: 'DURANTE',
@@ -69,6 +71,47 @@ export const getEvidenceGaps = (ot) => {
 };
 
 export const otHasCloseEvidence = (ot) => getEvidenceGaps(ot).length === 0;
+
+export const getQualityCloseGaps = (ot) => {
+  const gaps = [];
+  if (!String(ot?.resumenTrabajo || '').trim()) {
+    gaps.push({ kind: 'ot', text: 'Completá el resumen del trabajo de la OT.' });
+  }
+  if (!String(ot?.recomendaciones || '').trim()) {
+    gaps.push({ kind: 'ot', text: 'Completá las recomendaciones generales de la OT.' });
+  }
+  const eqs = ot?.equipos || [];
+  if (eqs.length > 0) {
+    eqs.forEach((eq, idx) => {
+      const name = (eq?.nombreEquipo || '').trim() || `Equipo ${idx + 1}`;
+      mergeEquipoChecklist(eq).forEach((it) => {
+        if (!it.realizado) {
+          gaps.push({
+            kind: 'checklist',
+            text: `En «${name}»: marcar checklist «${it.label}».`,
+          });
+        }
+      });
+    });
+  }
+  return gaps;
+};
+
+export const formatQualityCloseGapsMessage = (gaps) =>
+  gaps.map((g) => g.text).filter(Boolean).join(' ');
+
+export const otHasCloseQuality = (ot) => getQualityCloseGaps(ot).length === 0;
+
+export const otCanClose = (ot) => otHasCloseEvidence(ot) && otHasCloseQuality(ot);
+
+export const formatAllCloseBlockersMessage = (ot) => {
+  const ev = getEvidenceGaps(ot);
+  const q = getQualityCloseGaps(ot);
+  const parts = [];
+  if (ev.length) parts.push(formatEvidenceGapsMessage(ev));
+  if (q.length) parts.push(formatQualityCloseGapsMessage(q));
+  return parts.filter(Boolean).join(' ');
+};
 
 export const formatEvidenceGapsMessage = (gaps) => {
   if (!gaps?.length) return '';

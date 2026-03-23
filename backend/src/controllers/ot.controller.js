@@ -36,10 +36,12 @@ export const updateOTStatus = async (request, response) => {
   );
 
   if (result.error) {
-    const isEvidenceBlock = result.code === 'EVIDENCE_INCOMPLETE';
-    return sendError(response, isEvidenceBlock ? 422 : 400, result.error, {
+    const isCloseBlock =
+      result.code === 'EVIDENCE_INCOMPLETE' || result.code === 'QUALITY_INCOMPLETE';
+    return sendError(response, isCloseBlock ? 422 : 400, result.error, {
       resource: 'ots',
       validStatuses: otModel.statusOptions,
+      code: result.code,
     });
   }
 
@@ -106,5 +108,45 @@ export const patchOTReport = async (request, response) => {
   return sendSuccess(response, 200, result, {
     resource: 'ots',
     action: 'patchOTReport',
+  });
+};
+
+export const patchOTVisit = async (request, response) => {
+  const result = await otService.patchVisitFields(request.params.id, request.body || {});
+
+  if (result.errors) {
+    return sendError(response, 400, 'Datos de visita inválidos.', {
+      resource: 'ots',
+      validations: result.errors,
+    });
+  }
+
+  if (result.error) {
+    return sendError(response, 404, result.error, { resource: 'ots' });
+  }
+
+  return sendSuccess(response, 200, result, {
+    resource: 'ots',
+    action: 'patchOTVisit',
+  });
+};
+
+export const patchOTEconomics = async (request, response) => {
+  const result = await otService.patchEconomics(request.params.id, request.body || {});
+
+  if (result.errors) {
+    return sendError(response, 400, 'Datos económicos inválidos.', {
+      resource: 'ots',
+      validations: result.errors,
+    });
+  }
+
+  if (result.error) {
+    return sendError(response, 404, result.error, { resource: 'ots' });
+  }
+
+  return sendSuccess(response, 200, result, {
+    resource: 'ots',
+    action: 'patchOTEconomics',
   });
 };

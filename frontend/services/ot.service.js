@@ -8,4 +8,7 @@ export const otService = {
   patchEvidences: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/evidences`, payload),
   patchReport: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/report`, payload),
   patchEquipos: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/equipos`, payload),
+  patchVisit: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/visit`, payload),
+  patchEconomics: (id, payload) =>
+    httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/economics`, payload),
 };

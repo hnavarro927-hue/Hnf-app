@@ -1,11 +1,20 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { appendHistorial } from '../utils/historialUtil.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.resolve(__dirname, '../../data/plan_clientes.json');
 
 let cache = null;
+
+const normalizeCliente = (c) => ({
+  ...c,
+  estado: String(c.estado || 'activo').trim(),
+  createdAt: c.createdAt || null,
+  updatedAt: c.updatedAt || c.createdAt || null,
+  historial: Array.isArray(c.historial) ? c.historial : [],
+});
 
 const nextId = (items) => {
   const n = items.reduce((max, item) => {
@@ -21,7 +30,7 @@ const loadStore = async () => {
   try {
     const raw = await readFile(dataFile, 'utf8');
     const parsed = JSON.parse(raw);
-    cache = Array.isArray(parsed) ? parsed : [];
+    cache = Array.isArray(parsed) ? parsed.map(normalizeCliente) : [];
   } catch {
     cache = [];
   }
@@ -46,7 +55,15 @@ export const planClienteRepository = {
 
   async create({ nombre }) {
     const items = await loadStore();
-    const item = { id: nextId(items), nombre: String(nombre || '').trim() };
+    const now = new Date().toISOString();
+    const item = normalizeCliente({
+      id: nextId(items),
+      nombre: String(nombre || '').trim(),
+      estado: 'activo',
+      createdAt: now,
+      updatedAt: now,
+      historial: appendHistorial({}, 'alta', 'Cliente de planificación creado'),
+    });
     const next = [...items, item];
     await saveStore(next);
     return item;

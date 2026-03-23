@@ -14,7 +14,12 @@ const request = async (path, options = {}) => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error?.message || 'Error de integración con API.');
+    let msg = data.error?.message || 'No se pudo completar la operación con el servidor.';
+    const vals = data.error?.validations;
+    if (Array.isArray(vals) && vals.length) {
+      msg = `${msg} ${vals.join(' ')}`;
+    }
+    throw new Error(msg.trim());
   }
 
   return data;

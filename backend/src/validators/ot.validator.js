@@ -106,3 +106,38 @@ export const validateReportPayload = (payload = {}) => {
     errors,
   };
 };
+
+const VISIT_FIELD_KEYS = ['resumenTrabajo', 'recomendaciones', 'observaciones'];
+
+export const validateVisitFieldsPatch = (payload = {}) => {
+  const errors = [];
+  const hasAny = VISIT_FIELD_KEYS.some((k) => k in payload);
+  if (!hasAny) {
+    errors.push('Enviá al menos uno de: resumenTrabajo, recomendaciones, observaciones.');
+  }
+  for (const k of VISIT_FIELD_KEYS) {
+    if (!(k in payload)) continue;
+    if (payload[k] !== null && typeof payload[k] !== 'string') {
+      errors.push(`${k} debe ser texto.`);
+    }
+  }
+  return { valid: errors.length === 0, errors };
+};
+
+const ECON_KEYS = ['costoMateriales', 'costoManoObra', 'costoTraslado', 'costoOtros', 'montoCobrado'];
+
+export const validateEconomicsPatch = (payload = {}) => {
+  const errors = [];
+  const hasAny = ECON_KEYS.some((k) => k in payload);
+  if (!hasAny) {
+    errors.push('Enviá al menos uno de: costoMateriales, costoManoObra, costoTraslado, costoOtros, montoCobrado.');
+  }
+  for (const k of ECON_KEYS) {
+    if (!(k in payload)) continue;
+    const n = Number(payload[k]);
+    if (!Number.isFinite(n) || n < 0) {
+      errors.push(`${k} debe ser un número mayor o igual a 0.`);
+    }
+  }
+  return { valid: errors.length === 0, errors };
+};

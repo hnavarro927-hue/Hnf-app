@@ -7,4 +7,5 @@ export const apiEndpoints = {
   planClientes: '/clientes',
   planTiendas: '/tiendas',
   planMantenciones: '/mantenciones',
+  flotaSolicitudes: '/flota/solicitudes',
 };

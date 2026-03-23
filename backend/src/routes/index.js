@@ -1,5 +1,6 @@
 import { clientRoutes } from './client.routes.js';
 import { expenseRoutes } from './expense.routes.js';
+import { flotaSolicitudRoutes } from './flotaSolicitud.routes.js';
 import { healthRoutes } from './health.routes.js';
 import { otRoutes } from './ot.routes.js';
 import { planificacionRoutes } from './planificacion.routes.js';
@@ -12,4 +13,5 @@ export const routes = [
   ...vehicleRoutes,
   ...expenseRoutes,
   ...planificacionRoutes,
+  ...flotaSolicitudRoutes,
 ];
