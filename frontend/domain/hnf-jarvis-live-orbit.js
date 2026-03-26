@@ -189,6 +189,9 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
       ? `UNIF. ${waConOt} WA↔OT · ${evCorreo} MAIL EN COLA`
       : `UNIF. COLA ${eventosUnificados.length} EVT.`;
 
+  const solStats = ctx.hnfCoreSolicitudStats || {};
+  const solicitudesCoreLine = String(solStats.lineaNucleo || 'CORE 0 ACT. · 0 APROB. · 0 RIESGO').toUpperCase();
+
   const commercialPressure = Math.min(
     99,
     pendOpp + cotizados * 2 + opps.filter((o) => o.prioridad === 'alta').length * 2 + clientesRepetidos + upsellPotencial
@@ -221,6 +224,7 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
       otBloqueadasLine: `${bloqueos} OT BLOQUEADAS`,
       comercialIntegrado,
       cruceOperativo,
+      solicitudesCoreLine,
       operacionHoy: `${ots.length} OT ACTIVAS · ${bloqueos} ROJAS · ${pendientes} ÁMBAR`,
       solicitudesHoy: `${solHoy} ingresos flota hoy · ${solAbiertas} abiertas`,
       otActivas: ots.length,

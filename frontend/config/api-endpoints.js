@@ -15,4 +15,5 @@ export const apiEndpoints = {
   operationalEvents: '/operational-events',
   operationalPanelDaily: '/operational-panel/daily',
   operationalIngest: '/operational-ingest',
+  hnfCoreSolicitudes: '/hnf-core/solicitudes',
 };

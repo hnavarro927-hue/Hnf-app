@@ -36,6 +36,7 @@ import { jarvisHqView } from './views/jarvis-hq.js';
 import { jarvisIntakeHubView } from './views/jarvis-intake-hub.js';
 import { jarvisVaultView } from './views/jarvis-vault.js';
 import { ingresoOperativoView } from './views/ingreso-operativo.js';
+import { hnfCoreHubView } from './views/hnf-core-hub.js';
 import { controlGerencialView } from './views/control-gerencial.js';
 import { whatsappFeedService } from './services/whatsapp-feed.service.js';
 import { outlookIntakeService } from './services/outlook-intake.service.js';
@@ -44,6 +45,7 @@ import { technicalDocumentsService } from './services/technical-documents.servic
 import { commercialOpportunitiesService } from './services/commercial-opportunities.service.js';
 import { operationalCalendarService } from './services/operational-calendar.service.js';
 import { operationalEventsService } from './services/operational-events.service.js';
+import { hnfCoreSolicitudesService } from './services/hnf-core-solicitudes.service.js';
 import {
   computeOperationalCalendarAlerts,
   defaultOperationalCalendarRange,
@@ -273,6 +275,7 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'operacion-control',
   'ingreso-operativo',
   'control-gerencial',
+  'hnf-core',
 ]);
 
 const minimalOperationalViewData = () => {
@@ -327,6 +330,7 @@ const minimalOperationalViewData = () => {
     jarvisOperativeEvents: getCentroIngestaState().events,
     operationalPanelDaily: null,
     operationalEvents: [],
+    hnfCoreSolicitudes: [],
   };
   base.hnfAdn = buildHnfAdnSnapshot(base);
   return base;
@@ -362,6 +366,7 @@ const loadFullOperationalDataImpl = async () => {
     historicalVault,
     operationalPanelDaily,
     operationalEvents,
+    hnfCoreSolicitudesRaw,
   ] = await Promise.all([
     healthService.getStatus().catch(toListEnvelope(healthFallback)),
     otService.getAll().catch(toListEnvelope({ data: [] })),
@@ -389,6 +394,7 @@ const loadFullOperationalDataImpl = async () => {
     })),
     operationalEventsService.getDailyPanel().catch(() => null),
     operationalEventsService.listEvents().catch(() => []),
+    hnfCoreSolicitudesService.getAll().catch(() => []),
   ]);
 
   const emptyOutlookFeed = {
@@ -434,6 +440,8 @@ const loadFullOperationalDataImpl = async () => {
   const commercialOpportunityAlerts =
     hnfDocumentIntelligence.computeCommercialOpportunityAlerts(commercialOpportunities);
 
+  const hnfCoreSolicitudes = Array.isArray(hnfCoreSolicitudesRaw) ? hnfCoreSolicitudesRaw : [];
+
   let jarvisOperativeEvents = [];
   try {
     const jr = await jarvisOperativeEventsService.getAll();
@@ -467,6 +475,7 @@ const loadFullOperationalDataImpl = async () => {
     jarvisOperativeEvents,
     operationalPanelDaily,
     operationalEvents: Array.isArray(operationalEvents) ? operationalEvents : [],
+    hnfCoreSolicitudes,
   };
   payload.hnfAdn = buildHnfAdnSnapshot(payload);
   return payload;
@@ -501,6 +510,11 @@ const loadTechnicalDocumentsView = async () => {
 const viewRegistry = {
   'ingreso-operativo': {
     render: ingresoOperativoView,
+    load: loadFullOperationalData,
+  },
+
+  'hnf-core': {
+    render: hnfCoreHubView,
     load: loadFullOperationalData,
   },
 

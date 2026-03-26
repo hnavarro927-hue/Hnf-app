@@ -7,8 +7,11 @@ import { getStoredOperatorName } from '../config/operator.config.js';
 
 /** @typedef {'admin' | 'clima' | 'flota' | 'control'} HnfOperatorRole */
 
+export const HNF_CORE_NAV = { id: 'hnf-core', icon: '⬡', label: 'Core' };
+
 export const HNF_COMMAND_NAV_FULL = [
   { id: 'jarvis', icon: '◉', label: 'Jarvis' },
+  HNF_CORE_NAV,
   { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
   { id: 'clima', icon: '◎', label: 'Clima' },
   { id: 'flota', icon: '⛟', label: 'Flota' },
@@ -35,9 +38,21 @@ export function resolveOperatorRole() {
  */
 export function getNavItemsForRole(role) {
   if (role === 'admin') return [...HNF_COMMAND_NAV_FULL];
-  if (role === 'clima') return HNF_COMMAND_NAV_FULL.filter((x) => x.id === 'clima');
-  if (role === 'flota') return HNF_COMMAND_NAV_FULL.filter((x) => x.id === 'flota');
-  if (role === 'control') return HNF_COMMAND_NAV_FULL.filter((x) => x.id === 'control-gerencial');
+  if (role === 'clima') {
+    return [HNF_COMMAND_NAV_FULL.find((x) => x.id === 'clima'), HNF_CORE_NAV].filter(Boolean);
+  }
+  if (role === 'flota') {
+    return [
+      HNF_COMMAND_NAV_FULL.find((x) => x.id === 'flota'),
+      HNF_COMMAND_NAV_FULL.find((x) => x.id === 'oportunidades'),
+      HNF_CORE_NAV,
+    ].filter(Boolean);
+  }
+  if (role === 'control') {
+    return [HNF_COMMAND_NAV_FULL.find((x) => x.id === 'control-gerencial'), HNF_CORE_NAV].filter(
+      Boolean
+    );
+  }
   return [...HNF_COMMAND_NAV_FULL];
 }
 

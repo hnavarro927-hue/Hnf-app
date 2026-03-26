@@ -6,6 +6,7 @@
 
 import { buildControlOperativoAlertas, buildControlOperativoCards } from './control-operativo-tiempo-real.js';
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from './evento-operativo.js';
+import { computeHnfCoreSolicitudStats } from './hnf-core-hub.js';
 import { buildJarvisLiveOrbitModel } from './hnf-jarvis-live-orbit.js';
 
 /** @param {object} data - Misma forma que state.viewData tras loadFullOperationalData */
@@ -73,6 +74,9 @@ export function buildHnfAdnSnapshot(data) {
   const opsEv = Array.isArray(d.operationalEvents) ? d.operationalEvents : [];
   const controlBadge = opsEv.filter((e) => e && String(e.estado || '').toLowerCase() !== 'cerrado').length;
 
+  const hnfCoreSolicitudes = Array.isArray(d.hnfCoreSolicitudes) ? d.hnfCoreSolicitudes : [];
+  const hnfCoreSolicitudStats = computeHnfCoreSolicitudStats(hnfCoreSolicitudes);
+
   const jarvisLiveOrbit = buildJarvisLiveOrbitModel(d, {
     eventosUnificados,
     cards,
@@ -82,6 +86,7 @@ export function buildHnfAdnSnapshot(data) {
     whatsappHoy,
     dineroEnRiesgo: agg.dinero_en_riesgo,
     principalProblema,
+    hnfCoreSolicitudStats,
   });
 
   const comercialBadgeLive = Math.max(
@@ -103,6 +108,8 @@ export function buildHnfAdnSnapshot(data) {
     recomendacion,
     whatsappHoy,
     jarvisLiveOrbit,
+    hnfCoreSolicitudes,
+    hnfCoreSolicitudStats,
     commercialLive: jarvisLiveOrbit.commercialLive,
     orbits: {
       clima: { view: 'clima', label: 'Clima', badge: bloqueos + pendientes, hint: 'OT · visitas' },

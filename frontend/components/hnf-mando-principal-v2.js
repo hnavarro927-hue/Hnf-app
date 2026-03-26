@@ -67,6 +67,7 @@ export function createHnfMandoPrincipalV2({
       whatsappHoy: adn.whatsappHoy,
       dineroEnRiesgo: adn.dineroEnRiesgo,
       principalProblema: adn.principalProblema,
+      hnfCoreSolicitudStats: adn.hnfCoreSolicitudStats,
     });
   }
   const nucleo = live.nucleo || {};
@@ -208,6 +209,14 @@ export function createHnfMandoPrincipalV2({
   kick.className = 'hnf-command-nucleus__kick hnf-command-nucleus__kick--live';
   kick.textContent = 'JARVIS LIVE';
 
+  const coreLine = document.createElement('p');
+  coreLine.className = 'hnf-command-nucleus__v3-coreline';
+  coreLine.textContent = String(
+    nucleo.solicitudesCoreLine || adn.hnfCoreSolicitudStats?.lineaNucleo || ''
+  )
+    .toUpperCase()
+    .slice(0, 80);
+
   const problema = document.createElement('p');
   problema.className = 'hnf-command-nucleus__v3-problem';
   problema.textContent = String(nucleo.problemaPrincipal || adn.principalProblema || '—')
@@ -276,7 +285,7 @@ export function createHnfMandoPrincipalV2({
     ejecutarPropuestaGlobal(adn.eventosUnificados, { intelNavigate, navigateToView });
   });
 
-  core.append(kick, problema, riesgo, bloq, comLine, cruce, resp, modeRow, btnExec);
+  core.append(kick, coreLine, problema, riesgo, bloq, comLine, cruce, resp, modeRow, btnExec);
   nucleus.append(rings, core);
 
   field.append(orbitPlan, orbitFlota, orbitClima, orbitCom, orbitCtrl, nucleus);

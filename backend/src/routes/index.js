@@ -14,6 +14,7 @@ import { technicalDocumentRoutes } from './technicalDocument.routes.js';
 import { planificacionRoutes } from './planificacion.routes.js';
 import { responsibilityRoutes } from './responsibility.routes.js';
 import { vehicleRoutes } from './vehicle.routes.js';
+import { hnfCoreSolicitudRoutes } from './hnfCoreSolicitud.routes.js';
 
 export const routes = [
   ...healthRoutes,
@@ -32,4 +33,5 @@ export const routes = [
   ...historicalVaultRoutes,
   ...jarvisOperativeEventsRoutes,
   ...operationalEventRoutes,
+  ...hnfCoreSolicitudRoutes,
 ];
