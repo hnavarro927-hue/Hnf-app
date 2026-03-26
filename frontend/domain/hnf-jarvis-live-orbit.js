@@ -28,6 +28,7 @@ function stressToEstado(s) {
 /**
  * @param {object} data - viewData
  * @param {object} ctx - campos ya calculados en buildHnfAdnSnapshot
+ * @param {string} [ctx.principalProblema]
  */
 export function buildJarvisLiveOrbitModel(data, ctx) {
   const d = data && typeof data === 'object' ? data : {};
@@ -53,6 +54,8 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
   const oppsHoy = opps.filter(isToday).length;
 
   const evComercial = eventosUnificados.filter((e) => e.tipo === 'comercial').length;
+  const evCorreo = eventosUnificados.filter((e) => e.tipo === 'correo').length;
+  const evDocumento = eventosUnificados.filter((e) => e.tipo === 'documento').length;
   const evNuevo = eventosUnificados.filter((e) => e.estado === 'nuevo').length;
   const evClasif = eventosUnificados.filter((e) => e.estado === 'clasificado').length;
   const evProceso = eventosUnificados.filter((e) => e.estado === 'en_proceso').length;
@@ -68,11 +71,9 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
   ).length;
 
   const enProceso = ots.filter((o) => String(o?.estado || '').toLowerCase() === 'en proceso').length;
-  const terminadas = ots.filter((o) => String(o?.estado || '').toLowerCase() === 'terminado').length;
 
   const cotizados = opps.filter((o) => String(o?.estado || '').toLowerCase() === 'cotizado').length;
   const pendOpp = opps.filter((o) => String(o?.estado || '').toLowerCase() === 'pendiente').length;
-  const ganadosPend = opps.filter((o) => String(o?.estado || '').toLowerCase() === 'ganado').length;
 
   const cliOt = {};
   for (const ot of ots) {
@@ -92,16 +93,17 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
   }
   const upsellPotencial = Object.values(tipoServicioCount).filter((n) => n >= 2).length;
 
-  /** @type {[string, number][]} */
+  /** Anillo origen v3: WhatsApp · Correo · Manual · Comercial */
   const entradaRaw = [
-    ['whatsapp', Math.min(1, whatsappHoy / 10 + wa.length * 0.02)],
-    ['manual', Math.min(1, (outlookHoy + jarvisHoy * 0.35) / 8)],
-    ['comercial', Math.min(1, (oppsHoy + evComercial * 0.25) / 6)],
-    ['seguimiento', Math.min(1, (evProceso + solAbiertas * 0.15) / 10)],
-    ['cierre', Math.min(1, (cotizados + terminadas * 0.08 + ganadosPend * 0.05) / 8)],
+    ['whatsapp', Math.min(1, whatsappHoy / 10 + wa.length * 0.018)],
+    ['correo', Math.min(1, outlookHoy / 7 + evCorreo * 0.12 + jarvisHoy * 0.08)],
+    ['manual', Math.min(1, (evDocumento * 0.18 + jarvisHoy * 0.35) / 7)],
+    ['comercial', Math.min(1, (oppsHoy + evComercial * 0.28 + pendOpp * 0.06) / 7)],
   ];
   const entradaIntensities = entradaRaw.map(([, v]) => v);
-  const entradaLabels = ['WhatsApp', 'Manual', 'Comercial', 'Seguimiento', 'Cierre'];
+  const entradaLabels = ['WhatsApp', 'Correo', 'Manual', 'Comercial'];
+
+  const waConOt = wa.filter((m) => String(m?.otIdRelacionado || '').trim()).length;
 
   const totalEv = Math.max(1, eventosUnificados.length);
   const nOt = Math.max(1, ots.length);
@@ -134,8 +136,8 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
   const flujoEstados = flujoStress.map(stressToEstado);
   const flujoLabels = [
     'Ingreso',
-    'Clasif.',
-    'Asign.',
+    'Clasificación',
+    'Asignación',
     'Ejecución',
     'Evidencia',
     'Cierre',
@@ -176,6 +178,17 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
   const cantidadReal = `${ots.length} OT · ${solAbiertas} sol. abiertas · ${eventosUnificados.length} eventos`;
   const impactoLine = `$${Math.round(dineroEnRiesgo).toLocaleString('es-CL')} riesgo · ${bloqueos + pendientes} fricción`;
 
+  const principalRaw = String(ctx.principalProblema || '').trim();
+  const problemaPrincipal =
+    principalRaw.slice(0, 96) || 'SIN FOCO CRÍTICO — MANTENER RITMO OPERATIVO.';
+
+  const dineroRiesgoFmt = `$${Math.round(dineroEnRiesgo).toLocaleString('es-CL')}`;
+  const comercialIntegrado = `COM. ${pendOpp} ABIERTAS · ${cotizados} COTIZ. · ${clientesRepetidos} CLI. REP.`;
+  const cruceOperativo =
+    waConOt > 0 || evCorreo > 0
+      ? `UNIF. ${waConOt} WA↔OT · ${evCorreo} MAIL EN COLA`
+      : `UNIF. COLA ${eventosUnificados.length} EVT.`;
+
   const commercialPressure = Math.min(
     99,
     pendOpp + cotizados * 2 + opps.filter((o) => o.prioridad === 'alta').length * 2 + clientesRepetidos + upsellPotencial
@@ -189,7 +202,7 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
   if (whatsappHoy && pendOpp) accionesComercial.push('Cruzar WA del día con pipeline');
 
   return {
-    version: 1,
+    version: 3,
     ringEntrada: {
       labels: entradaLabels,
       keys: entradaRaw.map(([k]) => k),
@@ -202,6 +215,12 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
       stress: flujoStress,
     },
     nucleo: {
+      problemaPrincipal,
+      dineroRiesgoFmt,
+      otBloqueadas: bloqueos,
+      otBloqueadasLine: `${bloqueos} OT BLOQUEADAS`,
+      comercialIntegrado,
+      cruceOperativo,
       operacionHoy: `${ots.length} OT ACTIVAS · ${bloqueos} ROJAS · ${pendientes} ÁMBAR`,
       solicitudesHoy: `${solHoy} ingresos flota hoy · ${solAbiertas} abiertas`,
       otActivas: ots.length,
@@ -231,7 +250,7 @@ export function buildJarvisLiveOrbitModel(data, ctx) {
 }
 
 /**
- * Conic gradient string — 5 segments from -90deg.
+ * Conic gradient string — N segments from -90deg.
  * @param {number[]} intensities 0–1
  * @param {string[]} rgbList "r,g,b" per segment
  */

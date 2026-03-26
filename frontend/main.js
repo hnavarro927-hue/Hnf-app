@@ -1,6 +1,12 @@
 import './styles/app.css';
 import { appConfig, formatApiBaseLabel } from './config/app.config.js';
 import { createShell } from './components/shell.js';
+import {
+  defaultViewForRole,
+  getNavItemsForRole,
+  isViewAllowedForRole,
+  resolveOperatorRole,
+} from './domain/hnf-operator-role.js';
 import { clientService } from './services/client.service.js';
 import { flotaSolicitudService } from './services/flota-solicitud.service.js';
 import { expenseService } from './services/expense.service.js';
@@ -1196,6 +1202,11 @@ async function navigateToView(viewId, intelOptions = null) {
     state.pendingScrollToMando = true;
   }
   if (!viewRegistry[viewId]) return;
+  const opRole = resolveOperatorRole();
+  if (!isViewAllowedForRole(opRole, viewId)) {
+    viewId = defaultViewForRole(opRole);
+    state.pendingScrollToMando = false;
+  }
   state.activeView = viewId;
   if (viewId !== 'oportunidades') {
     state.commercialIntelOneShot = null;
@@ -1308,6 +1319,7 @@ const render = () => {
         integrationStatus: state.integrationStatus,
         onNavigate: (viewId) => navigateToView(viewId),
         deployStatusElement: getHnfDeployIndicatorElement(),
+        navItems: getNavItemsForRole(resolveOperatorRole()),
       });
 
       const intelNavigate = (nav) => {
@@ -1534,16 +1546,34 @@ const viewIdFromLocation = () => {
   return mapped && viewRegistry[mapped] ? mapped : null;
 };
 
-const initialRoute = viewIdFromLocation();
-if (initialRoute) {
-  state.activeView = initialRoute;
+const operatorRoleBoot = resolveOperatorRole();
+const hashedRoute = viewIdFromLocation();
+let bootView =
+  hashedRoute && isViewAllowedForRole(operatorRoleBoot, hashedRoute)
+    ? hashedRoute
+    : null;
+if (!bootView) {
+  bootView = defaultViewForRole(operatorRoleBoot);
+}
+state.activeView = bootView;
+if (hashedRoute && bootView !== hashedRoute && typeof history !== 'undefined' && history.replaceState) {
+  try {
+    history.replaceState(null, '', `#/${bootView}`);
+  } catch {
+    /* ignore */
+  }
 }
 if (typeof window !== 'undefined') {
   const rawSeg = (window.location.hash || '').replace(/^#\/?/, '').split('/')[0].split('?')[0];
   if (rawSeg === 'control-operativo-tiempo-real' || rawSeg === 'flujo-operativo-unificado') {
     state.pendingScrollToMando = true;
+    const legacyTarget = isViewAllowedForRole(operatorRoleBoot, 'jarvis')
+      ? 'jarvis'
+      : defaultViewForRole(operatorRoleBoot);
+    state.activeView = legacyTarget;
+    if (legacyTarget !== 'jarvis') state.pendingScrollToMando = false;
     try {
-      if (history.replaceState) history.replaceState(null, '', '#/jarvis');
+      if (history.replaceState) history.replaceState(null, '', `#/${legacyTarget}`);
     } catch {
       /* ignore */
     }

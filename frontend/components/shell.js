@@ -1,15 +1,9 @@
 /**
  * Shell HNF — menú mando reducido (iPad): icono + texto corto, alto contraste.
- * Rutas secundarias (admin, docs, etc.) siguen en main.js vía hash manual.
+ * `navItems` filtra por rol (hnf-operator-role).
  */
-const navCommandItems = [
-  { id: 'jarvis', icon: '◉', label: 'Jarvis' },
-  { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
-  { id: 'clima', icon: '◎', label: 'Clima' },
-  { id: 'flota', icon: '⛟', label: 'Flota' },
-  { id: 'oportunidades', icon: '◈', label: 'Comercial' },
-  { id: 'control-gerencial', icon: '⊞', label: 'Control' },
-];
+
+import { HNF_COMMAND_NAV_FULL } from '../domain/hnf-operator-role.js';
 
 const statusCopy = (integrationStatus) => {
   const map = {
@@ -36,7 +30,10 @@ export const createShell = ({
   apiBaseLabel,
   integrationStatus,
   deployStatusElement = null,
+  navItems = null,
 }) => {
+  const items =
+    Array.isArray(navItems) && navItems.length > 0 ? navItems : HNF_COMMAND_NAV_FULL;
   const element = document.createElement('div');
   element.className = 'shell';
   if (typeof window !== 'undefined' && isTabletMode()) {
@@ -105,7 +102,7 @@ export const createShell = ({
   nav.className = 'nav nav--mando';
   nav.setAttribute('aria-label', 'Navegación principal');
 
-  navCommandItems.forEach((item) => {
+  items.forEach((item) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'nav-item nav-item--mando';

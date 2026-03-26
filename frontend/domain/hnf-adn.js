@@ -81,6 +81,7 @@ export function buildHnfAdnSnapshot(data) {
     bottleneck,
     whatsappHoy,
     dineroEnRiesgo: agg.dinero_en_riesgo,
+    principalProblema,
   });
 
   const comercialBadgeLive = Math.max(

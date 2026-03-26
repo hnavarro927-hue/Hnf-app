@@ -1,5 +1,5 @@
 /**
- * Jarvis Live Orbit — núcleo holográfico operativo: doble anillo (origen + flujo) + decisión ejecutiva.
+ * Jarvis Live Orbit v3 — una decisión: problema, riesgo, bloqueos, comercial en núcleo, acción en botón.
  */
 
 import { buildHnfAdnSnapshot } from '../domain/hnf-adn.js';
@@ -9,20 +9,30 @@ import {
   buildJarvisLiveOrbitModel,
 } from '../domain/hnf-jarvis-live-orbit.js';
 import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
+import { getControlState, setMode } from '../domain/jarvis-control-center.js';
 
-const RGB_ENTRADA = ['0,194,168', '58,134,255', '251,191,36', '248,113,113', '123,97,255'];
+/** WhatsApp · Correo · Manual · Comercial */
+const RGB_ENTRADA = ['0,194,168', '59,130,246', '148,163,184', '251,191,36'];
 
 function toneFromCounts(bloqueos, pendientes) {
-  if (bloqueos > 0) return { label: 'CRÍTICO', mod: 'crit' };
+  if (bloqueos > 0) return { label: 'ALERTA', mod: 'crit' };
   if (pendientes > 0) return { label: 'ALERTA', mod: 'warn' };
   return { label: 'OK', mod: 'ok' };
 }
 
 function orbitTone(badge, { crit = 5, warn = 1 } = {}) {
   const n = Number(badge) || 0;
-  if (n >= crit) return { label: 'CRÍTICO', mod: 'crit' };
+  if (n >= crit) return { label: 'ALERTA', mod: 'crit' };
   if (n >= warn) return { label: 'ALERTA', mod: 'warn' };
   return { label: 'OK', mod: 'ok' };
+}
+
+function ctaFromAccion(s) {
+  const u = String(s || '')
+    .trim()
+    .toUpperCase();
+  if (u.length <= 28) return u || 'RESOLVER';
+  return `${u.slice(0, 26)}…`;
 }
 
 /**
@@ -56,27 +66,34 @@ export function createHnfMandoPrincipalV2({
       bottleneck: adn.bottleneck,
       whatsappHoy: adn.whatsappHoy,
       dineroEnRiesgo: adn.dineroEnRiesgo,
+      principalProblema: adn.principalProblema,
     });
   }
   const nucleo = live.nucleo || {};
   const commercialLive = adn.commercialLive || live.commercialLive || {};
 
   const wrap = document.createElement('section');
-  wrap.className = 'hnf-command-deck hnf-jarvis-live-orbit';
+  wrap.className = 'hnf-command-deck hnf-jarvis-live-orbit hnf-jarvis-live-orbit--v3';
   wrap.id = 'hnf-mando-principal-v2';
-  wrap.setAttribute('aria-label', 'Jarvis Live Orbit · mando HNF');
+  wrap.setAttribute('aria-label', 'Jarvis Live Orbit v3');
 
   const field = document.createElement('div');
   field.className = 'hnf-command-deck__orbit-field';
 
-  const mkOrbit = (slot, o, tone, indicator) => {
+  const mkOrbit = (slot, o, tone, indicator, owner) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `hnf-orbit-card hnf-orbit-card--${tone.mod} hnf-orbit-card--${slot} hnf-orbit-card--live`;
-    btn.setAttribute('aria-label', `${o.label}: ${indicator}`);
+    btn.setAttribute('aria-label', `${o.label}: ${tone.label}. ${indicator}`);
     const nm = document.createElement('span');
     nm.className = 'hnf-orbit-card__name';
     nm.textContent = o.label;
+    const st = document.createElement('span');
+    st.className = `hnf-orbit-card__estado hnf-orbit-card__estado--${tone.mod}`;
+    st.textContent = tone.label;
+    const own = document.createElement('span');
+    own.className = 'hnf-orbit-card__owner';
+    own.textContent = owner || '—';
     const dot = document.createElement('span');
     dot.className = `hnf-orbit-card__pulse hnf-orbit-card__pulse--${tone.mod}`;
     dot.setAttribute('aria-hidden', 'true');
@@ -85,8 +102,8 @@ export function createHnfMandoPrincipalV2({
     ind.textContent = indicator;
     const go = document.createElement('span');
     go.className = 'hnf-orbit-card__go';
-    go.textContent = 'ABRIR';
-    btn.append(nm, dot, ind, go);
+    go.textContent = 'Entrar';
+    btn.append(nm, st, own, dot, ind, go);
     btn.addEventListener('click', () => navigateToView?.(o.view));
     return btn;
   };
@@ -94,7 +111,7 @@ export function createHnfMandoPrincipalV2({
   const o = adn.orbits || {};
   const climaTone = toneFromCounts(bloqueos, pendientes);
   const climaInd =
-    bloqueos > 0 ? `${bloqueos} bloqueo(s)` : pendientes > 0 ? `${pendientes} pendiente(s)` : `${ok} OT OK`;
+    bloqueos > 0 ? `${bloqueos} bloqueos` : pendientes > 0 ? `${pendientes} pendientes` : `${ok} OT OK`;
 
   const flotaN = Number(o.flota?.badge) || 0;
   const planN = Number(o.planificacion?.badge) || 0;
@@ -104,40 +121,49 @@ export function createHnfMandoPrincipalV2({
   const comIndShort = (() => {
     const a = commercialLive.oportunidadesAbiertas ?? 0;
     const c = commercialLive.cotizacionesPendientes ?? 0;
-    const r = commercialLive.clientesRepetidos ?? 0;
-    if (a + c + r > 0) return `${a} opp. · ${c} cotiz. · ${r} cli. rep.`;
-    return comN ? `${comN} en radar` : 'Radar OK';
+    if (a + c > 0) return `${a} opp. · ${c} cotiz.`;
+    return comN ? `Radar ${comN}` : 'Sin presión';
   })();
 
   const orbitPlan = mkOrbit(
     'plan',
-    o.planificacion || { label: 'Plan', view: 'planificacion' },
+    o.planificacion || { label: 'Planificación', view: 'planificacion' },
     orbitTone(planN, { crit: 4, warn: 1 }),
-    planN ? `${planN} alerta(s)` : 'Calendario OK'
+    planN ? `${planN} alertas` : 'Calendario OK',
+    'Equipo'
   );
   const orbitFlota = mkOrbit(
     'flota',
     o.flota || { label: 'Flota', view: 'flota' },
     orbitTone(flotaN, { crit: 4, warn: 1 }),
-    flotaN ? `${flotaN} en curso` : 'Sin cola'
+    flotaN ? `${flotaN} en curso` : 'Sin cola',
+    'Gery'
   );
-  const orbitClima = mkOrbit('clima', o.clima || { label: 'Clima', view: 'clima' }, climaTone, climaInd);
+  const orbitClima = mkOrbit(
+    'clima',
+    o.clima || { label: 'Clima', view: 'clima' },
+    climaTone,
+    climaInd,
+    'Romina'
+  );
   const orbitCom = mkOrbit(
     'com',
     o.comercial || { label: 'Comercial', view: 'oportunidades' },
     orbitTone(comN, { crit: 8, warn: 3 }),
-    comIndShort
+    comIndShort,
+    'Comercial'
   );
   const orbitCtrl = mkOrbit(
     'ctrl',
     o.control || { label: 'Control', view: 'control-gerencial' },
     orbitTone(ctrlN, { crit: 5, warn: 1 }),
-    ctrlN ? `${ctrlN} evento(s)` : 'Sin eventos'
+    ctrlN ? `${ctrlN} eventos` : 'Sin eventos',
+    'Lyn'
   );
 
   const nucleus = document.createElement('div');
   nucleus.className = 'hnf-command-nucleus';
-  nucleus.setAttribute('aria-label', 'Jarvis Live · núcleo operativo');
+  nucleus.setAttribute('aria-label', 'Jarvis · decisión del día');
 
   const rings = document.createElement('div');
   rings.className = 'hnf-command-nucleus__rings';
@@ -147,18 +173,23 @@ export function createHnfMandoPrincipalV2({
   glow.setAttribute('aria-hidden', 'true');
 
   const sweep = document.createElement('span');
-  sweep.className = 'hnf-command-nucleus__radar-sweep';
+  sweep.className = 'hnf-command-nucleus__radar-sweep hnf-command-nucleus__radar-sweep--v3';
   sweep.setAttribute('aria-hidden', 'true');
+
+  const arc = document.createElement('span');
+  arc.className = 'hnf-command-nucleus__radar-arc';
+  arc.setAttribute('aria-hidden', 'true');
 
   const ringOut = document.createElement('div');
   ringOut.className = 'hnf-live-ring hnf-live-ring--entrada';
-  ringOut.title = 'Origen: WA · manual · comercial · seguimiento · cierre';
-  const entInt = live.ringEntrada?.intensities || [0.3, 0.3, 0.3, 0.3, 0.3];
+  ringOut.title = 'Origen: WhatsApp · Correo · Manual · Comercial';
+  const entInt = live.ringEntrada?.intensities || [0.25, 0.25, 0.25, 0.25];
   ringOut.style.background = buildConicEntradaGradient(entInt, RGB_ENTRADA);
 
   const ringIn = document.createElement('div');
   ringIn.className = 'hnf-live-ring hnf-live-ring--flujo';
-  ringIn.title = 'Flujo: ingreso → cobro (color = fricción)';
+  ringIn.title =
+    'Flujo: Ingreso → Clasificación → Asignación → Ejecución → Evidencia → Cierre → Cobro';
   ringIn.style.background = buildConicFlujoGradient(live.ringFlujo || { estados: [], stress: [] });
 
   const trackOut = document.createElement('span');
@@ -168,58 +199,84 @@ export function createHnfMandoPrincipalV2({
   trackIn.className = 'hnf-command-nucleus__ring-track hnf-command-nucleus__ring-track--inner';
   trackIn.setAttribute('aria-hidden', 'true');
 
-  rings.append(glow, sweep, trackOut, ringOut, trackIn, ringIn);
+  rings.append(glow, sweep, arc, trackOut, ringOut, trackIn, ringIn);
 
   const core = document.createElement('div');
-  core.className = 'hnf-command-nucleus__core hnf-command-nucleus__core--live';
+  core.className = 'hnf-command-nucleus__core hnf-command-nucleus__core--live hnf-command-nucleus__core--v3';
 
   const kick = document.createElement('span');
   kick.className = 'hnf-command-nucleus__kick hnf-command-nucleus__kick--live';
   kick.textContent = 'JARVIS LIVE';
 
-  const presion = document.createElement('p');
-  presion.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--pressure';
-  presion.textContent = String(nucleo.lineaPresion || adn.principalProblema || '—')
+  const problema = document.createElement('p');
+  problema.className = 'hnf-command-nucleus__v3-problem';
+  problema.textContent = String(nucleo.problemaPrincipal || adn.principalProblema || '—')
     .toUpperCase()
-    .slice(0, 96);
+    .slice(0, 100);
 
-  const metrics = document.createElement('p');
-  metrics.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--metrics';
-  metrics.textContent = String(nucleo.cantidadReal || `${totalOt || 0} OT`).slice(0, 120);
+  const riesgo = document.createElement('p');
+  riesgo.className = 'hnf-command-nucleus__v3-risk';
+  riesgo.textContent = `${nucleo.dineroRiesgoFmt || '—'} EN RIESGO`;
 
-  const opHoy = document.createElement('p');
-  opHoy.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--sub';
-  opHoy.textContent = String(nucleo.operacionHoy || '').slice(0, 88);
+  const bloq = document.createElement('p');
+  bloq.className = 'hnf-command-nucleus__v3-block';
+  bloq.textContent = String(nucleo.otBloqueadasLine || `${bloqueos} OT BLOQUEADAS`).toUpperCase();
 
-  const solHoy = document.createElement('p');
-  solHoy.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--sub';
-  solHoy.textContent = String(nucleo.solicitudesHoy || '').slice(0, 88);
+  const comLine = document.createElement('p');
+  comLine.className = 'hnf-command-nucleus__v3-com';
+  comLine.textContent = String(nucleo.comercialIntegrado || 'COM. —').toUpperCase().slice(0, 72);
 
-  const impacto = document.createElement('p');
-  impacto.className = 'hnf-command-nucleus__impact hnf-command-nucleus__impact--compact';
-  impacto.textContent = String(nucleo.impactoLine || '').slice(0, 96);
-
-  const accion = document.createElement('p');
-  accion.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--action';
-  accion.textContent = String(nucleo.accionLabel || `ACCIÓN: ${nucleo.siguienteAccion || 'REVISAR'}`).slice(
-    0,
-    72
-  );
+  const cruce = document.createElement('p');
+  cruce.className = 'hnf-command-nucleus__v3-unify';
+  cruce.textContent = String(nucleo.cruceOperativo || '').toUpperCase().slice(0, 80);
 
   const resp = document.createElement('p');
-  resp.className = 'hnf-command-nucleus__live-resp';
-  resp.textContent = `→ ${String(nucleo.responsableSugerido || '—').slice(0, 32)}`;
+  resp.className = 'hnf-command-nucleus__v3-who';
+  resp.textContent = `→ ${String(nucleo.responsableSugerido || '—').slice(0, 28)}`;
 
+  const modeRow = document.createElement('div');
+  modeRow.className = 'hnf-command-nucleus__mode';
+  modeRow.setAttribute('role', 'group');
+  modeRow.setAttribute('aria-label', 'Modo operación');
+  const modeMap = [
+    { key: 'autonomic_safe', label: 'Auto' },
+    { key: 'assist', label: 'Asistido' },
+    { key: 'observe', label: 'Manual' },
+  ];
+  const syncModeUi = () => {
+    const { jarvisMode } = getControlState();
+    const effective = jarvisMode === 'off' ? 'observe' : jarvisMode;
+    modeRow.querySelectorAll('.hnf-mode-chip').forEach((el) => {
+      const k = el.getAttribute('data-mode');
+      el.classList.toggle('hnf-mode-chip--on', k === effective);
+    });
+  };
+  for (const m of modeMap) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'hnf-mode-chip';
+    b.dataset.mode = m.key;
+    b.textContent = m.label;
+    b.addEventListener('click', () => {
+      setMode(m.key);
+      syncModeUi();
+    });
+    modeRow.append(b);
+  }
+  syncModeUi();
+
+  const accionTxt = nucleo.siguienteAccion || 'RESOLVER';
   const btnExec = document.createElement('button');
   btnExec.type = 'button';
   btnExec.id = 'hnf-ejecutar-propuesta-mando';
-  btnExec.className = 'primary-button hnf-command-nucleus__cta hnf-command-nucleus__cta--resolve';
-  btnExec.textContent = 'RESOLVER AHORA';
+  btnExec.className = 'primary-button hnf-command-nucleus__cta hnf-command-nucleus__cta--resolve hnf-command-nucleus__cta--v3';
+  btnExec.textContent = ctaFromAccion(accionTxt);
+  btnExec.setAttribute('aria-label', `Ejecutar: ${accionTxt}`);
   btnExec.addEventListener('click', () => {
     ejecutarPropuestaGlobal(adn.eventosUnificados, { intelNavigate, navigateToView });
   });
 
-  core.append(kick, presion, metrics, opHoy, solHoy, impacto, accion, resp, btnExec);
+  core.append(kick, problema, riesgo, bloq, comLine, cruce, resp, modeRow, btnExec);
   nucleus.append(rings, core);
 
   field.append(orbitPlan, orbitFlota, orbitClima, orbitCom, orbitCtrl, nucleus);

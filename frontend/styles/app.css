@@ -15975,7 +15975,10 @@ body.hnf-view--control-operativo #app {
 }
 
 body.hnf-view--jarvis-principal .content.content--view-jarvis {
-  background-image: radial-gradient(800px 400px at 50% -10%, rgba(0, 194, 168, 0.06), transparent 60%);
+  background-color: #030508;
+  background-image:
+    radial-gradient(720px 420px at 50% -8%, rgba(56, 189, 248, 0.07), transparent 55%),
+    radial-gradient(520px 320px at 50% 100%, rgba(0, 194, 168, 0.05), transparent 50%);
 }
 
 /* —— Centro de mando: órbita real + núcleo decisor + ADN vivo —— */
@@ -16127,6 +16130,25 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis {
   animation: hnf-radar-sweep 14s linear infinite;
   z-index: 1;
   opacity: 0.85;
+}
+
+.hnf-command-nucleus__radar-sweep--v3 {
+  inset: 7%;
+  opacity: 0.65;
+  background: conic-gradient(from 0deg, transparent 0deg 288deg, rgba(56, 189, 248, 0.14) 300deg 360deg);
+  animation-duration: 12s;
+}
+
+.hnf-command-nucleus__radar-arc {
+  position: absolute;
+  inset: 11%;
+  border-radius: 50%;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  box-shadow:
+    0 0 32px rgba(56, 189, 248, 0.1),
+    inset 0 0 48px rgba(14, 165, 233, 0.04);
+  z-index: 1;
+  pointer-events: none;
 }
 
 @keyframes hnf-radar-sweep {
@@ -16357,6 +16379,118 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis {
   filter: brightness(1.06);
 }
 
+.hnf-command-nucleus__core--v3 {
+  max-width: 252px;
+  padding: 0.5rem 0.45rem 0.55rem;
+  gap: 0.12rem;
+  background: radial-gradient(ellipse at 50% 22%, rgba(12, 20, 36, 0.99), rgba(2, 4, 10, 0.995));
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow:
+    0 0 40px rgba(56, 189, 248, 0.12),
+    0 16px 44px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.hnf-command-nucleus__v3-problem {
+  margin: 0;
+  font-size: clamp(0.62rem, 1.05vw, 0.74rem);
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  max-width: 16em;
+  color: #f1f5f9;
+}
+
+.hnf-command-nucleus__v3-risk {
+  margin: 0;
+  font-size: clamp(0.72rem, 1.2vw, 0.85rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #fbbf24;
+}
+
+.hnf-command-nucleus__v3-block {
+  margin: 0;
+  font-size: clamp(0.58rem, 0.95vw, 0.68rem);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #f87171;
+}
+
+.hnf-command-nucleus__v3-com {
+  margin: 0;
+  font-size: clamp(0.52rem, 0.88vw, 0.62rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(52, 211, 153, 0.95);
+}
+
+.hnf-command-nucleus__v3-unify {
+  margin: 0;
+  font-size: clamp(0.48rem, 0.82vw, 0.55rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(125, 211, 252, 0.88);
+}
+
+.hnf-command-nucleus__v3-who {
+  margin: 0;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgba(94, 234, 212, 0.9);
+}
+
+.hnf-command-nucleus__mode {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+  width: 100%;
+}
+
+.hnf-mode-chip {
+  flex: 1 1 auto;
+  min-width: 3.2rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.hnf-mode-chip--on {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(14, 165, 233, 0.18);
+  color: #e0f2fe;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+}
+
+.hnf-mode-chip:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.hnf-command-nucleus__cta--v3 {
+  margin-top: 0.25rem;
+  min-height: 46px;
+  font-size: clamp(0.68rem, 1.1vw, 0.82rem);
+  background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+  color: #021018 !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 8px 28px rgba(14, 165, 233, 0.4);
+}
+
 .hnf-orbit-card {
   display: flex;
   flex-direction: column;
@@ -16429,6 +16563,32 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #94a3b8;
+}
+
+.hnf-orbit-card__estado {
+  font-size: 0.52rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hnf-orbit-card__estado--crit {
+  color: #fca5a5;
+}
+.hnf-orbit-card__estado--warn {
+  color: #fcd34d;
+}
+.hnf-orbit-card__estado--ok {
+  color: #86efac;
+}
+
+.hnf-orbit-card__owner {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.75);
 }
 
 .hnf-orbit-card__pulse {
