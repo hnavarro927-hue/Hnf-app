@@ -12,7 +12,7 @@ import { loadViewCache, saveShellMeta, saveViewCache } from './domain/hnf-storag
 import { blobToDataUrl, generateOtPdfBlob } from './services/pdf.service.js';
 import { otService } from './services/ot.service.js';
 import { vehicleService } from './services/vehicle.service.js';
-import { dashboardView } from './views/dashboard.js';
+import { buildHnfAdnSnapshot } from './domain/hnf-adn.js';
 import { climaView } from './views/clima.js';
 import { flotaView } from './views/flota.js';
 import { adminView } from './views/admin.js';
@@ -263,65 +263,68 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'jarvis',
   'jarvis-intake',
   'jarvis-vault',
-  'dashboard',
   'asistente',
   'operacion-control',
   'ingreso-operativo',
   'control-gerencial',
 ]);
 
-const minimalOperationalViewData = () => ({
-  health: {
-    success: true,
-    data: {
-      status: 'ok',
-      app: 'HNF API',
-      database: { status: 'unknown', message: 'Datos mínimos tras error de procesamiento.' },
+const minimalOperationalViewData = () => {
+  const base = {
+    health: {
+      success: true,
+      data: {
+        status: 'ok',
+        app: 'HNF API',
+        database: { status: 'unknown', message: 'Datos mínimos tras error de procesamiento.' },
+      },
+      meta: { resource: 'health' },
     },
-    meta: { resource: 'health' },
-  },
-  ots: { data: [] },
-  clients: { data: [] },
-  vehicles: { data: [] },
-  expenses: { data: [] },
-  planClientes: [],
-  planTiendas: [],
-  planMantenciones: [],
-  planOts: [],
-  operationalCalendar: { entries: [] },
-  operationalCalendarAlerts: [],
-  technicalDocuments: [],
-  technicalDocumentAlerts: [],
-  commercialOpportunities: [],
-  commercialOpportunityAlerts: [],
-  flotaSolicitudes: [],
-  whatsappFeed: {
-    messages: [],
-    ingestLogs: [],
-    errors: [],
-    operationalSummary: null,
-  },
-  outlookFeed: {
-    messages: [],
-    historicalImports: [],
-    ingestErrors: [],
-    lastIngestAt: null,
-    futureOutlookHooks: {
-      inboxSync: false,
-      replyDraft: false,
-      threadSync: false,
-      sendMail: false,
-      autoReply: false,
-      outboundSync: false,
-      note: 'Sin datos de Outlook.',
+    ots: { data: [] },
+    clients: { data: [] },
+    vehicles: { data: [] },
+    expenses: { data: [] },
+    planClientes: [],
+    planTiendas: [],
+    planMantenciones: [],
+    planOts: [],
+    operationalCalendar: { entries: [] },
+    operationalCalendarAlerts: [],
+    technicalDocuments: [],
+    technicalDocumentAlerts: [],
+    commercialOpportunities: [],
+    commercialOpportunityAlerts: [],
+    flotaSolicitudes: [],
+    whatsappFeed: {
+      messages: [],
+      ingestLogs: [],
+      errors: [],
+      operationalSummary: null,
     },
-    outlookIntakeMode: 'recepcion_solo_lectura',
-  },
-  historicalVault: { records: [], importBatches: [], computed: null },
-  jarvisOperativeEvents: getCentroIngestaState().events,
-  operationalPanelDaily: null,
-  operationalEvents: [],
-});
+    outlookFeed: {
+      messages: [],
+      historicalImports: [],
+      ingestErrors: [],
+      lastIngestAt: null,
+      futureOutlookHooks: {
+        inboxSync: false,
+        replyDraft: false,
+        threadSync: false,
+        sendMail: false,
+        autoReply: false,
+        outboundSync: false,
+        note: 'Sin datos de Outlook.',
+      },
+      outlookIntakeMode: 'recepcion_solo_lectura',
+    },
+    historicalVault: { records: [], importBatches: [], computed: null },
+    jarvisOperativeEvents: getCentroIngestaState().events,
+    operationalPanelDaily: null,
+    operationalEvents: [],
+  };
+  base.hnfAdn = buildHnfAdnSnapshot(base);
+  return base;
+};
 
 /** Carga unificada OT + planificación + flota + salud (Inicio y Asistente IA). Nunca rechaza: un fallo de sub-recurso no debe tumbar toda la app ni marcar “sin conexión”. */
 const loadFullOperationalDataImpl = async () => {
@@ -435,7 +438,7 @@ const loadFullOperationalDataImpl = async () => {
     jarvisOperativeEvents = getCentroIngestaState().events;
   }
 
-  return {
+  const payload = {
     health,
     ots,
     clients,
@@ -459,6 +462,8 @@ const loadFullOperationalDataImpl = async () => {
     operationalPanelDaily,
     operationalEvents: Array.isArray(operationalEvents) ? operationalEvents : [],
   };
+  payload.hnfAdn = buildHnfAdnSnapshot(payload);
+  return payload;
 };
 
 const loadFullOperationalData = async () => {
@@ -512,11 +517,6 @@ const viewRegistry = {
 
   'jarvis-vault': {
     render: jarvisVaultView,
-    load: loadFullOperationalData,
-  },
-
-  dashboard: {
-    render: dashboardView,
     load: loadFullOperationalData,
   },
 
@@ -1194,6 +1194,10 @@ const createActions = () => ({
 });
 
 async function navigateToView(viewId, intelOptions = null) {
+  if (viewId === 'dashboard') {
+    viewId = 'jarvis';
+    state.pendingScrollToMando = true;
+  }
   if (viewId === 'control-operativo-tiempo-real') {
     viewId = 'jarvis';
     state.pendingScrollToMando = true;
@@ -1417,7 +1421,7 @@ const render = () => {
       }
 
       app.append(shell.element);
-      if ((state.activeView === 'jarvis' || state.activeView === 'dashboard') && jarvisOsLastUi) {
+      if (state.activeView === 'jarvis' && jarvisOsLastUi) {
         applyJarvisOsUi(jarvisOsLastUi);
       }
 

@@ -2714,7 +2714,6 @@ export const jarvisHqView = ({
   proposalBtns.className = 'hnf-jarvis-proposal__actions';
   const btnEjecutarPropuesta = document.createElement('button');
   btnEjecutarPropuesta.type = 'button';
-  btnEjecutarPropuesta.id = 'hnf-ejecutar-propuesta-mando';
   btnEjecutarPropuesta.className = 'primary-button jarvis-cc-btn-touch hnf-jarvis-proposal__btn-exec';
   btnEjecutarPropuesta.textContent = 'Ejecutar propuesta';
   const btnModificarPropuesta = document.createElement('button');

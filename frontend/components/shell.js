@@ -10,12 +10,12 @@ const groups = [
     ],
   },
   {
-    label: '2 · Inteligencia (Jarvis)',
+    label: '2 · Núcleo (Jarvis + ADN)',
     items: [
       {
         id: 'jarvis',
-        label: 'Jarvis — mando principal',
-        hint: 'Vista única iPad: estado del día, alertas OT, WhatsApp, cuello de botella, acción y OT en vivo',
+        label: 'Jarvis — cerebro operativo',
+        hint: 'Problema del día, cuello de botella, acciones y órbitas conectadas al ADN HNF',
       },
       {
         id: 'jarvis-intake',
@@ -30,15 +30,15 @@ const groups = [
     ],
   },
   {
-    label: '3 · Ejecución operativa',
+    label: '3 · Órbitas operativas',
     items: [
       {
         id: 'clima',
-        label: 'OT Clima (visitas)',
-        hint: 'Equipos, evidencia, cierre y economía en bloques separados',
+        label: 'Clima (OT / visitas)',
+        hint: 'Conecta al ADN: evidencias, cierre, economía',
       },
-      { id: 'flota', label: 'Flota', hint: 'Solicitudes y traslados' },
-      { id: 'planificacion', label: 'Planificación', hint: 'Clientes, tiendas y mantenciones' },
+      { id: 'flota', label: 'Flota', hint: 'Solicitudes y traslados → estado en órbita' },
+      { id: 'planificacion', label: 'Planificación', hint: 'Clientes, tiendas, calendario' },
       {
         id: 'technical-documents',
         label: 'Documentos técnicos',
@@ -46,8 +46,13 @@ const groups = [
       },
       {
         id: 'oportunidades',
-        label: 'Oportunidades',
-        hint: 'Pipeline comercial',
+        label: 'Comercial',
+        hint: 'Pipeline y oportunidades',
+      },
+      {
+        id: 'whatsapp',
+        label: 'WhatsApp',
+        hint: 'Canales y mensajes (contacto cliente)',
       },
     ],
   },
@@ -150,7 +155,7 @@ export const createShell = ({
   const pill = document.createElement('span');
   pill.className = 'shell-pill';
   pill.textContent = 'Piloto interno';
-  pilot.append(pill, document.createTextNode(' · Capas: ingreso → Jarvis → OT → control'));
+  pilot.append(pill, document.createTextNode(' · Jarvis (cerebro) → ADN → órbitas → control'));
 
   const statusRow = document.createElement('div');
   statusRow.className = `shell-status ${statusModifiers(integrationStatus)}`;

@@ -1,18 +1,12 @@
 /**
- * Bloque único de mando visible en la vista principal (jarvis).
- * Consolida estado del día, alertas OT, acción inmediata, tarjetas OT y señales WhatsApp/admin/cliente.
+ * Mando Jarvis — sistema operativo visual: cerebro + flujo problema → análisis → acción + órbitas.
+ * Consume preferentemente `data.hnfAdn` (buildHnfAdnSnapshot en loadFullOperationalData).
  */
 
-import {
-  buildControlOperativoAlertas,
-  buildControlOperativoCards,
-  SEMAFORO_EMOJI,
-} from '../domain/control-operativo-tiempo-real.js';
-import {
-  aggregateMandoFromEventos,
-  buildFlujoOperativoUnificado,
-  ejecutarPropuestaGlobal,
-} from '../domain/evento-operativo.js';
+import { buildHnfAdnSnapshot } from '../domain/hnf-adn.js';
+import { SEMAFORO_EMOJI } from '../domain/control-operativo-tiempo-real.js';
+import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
+import { otCanClose } from '../utils/ot-evidence.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -28,6 +22,20 @@ function flattenTopActions(board, limit = 5) {
     }
   }
   return out;
+}
+
+function findFirstCloseableOtId(raw) {
+  const list = raw?.planOts ?? raw?.ots?.data ?? [];
+  if (!Array.isArray(list)) return null;
+  for (const ot of list) {
+    if (String(ot?.estado || '').toLowerCase() === 'terminado') continue;
+    try {
+      if (otCanClose(ot)) return ot.id ?? ot._id ?? null;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
 }
 
 /**
@@ -47,142 +55,167 @@ export function createHnfMandoPrincipalV2({
   navigateToView,
   reloadApp,
 }) {
+  const raw = data || {};
+  const adn = raw.hnfAdn && typeof raw.hnfAdn === 'object' ? raw.hnfAdn : buildHnfAdnSnapshot(raw);
+
   const wrap = document.createElement('section');
-  wrap.className = 'hnf-mando-v2';
+  wrap.className = 'hnf-jarvis-os hnf-mando-v2';
   wrap.id = 'hnf-mando-principal-v2';
-  wrap.setAttribute('aria-label', 'Centro de mando operativo principal');
+  wrap.setAttribute('aria-label', 'Jarvis — cerebro operativo HNF');
 
-  const ribbon = document.createElement('div');
-  ribbon.className = 'hnf-mando-v2__ribbon';
-  ribbon.innerHTML = `
-    <div class="hnf-mando-v2__ribbon-main">
-      <span class="hnf-mando-v2__ribbon-tag">VISTA PRINCIPAL · IPAD / OPERACIÓN</span>
-      <h2 class="hnf-mando-v2__ribbon-h">CENTRO DE MANDO HNF</h2>
-      <p class="hnf-mando-v2__ribbon-sub">Un solo panel: día, alertas, OT en vivo, WhatsApp y cuello de botella. Actualizado con cada sincronización.</p>
+  const head = document.createElement('header');
+  head.className = 'hnf-jarvis-os__head';
+  head.innerHTML = `
+    <div class="hnf-jarvis-os__brand">
+      <span class="hnf-jarvis-os__dna">ADN HNF</span>
+      <h2 class="hnf-jarvis-os__title">JARVIS · cerebro operativo</h2>
+      <p class="hnf-jarvis-os__sub">Una sola lectura: riesgo del día, cuello de botella, decisión y órbitas conectadas.</p>
+    </div>
+    <div class="hnf-jarvis-os__pulse" role="status">
+      <span class="hnf-jarvis-os__pulse-dot"></span>
+      <span class="hnf-jarvis-os__pulse-txt">Datos unificados · loadFullOperationalData</span>
     </div>
   `;
 
-  const eventosUnificados = buildFlujoOperativoUnificado(data || {});
-  const agg = aggregateMandoFromEventos(eventosUnificados);
-  const estadoTxt =
-    agg.estado_general === 'critico' ? 'CRÍTICO' : agg.estado_general === 'atencion' ? 'ATENCIÓN' : 'OK';
-  const estadoClass =
-    agg.estado_general === 'critico' ? 'rojo' : agg.estado_general === 'atencion' ? 'naranja' : 'verde';
+  const flow = document.createElement('div');
+  flow.className = 'hnf-jarvis-os__flow';
+  flow.setAttribute('aria-label', 'Problema, análisis y acción');
 
-  const cards = buildControlOperativoCards(data || {});
-  const alertas = buildControlOperativoAlertas(cards);
+  const colProblem = document.createElement('div');
+  colProblem.className = 'hnf-jarvis-os__col hnf-jarvis-os__col--problem';
+  colProblem.innerHTML = `<h3 class="hnf-jarvis-os__col-h"><span class="hnf-jarvis-os__ico hnf-jarvis-os__ico--red">🔴</span> Principal problema del día</h3>`;
+  const problemP = document.createElement('p');
+  problemP.className = 'hnf-jarvis-os__col-body';
+  problemP.textContent = adn.principalProblema;
+  colProblem.append(problemP);
 
-  const waMsgs = Array.isArray(data?.whatsappFeed?.messages) ? data.whatsappFeed.messages : [];
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
-  const waHoy = waMsgs.filter((m) => {
-    const t = new Date(m.updatedAt || m.createdAt || 0).getTime();
-    return Number.isFinite(t) && t >= dayStart.getTime();
-  }).length;
-
-  const rowEstado = document.createElement('div');
-  rowEstado.className = 'hnf-mando-v2__row hnf-mando-v2__row--estado';
-  rowEstado.innerHTML = `
-    <div class="hnf-mando-v2__pill hnf-mando-v2__pill--${estadoClass}">
-      <span class="hnf-mando-v2__pill-k">Estado del día</span>
-      <strong class="hnf-mando-v2__pill-v">${estadoTxt}</strong>
-    </div>
-    <div class="hnf-mando-v2__pill hnf-mando-v2__pill--neutral">
-      <span class="hnf-mando-v2__pill-k">Dinero en riesgo (eventos)</span>
-      <strong class="hnf-mando-v2__pill-v">$${fmtMoney(agg.dinero_en_riesgo)}</strong>
-    </div>
-    <div class="hnf-mando-v2__pill hnf-mando-v2__pill--neutral">
-      <span class="hnf-mando-v2__pill-k">Eventos activos</span>
-      <strong class="hnf-mando-v2__pill-v">${agg.total_activos}</strong>
-    </div>
-    <div class="hnf-mando-v2__pill hnf-mando-v2__pill--wa">
-      <span class="hnf-mando-v2__pill-k">WhatsApp hoy</span>
-      <strong class="hnf-mando-v2__pill-v">${waHoy}</strong>
-    </div>
+  const metrics = document.createElement('div');
+  metrics.className = 'hnf-jarvis-os__metrics';
+  metrics.innerHTML = `
+    <div class="hnf-jarvis-os__metric hnf-jarvis-os__metric--red"><span class="hnf-jarvis-os__metric-k">Bloqueos</span><strong>${adn.traffic.bloqueos}</strong></div>
+    <div class="hnf-jarvis-os__metric hnf-jarvis-os__metric--amber"><span class="hnf-jarvis-os__metric-k">Pendientes</span><strong>${adn.traffic.pendientes}</strong></div>
+    <div class="hnf-jarvis-os__metric hnf-jarvis-os__metric--green"><span class="hnf-jarvis-os__metric-k">OK</span><strong>${adn.traffic.ok}</strong></div>
+    <div class="hnf-jarvis-os__metric hnf-jarvis-os__metric--neutral"><span class="hnf-jarvis-os__metric-k">Riesgo $</span><strong>$${fmtMoney(adn.dineroEnRiesgo)}</strong></div>
+    <div class="hnf-jarvis-os__metric hnf-jarvis-os__metric--neutral"><span class="hnf-jarvis-os__metric-k">Eventos</span><strong>${adn.totalEventosActivos}</strong></div>
+    <div class="hnf-jarvis-os__metric hnf-jarvis-os__metric--wa"><span class="hnf-jarvis-os__metric-k">WA hoy</span><strong>${adn.whatsappHoy}</strong></div>
   `;
+  colProblem.append(metrics);
 
-  const rowAlertas = document.createElement('div');
-  rowAlertas.className = 'hnf-mando-v2__alertas';
-  const mkA = (emoji, n, txt) => {
-    const d = document.createElement('div');
-    d.className = 'hnf-mando-v2__alerta';
-    d.append(
-      Object.assign(document.createElement('span'), { className: 'hnf-mando-v2__alerta-n', textContent: String(n) }),
-      Object.assign(document.createElement('span'), { className: 'hnf-mando-v2__alerta-t', textContent: `${emoji} ${txt}` })
-    );
-    return d;
-  };
-  rowAlertas.append(
-    mkA('🔴', alertas.sinInformeTecnico, 'OT sin informe técnico'),
-    mkA('🟠', alertas.pendientesAdmin, 'OT pendientes admin'),
-    mkA('🔴', alertas.noEnviadasCliente, 'OT no enviadas a cliente')
-  );
-
-  const rowCuello = document.createElement('div');
-  rowCuello.className = 'hnf-mando-v2__cuello';
-  const cuelloTitle = document.createElement('h3');
-  cuelloTitle.className = 'hnf-mando-v2__cuello-h';
-  cuelloTitle.textContent = 'Quién frena el proceso (peor estado primero)';
-  const cuelloUl = document.createElement('ul');
-  cuelloUl.className = 'hnf-mando-v2__cuello-ul';
-  const worst = [...cards].slice(0, 5);
-  for (const c of worst) {
-    if (c.global === 'verde') continue;
-    const li = document.createElement('li');
-    li.className = `hnf-mando-v2__cuello-li hnf-mando-v2__cuello-li--${c.global}`;
-    li.textContent = `${SEMAFORO_EMOJI[c.global]} ${c.otId} · ${c.cliente} · técnico ${c.tecnico}`;
-    cuelloUl.append(li);
+  const colAnalysis = document.createElement('div');
+  colAnalysis.className = 'hnf-jarvis-os__col hnf-jarvis-os__col--analysis';
+  colAnalysis.innerHTML = `<h3 class="hnf-jarvis-os__col-h"><span class="hnf-jarvis-os__ico hnf-jarvis-os__ico--amber">🟡</span> Análisis · cuello de botella</h3>`;
+  const bottleneckP = document.createElement('p');
+  bottleneckP.className = 'hnf-jarvis-os__col-body';
+  if (adn.bottleneck) {
+    bottleneckP.textContent = `${SEMAFORO_EMOJI[adn.bottleneck.global]} OT ${adn.bottleneck.otId} · ${adn.bottleneck.cliente} · técnico ${adn.bottleneck.tecnico}`;
+  } else {
+    bottleneckP.textContent = '🟢 Sin cuello crítico en este snapshot.';
   }
-  if (!cuelloUl.childElementCount) {
-    const li = document.createElement('li');
-    li.className = 'hnf-mando-v2__cuello-li hnf-mando-v2__cuello-li--verde';
-    li.textContent = '🟢 Sin cuellos críticos en este snapshot.';
-    cuelloUl.append(li);
-  }
-  rowCuello.append(cuelloTitle, cuelloUl);
+  const recP = document.createElement('p');
+  recP.className = 'hnf-jarvis-os__recommend';
+  recP.innerHTML = `<strong>Recomendación automática:</strong> ${adn.recomendacion}`;
+  colAnalysis.append(bottleneckP, recP);
 
-  const rowAccion = document.createElement('div');
-  rowAccion.className = 'hnf-mando-v2__accion';
-  const accIntro = document.createElement('p');
-  accIntro.className = 'hnf-mando-v2__accion-intro';
-  const tops = flattenTopActions(board, 4);
-  accIntro.textContent = tops.length
-    ? `Acción sugerida: ${String(tops[0].titulo || tops[0].motivo || 'Revisar cola').slice(0, 120)}`
-    : (liveCmdModel?.headline || liveCmdModel?.mandatoryAction || 'Revisá OT en Clima y evidencias.');
+  const tops = flattenTopActions(board, 1);
+  if (tops.length || liveCmdModel?.headline) {
+    const sug = document.createElement('p');
+    sug.className = 'muted small hnf-jarvis-os__sug';
+    sug.textContent = tops.length
+      ? `Acción sugerida (cola): ${String(tops[0].titulo || tops[0].motivo || '').slice(0, 140)}`
+      : String(liveCmdModel?.headline || liveCmdModel?.mandatoryAction || '').slice(0, 160);
+    if (sug.textContent.trim()) colAnalysis.append(sug);
+  }
+
+  const colAction = document.createElement('div');
+  colAction.className = 'hnf-jarvis-os__col hnf-jarvis-os__col--action';
+  colAction.innerHTML = `<h3 class="hnf-jarvis-os__col-h"><span class="hnf-jarvis-os__ico hnf-jarvis-os__ico--green">🟢</span> Acción inmediata</h3>`;
+
   const btnExec = document.createElement('button');
   btnExec.type = 'button';
-  btnExec.className = 'primary-button hnf-mando-v2__btn-exec';
-  btnExec.textContent = 'EJECUTAR AHORA';
+  btnExec.id = 'hnf-ejecutar-propuesta-mando';
+  btnExec.className = 'primary-button hnf-jarvis-os__btn-main';
+  btnExec.textContent = 'Ejecutar ahora (cola inteligente)';
   btnExec.addEventListener('click', () => {
-    ejecutarPropuestaGlobal(eventosUnificados, { intelNavigate, navigateToView });
+    ejecutarPropuestaGlobal(adn.eventosUnificados, { intelNavigate, navigateToView });
   });
-  const btnClima = document.createElement('button');
-  btnClima.type = 'button';
-  btnClima.className = 'secondary-button hnf-mando-v2__btn-sec';
-  btnClima.textContent = 'Abrir Clima (OT)';
-  btnClima.addEventListener('click', () => navigateToView?.('clima'));
-  const btnIngreso = document.createElement('button');
-  btnIngreso.type = 'button';
-  btnIngreso.className = 'secondary-button hnf-mando-v2__btn-sec';
-  btnIngreso.textContent = 'Ingreso operativo';
-  btnIngreso.addEventListener('click', () => navigateToView?.('ingreso-operativo'));
-  rowAccion.append(accIntro, btnExec, btnClima, btnIngreso);
 
-  const otGrid = document.createElement('div');
-  otGrid.className = 'hnf-mando-v2__otgrid';
-  const otH = document.createElement('h3');
-  otH.className = 'hnf-mando-v2__otgrid-h';
-  otH.textContent = 'Flujo operativo por OT (técnico · admin · cliente)';
-  otGrid.append(otH);
+  const rowQuick = document.createElement('div');
+  rowQuick.className = 'hnf-jarvis-os__quick';
+  const mkSec = (label, onClick) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'secondary-button hnf-jarvis-os__btn-sec';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  rowQuick.append(
+    mkSec('Clima (OT)', () => navigateToView?.('clima')),
+    mkSec('Ingreso datos', () => navigateToView?.('ingreso-operativo'))
+  );
+  colAction.append(btnExec, rowQuick);
 
+  flow.append(colProblem, colAnalysis, colAction);
+
+  const intelRow = document.createElement('div');
+  intelRow.className = 'hnf-jarvis-os__intel-actions';
+  intelRow.setAttribute('aria-label', 'Acciones inteligentes');
+  const mkIntel = (label, onClick) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'secondary-button hnf-jarvis-os__intel-btn';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  const bottleneckId = adn.bottleneck?.otId ?? null;
+  const closeId = findFirstCloseableOtId(raw);
+  intelRow.append(
+    mkIntel('Resolver cuello de botella', () => {
+      if (bottleneckId) navigateToView?.('clima', { otId: bottleneckId });
+      else ejecutarPropuestaGlobal(adn.eventosUnificados, { intelNavigate, navigateToView });
+    }),
+    mkIntel('Asignar técnico', () => {
+      navigateToView?.('clima', bottleneckId ? { otId: bottleneckId } : undefined);
+    }),
+    mkIntel('Cerrar OT pendiente', () => {
+      if (closeId) navigateToView?.('clima', { otId: closeId });
+      else navigateToView?.('clima');
+    }),
+    mkIntel('Contactar cliente', () => navigateToView?.('whatsapp'))
+  );
+
+  const orbits = document.createElement('nav');
+  orbits.className = 'hnf-jarvis-os__orbits';
+  orbits.setAttribute('aria-label', 'Módulos orbitales');
+  const orbitEntries = Object.values(adn.orbits || {});
+  for (const o of orbitEntries) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hnf-jarvis-os__orbit';
+    const n = Number(o.badge) || 0;
+    btn.innerHTML = `
+      <span class="hnf-jarvis-os__orbit-label">${o.label}</span>
+      <span class="hnf-jarvis-os__orbit-badge" data-empty="${n === 0 ? '1' : '0'}">${n}</span>
+      <span class="hnf-jarvis-os__orbit-hint muted">${o.hint || ''}</span>
+    `;
+    btn.addEventListener('click', () => navigateToView?.(o.view));
+    orbits.append(btn);
+  }
+
+  const detail = document.createElement('div');
+  detail.className = 'hnf-jarvis-os__detail';
+  const detH = document.createElement('h3');
+  detH.className = 'hnf-jarvis-os__detail-h';
+  detH.textContent = 'Detalle OT · flujo técnico → admin → cliente';
   const sc = document.createElement('div');
   sc.className = 'hnf-mando-v2__otscroll';
-  const show = cards.slice(0, 12);
+  const show = (adn.cards || []).slice(0, 14);
   if (!show.length) {
     sc.append(
       Object.assign(document.createElement('p'), {
         className: 'muted',
-        textContent: 'Sin OT en datos. Conectá al API o revisá planificación.',
+        textContent: 'Sin OT en datos. Revisá conexión API o planificación.',
       })
     );
   } else {
@@ -211,14 +244,14 @@ export function createHnfMandoPrincipalV2({
       sc.append(mini);
     }
   }
-  otGrid.append(sc);
+  detail.append(detH, sc);
 
   const foot = document.createElement('footer');
-  foot.className = 'hnf-mando-v2__foot';
+  foot.className = 'hnf-jarvis-os__foot';
   const btnRef = document.createElement('button');
   btnRef.type = 'button';
-  btnRef.className = 'secondary-button hnf-mando-v2__btn-sec';
-  btnRef.textContent = 'Sincronizar datos';
+  btnRef.className = 'secondary-button';
+  btnRef.textContent = 'Sincronizar ADN';
   btnRef.addEventListener('click', async () => {
     btnRef.disabled = true;
     try {
@@ -231,10 +264,10 @@ export function createHnfMandoPrincipalV2({
     btnRef,
     Object.assign(document.createElement('span'), {
       className: 'muted small',
-      textContent: 'Si no ves cambios: recarga forzada en el iPad (cerrar pestaña o ⌘+R).',
+      textContent: 'Caché: recarga forzada en el dispositivo si no ves cambios.',
     })
   );
 
-  wrap.append(ribbon, rowEstado, rowAlertas, rowCuello, rowAccion, otGrid, foot);
+  wrap.append(head, flow, intelRow, orbits, detail, foot);
   return wrap;
 }
