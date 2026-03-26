@@ -16,4 +16,9 @@ export const apiEndpoints = {
   operationalPanelDaily: '/operational-panel/daily',
   operationalIngest: '/operational-ingest',
   hnfCoreSolicitudes: '/hnf-core/solicitudes',
+  hnfValidationQueue: '/hnf-core/validation-queue',
+  hnfValidatedMemory: '/hnf-core/validated-memory',
+  hnfExtendedClients: '/hnf-core/extended-clients',
+  hnfInternalDirectory: '/hnf-core/internal-directory',
+  hnfCargaMasiva: '/hnf-core/carga-masiva',
 };

@@ -74,3 +74,41 @@ export function isViewAllowedForRole(role, viewId) {
   if (role === 'admin') return true;
   return getNavItemsForRole(role).some((x) => x.id === viewId);
 }
+
+/** Clientes extendidos (Hernán / Lyn) */
+export function canAccessClientesManual(role) {
+  return role === 'admin' || role === 'control';
+}
+
+export function canAccessDirectorioInterno(role) {
+  return role === 'admin' || role === 'control';
+}
+
+export function canAccessCargaMasiva(role) {
+  return role === 'admin' || role === 'control';
+}
+
+/**
+ * Bandeja Jarvis: Romina solo ve ítems de clima o asignados a ella.
+ * @param {object[]} queue
+ * @param {HnfOperatorRole} role
+ */
+export function filterValidationQueueForRole(queue, role) {
+  const q = Array.isArray(queue) ? queue : [];
+  if (role === 'admin') return q;
+  if (role === 'clima') {
+    return q.filter(
+      (x) =>
+        String(x.sugerencias?.area || '').toLowerCase() === 'clima' ||
+        String(x.sugerencias?.responsable || '').toLowerCase().includes('romina')
+    );
+  }
+  if (role === 'flota') {
+    return q.filter((x) => {
+      const a = String(x.sugerencias?.area || '').toLowerCase();
+      return a === 'flota' || a === 'comercial';
+    });
+  }
+  if (role === 'control') return q;
+  return q;
+}

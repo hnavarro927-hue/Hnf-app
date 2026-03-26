@@ -10,6 +10,14 @@ import {
   solicitudProgressPct,
 } from '../domain/hnf-core-hub.js';
 import { hnfCoreSolicitudesService } from '../services/hnf-core-solicitudes.service.js';
+import {
+  JARVIS_TAB_DEF,
+  renderCargaMasivaTab,
+  renderClientesTab,
+  renderDirectorioTab,
+  renderMemoriaTab,
+  renderValidacionTab,
+} from './hnf-core-jarvis-panels.js';
 
 const esc = (s) =>
   String(s ?? '')
@@ -30,7 +38,9 @@ export const hnfCoreHubView = ({
   root.className = 'hnf-core-hub';
 
   const role = resolveOperatorRole();
-  let tab = 'solicitudes';
+  const tabDefs = JARVIS_TAB_DEF.filter((d) => d.visible(role));
+  let tab = tabDefs.some((d) => d.id === 'solicitudes') ? 'solicitudes' : tabDefs[0]?.id || 'solicitudes';
+  if (!tabDefs.some((d) => d.id === tab)) tab = tabDefs[0]?.id || 'solicitudes';
   let layout = 'kanban';
   let list = Array.isArray(data?.hnfCoreSolicitudes) ? [...data.hnfCoreSolicitudes] : [];
   let filtered = filterSolicitudesForRole(list, role);
@@ -40,7 +50,7 @@ export const hnfCoreHubView = ({
   const header = document.createElement('header');
   header.className = 'hnf-core-hub__head';
   header.innerHTML = `<h1 class="hnf-core-hub__title">HNF CORE</h1>
-    <p class="hnf-core-hub__sub muted">Solicitudes unificadas · ${stats.lineaNucleo}</p>`;
+    <p class="hnf-core-hub__sub muted">Operación unificada · ${stats.lineaNucleo}</p>`;
 
   const tabs = document.createElement('div');
   tabs.className = 'hnf-core-hub__tabs';
@@ -54,16 +64,15 @@ export const hnfCoreHubView = ({
     b.addEventListener('click', () => {
       tab = id;
       syncTabs();
+      syncToolbar();
       renderBody();
     });
     return b;
   };
 
-  tabs.append(
-    mkTab('solicitudes', 'Solicitudes'),
-    mkTab('finanzas', 'Finanzas'),
-    mkTab('equipo', 'Equipo')
-  );
+  for (const d of tabDefs) {
+    tabs.append(mkTab(d.id, d.label));
+  }
 
   const syncTabs = () => {
     tabs.querySelectorAll('.hnf-core-hub__tab').forEach((btn) => {
@@ -386,7 +395,34 @@ export const hnfCoreHubView = ({
       body.append(renderEquipo());
       return;
     }
+    if (tab === 'validacion') {
+      body.append(renderValidacionTab(data, role, showFb, refresh));
+      return;
+    }
+    if (tab === 'memoria') {
+      body.append(renderMemoriaTab(data));
+      return;
+    }
+    if (tab === 'clientes') {
+      body.append(renderClientesTab(data, showFb, refresh));
+      return;
+    }
+    if (tab === 'directorio') {
+      body.append(renderDirectorioTab(data, showFb, refresh));
+      return;
+    }
+    if (tab === 'carga') {
+      body.append(renderCargaMasivaTab(showFb, refresh));
+      return;
+    }
     body.append(renderSolicitudes());
+  };
+
+  const syncToolbar = () => {
+    const sol = tab === 'solicitudes';
+    btnKanban.hidden = !sol;
+    btnLista.hidden = !sol;
+    form.hidden = !sol;
   };
 
   const btnKanban = document.createElement('button');
@@ -483,6 +519,7 @@ export const hnfCoreHubView = ({
 
   toolbar.append(btnJarvis, btnSync, btnKanban, btnLista);
 
+  syncToolbar();
   renderBody();
 
   root.append(header, tabs, toolbar, feedback, form, body, modalHost);
