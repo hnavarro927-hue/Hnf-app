@@ -49,8 +49,8 @@ export const hnfCoreHubView = ({
 
   const header = document.createElement('header');
   header.className = 'hnf-core-hub__head';
-  header.innerHTML = `<h1 class="hnf-core-hub__title">HNF CORE</h1>
-    <p class="hnf-core-hub__sub muted">Operación unificada · ${stats.lineaNucleo}</p>`;
+  header.innerHTML = `<h1 class="hnf-core-hub__title">Clientes y validación</h1>
+    <p class="hnf-core-hub__sub muted">Solicitudes, memoria confirmada y directorio · ${stats.lineaNucleo}</p>`;
 
   const tabs = document.createElement('div');
   tabs.className = 'hnf-core-hub__tabs';
@@ -110,7 +110,7 @@ export const hnfCoreHubView = ({
     filtered = filterSolicitudesForRole(list, role);
     stats = computeHnfCoreSolicitudStats(list);
     const sub = header.querySelector('.hnf-core-hub__sub');
-    if (sub) sub.textContent = `Solicitudes unificadas · ${stats.lineaNucleo}`;
+    if (sub) sub.textContent = `Solicitudes, validación y directorio · ${stats.lineaNucleo}`;
     renderBody();
   };
 

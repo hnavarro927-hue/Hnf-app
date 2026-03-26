@@ -68,6 +68,8 @@ import { createJarvisPresenceCore } from '../components/jarvis-presence-core.js'
 import { createHnfEnvironmentContinuityPanel } from '../components/hnf-environment-continuity.js';
 import { createJarvisOperativoNucleus } from '../components/jarvis-operativo-nucleus.js';
 import { createHnfMandoPrincipalV2 } from '../components/hnf-mando-principal-v2.js';
+import { createHnfExecutiveMandoStrip } from '../components/hnf-jarvis-mando-ejecutivo.js';
+import { buildExecutiveCommandModel } from '../domain/hnf-executive-command.js';
 import {
   appendLiveIntakeEntry,
   createLiveIntakeEntriesPanel,
@@ -1074,10 +1076,10 @@ export const jarvisHqView = ({
     alienDecision.estadoGlobal === 'critico' ? 'red' : alienDecision.estadoGlobal === 'tension' ? 'amber' : 'green';
   const kicker = document.createElement('p');
   kicker.className = 'jarvis-cc-kicker jarvis-command-hero__kicker';
-  kicker.textContent = 'HNF · centro operativo unificado';
+  kicker.textContent = 'HNF Servicios Integrales · continuidad operacional';
   const h1 = document.createElement('h1');
   h1.className = 'jarvis-cc-title jarvis-command-hero__h1';
-  h1.textContent = 'JARVIS ONE CORE';
+  h1.textContent = 'Jarvis · centro de mando';
   const presenceCore = createJarvisPresenceCore({
     presence,
     startup: unified.jarvisStartupSequence || {},
@@ -1252,7 +1254,12 @@ export const jarvisHqView = ({
   const stagePrimary = document.createElement('div');
   stagePrimary.className = 'jarvis-hq-stage-primary';
   jarvisSecondaryDeck.append(jarvisSecondaryDeckSum, oneCoreMain);
-  root.append(mandoPrincipalV2, jarvisSecondaryDeck);
+  const executiveStrip = createHnfExecutiveMandoStrip({
+    model: data?.hnfAdn?.executiveCommand || buildExecutiveCommandModel(data || {}),
+    intelNavigate,
+    navigateToView,
+  });
+  root.append(executiveStrip, mandoPrincipalV2, jarvisSecondaryDeck);
 
   const sistemaStrip = document.createElement('section');
   sistemaStrip.className = 'jarvis-sistema-vivo';

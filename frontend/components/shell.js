@@ -67,10 +67,10 @@ export const createShell = ({
   brandText.className = 'shell-brand__text';
   const brandName = document.createElement('span');
   brandName.className = 'shell-brand__name';
-  brandName.textContent = 'Mando operativo';
+  brandName.textContent = 'HNF Servicios Integrales';
   const brandProduct = document.createElement('span');
   brandProduct.className = 'shell-brand__product';
-  brandProduct.textContent = 'Centro de control';
+  brandProduct.textContent = 'Centro de mando · energía y continuidad';
   brandText.append(brandName, brandProduct);
   brand.append(mark, brandText);
 

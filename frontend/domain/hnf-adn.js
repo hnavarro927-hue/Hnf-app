@@ -7,6 +7,8 @@
 import { buildControlOperativoAlertas, buildControlOperativoCards } from './control-operativo-tiempo-real.js';
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from './evento-operativo.js';
 import { computeHnfCoreSolicitudStats } from './hnf-core-hub.js';
+import { buildExecutiveCommandModel } from './hnf-executive-command.js';
+import { buildJarvisCentroResumen } from './hnf-jarvis-centro-resumen.js';
 import { buildJarvisLiveOrbitModel } from './hnf-jarvis-live-orbit.js';
 
 /** @param {object} data - Misma forma que state.viewData tras loadFullOperationalData */
@@ -47,10 +49,10 @@ export function buildHnfAdnSnapshot(data) {
         : 'Operación estable: mantener ritmo y anticipar calendario / comercial.');
 
   const recomendacion = bottleneck
-    ? `Enfocar ${bottleneck.otId} (${bottleneck.cliente}): técnico ${bottleneck.tecnico} — desbloquear antes de sumar carga.`
+    ? `Priorizar ${bottleneck.otId} (${bottleneck.cliente}): técnico ${bottleneck.tecnico} — cerrar evidencias antes de sumar carga nueva.`
     : cards.length && ok === cards.length
-      ? 'Pipeline OT en verde: revisá comercial y calendario de la semana.'
-      : 'Ejecutá la acción sugerida y validá evidencias en Clima.';
+      ? 'Pipeline en buen estado: anticipá comercial y calendario de la semana.'
+      : 'Avanzá la acción sugerida y validá evidencias en Clima.';
 
   const sol = Array.isArray(d.flotaSolicitudes) ? d.flotaSolicitudes : [];
   const flotaAbierta = sol.filter((s) => String(s?.estado || '').toLowerCase() !== 'cerrada').length;
@@ -94,6 +96,18 @@ export function buildHnfAdnSnapshot(data) {
     jarvisLiveOrbit.commercialLive?.pressureScore ?? 0
   );
 
+  const jarvisCentroResumen = buildJarvisCentroResumen(d);
+  const executiveCommand = buildExecutiveCommandModel(d, {
+    cards,
+    bottleneck,
+    principalProblema,
+    recomendacion,
+    whatsappHoy,
+    dineroEnRiesgo: agg.dinero_en_riesgo,
+    hnfCoreSolicitudStats,
+    alertas,
+  });
+
   return {
     version: 1,
     estadoGeneral: agg.estado_general,
@@ -111,6 +125,8 @@ export function buildHnfAdnSnapshot(data) {
     hnfCoreSolicitudes,
     hnfCoreSolicitudStats,
     commercialLive: jarvisLiveOrbit.commercialLive,
+    jarvisCentroResumen,
+    executiveCommand,
     orbits: {
       clima: { view: 'clima', label: 'Clima', badge: bloqueos + pendientes, hint: 'OT · visitas' },
       flota: { view: 'flota', label: 'Flota', badge: flotaAbierta, hint: 'Solicitudes' },

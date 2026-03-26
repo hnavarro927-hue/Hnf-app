@@ -38,9 +38,9 @@ export const jarvisIntakeHubView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML = `
-    <h2>Jarvis Intake Hub</h2>
-    <p class="jarvis-intake__read-only-badge" role="status">Modo lectura / sin envío</p>
-    <p class="muted">Solo recepción: ingesta, lectura y clasificación. Sin respuesta automática, borradores de salida, <code>send</code>, <code>autoReply</code> ni sincronización de salida. Señales internas para Hernán / Lyn.</p>
+    <h2>Bandeja · correo e histórico</h2>
+    <p class="jarvis-intake__read-only-badge" role="status">Solo lectura · sin envío automático</p>
+    <p class="muted">Recepción y clasificación de mensajes para el equipo. Sin respuestas automáticas ni envío desde esta pantalla. Las señales priorizan trabajo de Hernán y Lyn.</p>
   `;
   root.append(header);
 

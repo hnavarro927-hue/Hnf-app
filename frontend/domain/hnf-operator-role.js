@@ -1,23 +1,34 @@
 /**
  * Rol operativo desde nombre guardado (localStorage `hnfActor`).
- * Admin = acceso total; resto = un módulo + una decisión por pantalla.
+ * Navegación modular: centro de mando HNF por persona.
  */
 
 import { getStoredOperatorName } from '../config/operator.config.js';
 
-/** @typedef {'admin' | 'clima' | 'flota' | 'control'} HnfOperatorRole */
+/** @typedef {'admin' | 'clima' | 'flota' | 'control' | 'tecnico'} HnfOperatorRole */
 
-export const HNF_CORE_NAV = { id: 'hnf-core', icon: '⬡', label: 'Core' };
+/** Clientes, directorio, validación, carga masiva (pestañas filtradas por rol en la vista). */
+export const HNF_CORE_NAV = { id: 'hnf-core', icon: '⬡', label: 'Clientes' };
 
-export const HNF_COMMAND_NAV_FULL = [
+const pick = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
+
+export const HNF_OS_NAV_ADMIN = [
   { id: 'jarvis', icon: '◉', label: 'Jarvis' },
-  HNF_CORE_NAV,
   { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
+  { id: 'bandeja-canal', icon: '▣', label: 'Bandeja' },
   { id: 'clima', icon: '◎', label: 'Clima' },
+  { id: 'planificacion', icon: '◷', label: 'Planificación' },
   { id: 'flota', icon: '⛟', label: 'Flota' },
   { id: 'oportunidades', icon: '◈', label: 'Comercial' },
   { id: 'control-gerencial', icon: '⊞', label: 'Control' },
+  { id: 'finanzas', icon: '◇', label: 'Finanzas' },
+  { id: 'equipo', icon: '◐', label: 'Equipo' },
+  HNF_CORE_NAV,
+  { id: 'documentos-tecnicos', icon: '▤', label: 'Documentos' },
 ];
+
+/** @deprecated Usar HNF_OS_NAV_ADMIN; se mantiene alias para imports existentes. */
+export const HNF_COMMAND_NAV_FULL = HNF_OS_NAV_ADMIN;
 
 /**
  * @returns {HnfOperatorRole}
@@ -25,6 +36,7 @@ export const HNF_COMMAND_NAV_FULL = [
 export function resolveOperatorRole() {
   const raw = getStoredOperatorName().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
   if (!raw.trim()) return 'admin';
+  if (raw.includes('tecnico') || raw.includes('técnico')) return 'tecnico';
   if (raw.includes('romina')) return 'clima';
   if (raw.includes('gery')) return 'flota';
   if (raw.includes('lyn')) return 'control';
@@ -34,32 +46,54 @@ export function resolveOperatorRole() {
 
 /**
  * @param {HnfOperatorRole} role
- * @returns {typeof HNF_COMMAND_NAV_FULL}
+ * @returns {typeof HNF_OS_NAV_ADMIN}
  */
 export function getNavItemsForRole(role) {
-  if (role === 'admin') return [...HNF_COMMAND_NAV_FULL];
+  if (role === 'admin') return [...HNF_OS_NAV_ADMIN];
+  if (role === 'tecnico') {
+    return [pick('clima'), pick('ingreso-operativo')].filter(Boolean);
+  }
   if (role === 'clima') {
-    return [HNF_COMMAND_NAV_FULL.find((x) => x.id === 'clima'), HNF_CORE_NAV].filter(Boolean);
+    return [
+      pick('jarvis'),
+      pick('clima'),
+      pick('planificacion'),
+      pick('ingreso-operativo'),
+      pick('bandeja-canal'),
+      HNF_CORE_NAV,
+    ].filter(Boolean);
   }
   if (role === 'flota') {
     return [
-      HNF_COMMAND_NAV_FULL.find((x) => x.id === 'flota'),
-      HNF_COMMAND_NAV_FULL.find((x) => x.id === 'oportunidades'),
+      pick('jarvis'),
+      pick('flota'),
+      pick('oportunidades'),
+      pick('ingreso-operativo'),
+      pick('bandeja-canal'),
       HNF_CORE_NAV,
     ].filter(Boolean);
   }
   if (role === 'control') {
-    return [HNF_COMMAND_NAV_FULL.find((x) => x.id === 'control-gerencial'), HNF_CORE_NAV].filter(
-      Boolean
-    );
+    return [
+      pick('jarvis'),
+      pick('control-gerencial'),
+      HNF_CORE_NAV,
+      pick('documentos-tecnicos'),
+      pick('ingreso-operativo'),
+      pick('bandeja-canal'),
+      pick('finanzas'),
+      pick('equipo'),
+      pick('planificacion'),
+    ].filter(Boolean);
   }
-  return [...HNF_COMMAND_NAV_FULL];
+  return [...HNF_OS_NAV_ADMIN];
 }
 
 /**
  * @param {HnfOperatorRole} role
  */
 export function defaultViewForRole(role) {
+  if (role === 'tecnico') return 'clima';
   if (role === 'clima') return 'clima';
   if (role === 'flota') return 'flota';
   if (role === 'control') return 'control-gerencial';
@@ -89,7 +123,7 @@ export function canAccessCargaMasiva(role) {
 }
 
 /**
- * Bandeja Jarvis: Romina solo ve ítems de clima o asignados a ella.
+ * Bandeja validación: Romina solo ve ítems de clima o asignados a ella.
  * @param {object[]} queue
  * @param {HnfOperatorRole} role
  */

@@ -37,7 +37,10 @@ import { jarvisIntakeHubView } from './views/jarvis-intake-hub.js';
 import { jarvisVaultView } from './views/jarvis-vault.js';
 import { ingresoOperativoView } from './views/ingreso-operativo.js';
 import { hnfCoreHubView } from './views/hnf-core-hub.js';
+import { finanzasOperativoView } from './views/finanzas-operativo.js';
+import { equipoOperativoView } from './views/equipo-operativo.js';
 import { controlGerencialView } from './views/control-gerencial.js';
+import { hnfOperativoIntegradoService } from './services/hnf-operativo-integrado.service.js';
 import { whatsappFeedService } from './services/whatsapp-feed.service.js';
 import { outlookIntakeService } from './services/outlook-intake.service.js';
 import { historicalVaultService } from './services/historical-vault.service.js';
@@ -270,12 +273,15 @@ const toListEnvelope = (fallback) => () => fallback;
 const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'jarvis',
   'jarvis-intake',
+  'bandeja-canal',
   'jarvis-vault',
   'asistente',
   'operacion-control',
   'ingreso-operativo',
   'control-gerencial',
   'hnf-core',
+  'finanzas',
+  'equipo',
 ]);
 
 const minimalOperationalViewData = () => {
@@ -331,6 +337,10 @@ const minimalOperationalViewData = () => {
     operationalPanelDaily: null,
     operationalEvents: [],
     hnfCoreSolicitudes: [],
+    hnfValidationQueue: [],
+    hnfValidatedMemory: [],
+    hnfExtendedClients: [],
+    hnfInternalDirectory: [],
   };
   base.hnfAdn = buildHnfAdnSnapshot(base);
   return base;
@@ -367,6 +377,10 @@ const loadFullOperationalDataImpl = async () => {
     operationalPanelDaily,
     operationalEvents,
     hnfCoreSolicitudesRaw,
+    hnfValidationQueueRaw,
+    hnfValidatedMemoryRaw,
+    hnfExtendedClientsRaw,
+    hnfInternalDirectoryRaw,
   ] = await Promise.all([
     healthService.getStatus().catch(toListEnvelope(healthFallback)),
     otService.getAll().catch(toListEnvelope({ data: [] })),
@@ -395,6 +409,10 @@ const loadFullOperationalDataImpl = async () => {
     operationalEventsService.getDailyPanel().catch(() => null),
     operationalEventsService.listEvents().catch(() => []),
     hnfCoreSolicitudesService.getAll().catch(() => []),
+    hnfOperativoIntegradoService.getValidationQueue().catch(() => []),
+    hnfOperativoIntegradoService.getValidatedMemory().catch(() => []),
+    hnfOperativoIntegradoService.getExtendedClients().catch(() => []),
+    hnfOperativoIntegradoService.getInternalDirectory().catch(() => []),
   ]);
 
   const emptyOutlookFeed = {
@@ -441,6 +459,10 @@ const loadFullOperationalDataImpl = async () => {
     hnfDocumentIntelligence.computeCommercialOpportunityAlerts(commercialOpportunities);
 
   const hnfCoreSolicitudes = Array.isArray(hnfCoreSolicitudesRaw) ? hnfCoreSolicitudesRaw : [];
+  const hnfValidationQueue = Array.isArray(hnfValidationQueueRaw) ? hnfValidationQueueRaw : [];
+  const hnfValidatedMemory = Array.isArray(hnfValidatedMemoryRaw) ? hnfValidatedMemoryRaw : [];
+  const hnfExtendedClients = Array.isArray(hnfExtendedClientsRaw) ? hnfExtendedClientsRaw : [];
+  const hnfInternalDirectory = Array.isArray(hnfInternalDirectoryRaw) ? hnfInternalDirectoryRaw : [];
 
   let jarvisOperativeEvents = [];
   try {
@@ -476,6 +498,10 @@ const loadFullOperationalDataImpl = async () => {
     operationalPanelDaily,
     operationalEvents: Array.isArray(operationalEvents) ? operationalEvents : [],
     hnfCoreSolicitudes,
+    hnfValidationQueue,
+    hnfValidatedMemory,
+    hnfExtendedClients,
+    hnfInternalDirectory,
   };
   payload.hnfAdn = buildHnfAdnSnapshot(payload);
   return payload;
@@ -518,12 +544,27 @@ const viewRegistry = {
     load: loadFullOperationalData,
   },
 
+  finanzas: {
+    render: finanzasOperativoView,
+    load: loadFullOperationalData,
+  },
+
+  equipo: {
+    render: equipoOperativoView,
+    load: loadFullOperationalData,
+  },
+
   jarvis: {
     render: jarvisHqView,
     load: loadFullOperationalData,
   },
 
   'jarvis-intake': {
+    render: jarvisIntakeHubView,
+    load: loadFullOperationalData,
+  },
+
+  'bandeja-canal': {
     render: jarvisIntakeHubView,
     load: loadFullOperationalData,
   },
@@ -1207,6 +1248,7 @@ const createActions = () => ({
 });
 
 async function navigateToView(viewId, intelOptions = null) {
+  if (viewId === 'jarvis-intake') viewId = 'bandeja-canal';
   if (viewId === 'dashboard') {
     viewId = 'jarvis';
     state.pendingScrollToMando = true;
@@ -1554,6 +1596,7 @@ const viewIdFromLocation = () => {
     .trim();
   const seg = h.split('/')[0].split('?')[0];
   let mapped = seg === 'dashboard' ? 'jarvis' : seg;
+  if (mapped === 'jarvis-intake') mapped = 'bandeja-canal';
   if (mapped === 'flujo-operativo-unificado' || mapped === 'control-operativo-tiempo-real') {
     mapped = 'jarvis';
   }

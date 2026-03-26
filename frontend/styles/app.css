@@ -17037,3 +17037,277 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis {
 .content--view-hnf-core {
   background: #05080d;
 }
+
+/* —— Mando ejecutivo Jarvis (una lectura) —— */
+.hnf-exec-mando {
+  margin: 0 0 1.25rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.55) 100%);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-exec-mando__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.hnf-exec-mando__h {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+}
+
+.hnf-exec-mando__lead {
+  margin: 0;
+  max-width: 52rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.hnf-exec-mando__mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.hnf-exec-mando__mode-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.hnf-exec-mando__mode-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.hnf-exec-mando__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.hnf-exec-mando__pill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 108px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hnf-exec-mando__pill--warn {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.hnf-exec-mando__pill--crit {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.hnf-exec-mando__pill--money {
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.hnf-exec-mando__pill-l {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+
+.hnf-exec-mando__pill-v {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: #f1f5f9;
+}
+
+.hnf-exec-mando__action {
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.hnf-exec-mando__action-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #7dd3fc;
+}
+
+.hnf-exec-mando__action-text {
+  margin: 0 0 0.35rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: #e2e8f0;
+}
+
+.hnf-exec-mando__action-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.hnf-exec-mando__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.hnf-exec-mando__link {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  padding: 0.4rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.hnf-exec-mando__link:hover {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fff;
+}
+
+.hnf-exec-mando__alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.hnf-exec-mando__alert {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #cbd5e1;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hnf-exec-mando__alert--ok {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.hnf-exec-mando__alert-go {
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: transparent;
+  color: #fde68a;
+  cursor: pointer;
+}
+
+/* —— Módulos Finanzas / Equipo —— */
+.hnf-mod-finanzas,
+.hnf-mod-equipo {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.5rem 0.25rem 1.5rem;
+}
+
+.hnf-mod-finanzas__head,
+.hnf-mod-equipo__head {
+  margin-bottom: 1rem;
+}
+
+.hnf-mod-finanzas__title,
+.hnf-mod-equipo__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.hnf-mod-finanzas__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.hnf-mod-finanzas__card-t {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+
+.hnf-mod-finanzas__card-v {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fde68a;
+}
+
+.hnf-mod-finanzas__tool,
+.hnf-mod-equipo__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hnf-mod-equipo__table-wrap {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.hnf-mod-equipo__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.hnf-mod-equipo__table th,
+.hnf-mod-equipo__table td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hnf-mod-equipo__table th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.content--view-finanzas,
+.content--view-equipo {
+  background: #05080d;
+}
