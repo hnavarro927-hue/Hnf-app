@@ -1,0 +1,20 @@
+[
+  {
+    "tecnicoId": "TEC-001",
+    "nombre": "Juan Pérez",
+    "telefono": "+56912345678",
+    "alias": ["juan", "jp", "juan p"]
+  },
+  {
+    "tecnicoId": "TEC-002",
+    "nombre": "Ana Martínez",
+    "telefono": "+56987654321",
+    "alias": ["ana", "anita", "a martinez"]
+  },
+  {
+    "tecnicoId": "TEC-003",
+    "nombre": "Pedro Soto",
+    "telefono": "912345678",
+    "alias": ["pedro", "p soto"]
+  }
+]

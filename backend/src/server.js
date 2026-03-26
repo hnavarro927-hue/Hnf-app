@@ -1,12 +1,14 @@
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { appConfig } from './config/app.js';
+import { startJarvisOperationalCycleTimer } from './cron/jarvis-cycle.js';
 import { routes } from './routes/index.js';
-import { matchRoute, readJsonBody, sendError } from './utils/http.js';
+import { corsHeadersForRequest, matchRoute, readJsonBody, sendError } from './utils/http.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,7 +66,28 @@ const serveFrontendFile = async (response, pathname) => {
   response.end(fileContent);
 };
 
+const lanIpv4Addresses = () => {
+  const out = [];
+  const ifs = os.networkInterfaces();
+  for (const addrs of Object.values(ifs)) {
+    for (const a of addrs || []) {
+      if (a.family === 'IPv4' && !a.internal) out.push(a.address);
+    }
+  }
+  return out;
+};
+
 const server = createServer(async (request, response) => {
+  const ch = corsHeadersForRequest(request);
+  for (const [k, v] of Object.entries(ch)) {
+    response.setHeader(k, v);
+  }
+  if (request.method === 'OPTIONS') {
+    response.writeHead(204);
+    response.end();
+    return;
+  }
+
   const url = new URL(request.url, 'http://localhost');
   const matched = matchRoute(routes, request.method, url.pathname);
 
@@ -101,9 +124,15 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(appConfig.port, () => {
+server.listen(appConfig.port, '0.0.0.0', () => {
+  startJarvisOperationalCycleTimer();
   const mode = frontendRoot === frontendDistRoot ? 'dist (build)' : 'código fuente';
-  console.log(`HNF backend running on http://localhost:${appConfig.port}`);
+  const ips = lanIpv4Addresses();
+  console.log(`HNF backend listening on 0.0.0.0:${appConfig.port} (todas las interfaces)`);
+  console.log(`  Local:   http://127.0.0.1:${appConfig.port}`);
+  for (const ip of ips) {
+    console.log(`  En LAN:  http://${ip}:${appConfig.port}`);
+  }
   console.log(`HNF frontend static: ${mode} → ${frontendRoot}`);
   if (frontendRoot !== frontendDistRoot) {
     console.warn(

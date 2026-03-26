@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
-    "check": "find src -name '*.js' -print0 | xargs -0 -n1 node --check"
+    "check": "node ../scripts/hnf-check-syntax-dir.mjs backend/src"
   }
 }

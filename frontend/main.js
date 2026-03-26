@@ -5,6 +5,10 @@ import { clientService } from './services/client.service.js';
 import { flotaSolicitudService } from './services/flota-solicitud.service.js';
 import { expenseService } from './services/expense.service.js';
 import { healthService } from './services/health.service.js';
+import { probeBackendHealth } from './domain/hnf-connectivity.js';
+import { registerHnfArchitectureDevHook } from './domain/hnf-architecture-contract.js';
+import { safeExecute, safeAsync } from './domain/hnf-core.js';
+import { loadViewCache, saveShellMeta, saveViewCache } from './domain/hnf-storage.js';
 import { blobToDataUrl, generateOtPdfBlob } from './services/pdf.service.js';
 import { otService } from './services/ot.service.js';
 import { vehicleService } from './services/vehicle.service.js';
@@ -15,29 +19,421 @@ import { adminView } from './views/admin.js';
 import { planificacionService } from './services/planificacion.service.js';
 import { planificacionView } from './views/planificacion.js';
 import { asistenteIaView } from './views/asistente-ia.js';
+import { whatsappFeedView } from './views/whatsapp-feed.js';
+import { operacionControlView } from './views/operacion-control.js';
+import { panelOperativoVivoView } from './views/panel-operativo-vivo.js';
+import { technicalDocumentsView } from './views/technical-documents.js';
+import { oportunidadesView } from './views/oportunidades.js';
+import { mergeJarvisOperativeStoresFromServer, getCentroIngestaState } from './domain/jarvis-active-intake-engine.js';
+import { jarvisOperativeEventsService } from './services/jarvis-operative-events.service.js';
+import { jarvisHqView } from './views/jarvis-hq.js';
+import { jarvisIntakeHubView } from './views/jarvis-intake-hub.js';
+import { jarvisVaultView } from './views/jarvis-vault.js';
+import { ingresoOperativoView } from './views/ingreso-operativo.js';
+import { controlGerencialView } from './views/control-gerencial.js';
+import { whatsappFeedService } from './services/whatsapp-feed.service.js';
+import { outlookIntakeService } from './services/outlook-intake.service.js';
+import { historicalVaultService } from './services/historical-vault.service.js';
+import { technicalDocumentsService } from './services/technical-documents.service.js';
+import { commercialOpportunitiesService } from './services/commercial-opportunities.service.js';
+import { operationalCalendarService } from './services/operational-calendar.service.js';
+import { operationalEventsService } from './services/operational-events.service.js';
+import {
+  computeOperationalCalendarAlerts,
+  defaultOperationalCalendarRange,
+} from './domain/operational-calendar.js';
+import * as hnfDocumentIntelligence from './domain/technical-document-intelligence.js';
 import {
   formatAllCloseBlockersMessage,
   otCanClose,
 } from './utils/ot-evidence.js';
+import {
+  analyzeTechnicalDocument,
+  buildIntelExecutionQueue,
+  detectOperationalIssues,
+  generateActionPlan,
+  getDirectorOperationalBrief,
+  getOperationalSnapshot,
+  INTEL_AUTOMATION_SCHEMA,
+  runAIAnalysis,
+} from './domain/hnf-intelligence-engine.js';
+import * as hnfAutopilot from './domain/hnf-autopilot.js';
+import * as hnfMemory from './domain/hnf-memory.js';
+import {
+  buildJarvisActionBoard,
+  buildJarvisDailyBrief,
+  buildJarvisDirectorBrief,
+  computeJarvisExecutiveAlerts,
+  explainJarvisDecision,
+  getJarvisUnifiedState,
+  runJarvisAutonomicCycle,
+} from './domain/jarvis-core.js';
+import { startJarvisAutonomicSurface } from './domain/jarvis-autonomic-surface.js';
+import { buildJarvisDecisionEngine } from './domain/jarvis-decision-engine.js';
+import { markJarvisInfinityEventResolved } from './domain/jarvis-infinity-engine.js';
+import { JarvisMemoryEngine } from './domain/jarvis-memory-engine.js';
+import { buildJarvisPresence, buildJarvisStartupSequence } from './domain/jarvis-presence-engine.js';
+import {
+  buildJarvisPresence as jarvisOsBuildPresence,
+  buildJarvisDecisionEngine as jarvisOsBuildDecision,
+  generarSaludo as jarvisOsGenerarSaludo,
+  startJarvisAutonomousLoop,
+  registerJarvisMemory as registerJarvisOsMemory,
+  getJarvisMemory as getJarvisOsMemory,
+  processJarvisInput,
+} from '@/jarvis/jarvis-core.js';
+import {
+  notifyJarvisExternalEvent,
+  startJarvisConsciousLoop,
+  typewriterInto,
+} from '@/jarvis/jarvis-conscious.js';
+import {
+  adjustHeuristics,
+  appendMemoryEvent,
+  detectPatternFromHistory,
+  getAutonomicCycleMemorySummary,
+  getEvolutiveMemoryEvents,
+  getHistoricalVaultMemorySummary,
+  getJarvisMemorySummary,
+  getJarvisRecurringPatterns,
+  getOutlookFollowUpMemorySummary,
+  rememberHistoricalPattern,
+  rememberHistoricalVaultImport,
+  rememberJarvisAction,
+  rememberJarvisBrief,
+  rememberOutlookIntakeEvent,
+} from './domain/jarvis-memory.js';
+import {
+  dismissJarvisOperationalTask,
+  executeIntakeThroughActionPipeline,
+  executeJarvisActions,
+  getJarvisOperationalTasks,
+} from './domain/jarvis-action-engine.js';
+import { buildHistoricalTimeline, searchHistoricalVault } from './domain/historical-vault-intelligence.js';
+import { getHNFJarvisControlApi } from './domain/jarvis-control-center.js';
+import { getHNFJarvisPulseApi, setJarvisPulseContext } from './domain/jarvis-pulse-engine.js';
+import { getHNFJarvisUIApi, isTabletMode } from './domain/jarvis-ui.js';
+import {
+  buildOutlookFollowUpSignals,
+  classifyOutlookMessage,
+} from './domain/outlook-intelligence.js';
+import { createHnfAutoDeployIndicator } from './components/hnf-auto-deploy-indicator.js';
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  window.__HNF_DEV_CONSOLE_ERRORS__ = window.__HNF_DEV_CONSOLE_ERRORS__ || [];
+  const cap = 16;
+  const push = (m) => {
+    window.__HNF_DEV_CONSOLE_ERRORS__.push({ t: Date.now(), m: String(m || '').slice(0, 280) });
+    while (window.__HNF_DEV_CONSOLE_ERRORS__.length > cap) window.__HNF_DEV_CONSOLE_ERRORS__.shift();
+  };
+  window.addEventListener('error', (e) => push(e.error?.message || e.message || 'error'));
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e.reason;
+    push(r?.message || r || 'unhandledrejection');
+  });
+}
+
+let hnfDeployIndicatorCtl = null;
+const getHnfDeployIndicatorElement = () => {
+  if (!import.meta.env.DEV) return null;
+  if (!hnfDeployIndicatorCtl) {
+    hnfDeployIndicatorCtl = createHnfAutoDeployIndicator();
+    hnfDeployIndicatorCtl.start();
+  }
+  return hnfDeployIndicatorCtl.element;
+};
+
+const exposeIntelGlobals = () => {
+  window.getOperationalSnapshot = getOperationalSnapshot;
+  window.detectOperationalIssues = detectOperationalIssues;
+  window.generateActionPlan = generateActionPlan;
+  window.runAIAnalysis = runAIAnalysis;
+  window.buildIntelExecutionQueue = buildIntelExecutionQueue;
+  window.getDirectorOperationalBrief = getDirectorOperationalBrief;
+  window.INTEL_AUTOMATION_SCHEMA = INTEL_AUTOMATION_SCHEMA;
+  window.HNFIntelligenceEngine = {
+    getOperationalSnapshot,
+    detectOperationalIssues,
+    generateActionPlan,
+    runAIAnalysis,
+    buildIntelExecutionQueue,
+    getDirectorOperationalBrief,
+    INTEL_AUTOMATION_SCHEMA,
+    analyzeTechnicalDocument,
+  };
+  window.HNFAutopilot = hnfAutopilot;
+  window.HNFMemory = hnfMemory;
+  window.HNFDocumentIntelligence = hnfDocumentIntelligence;
+  window.HNFDocumentApproval = {
+    rememberApprovalPattern: hnfMemory.rememberApprovalPattern,
+    getDocumentApprovalMemorySummary: hnfMemory.getDocumentApprovalMemorySummary,
+  };
+};
+
+const exposeJarvisGlobals = () => {
+  window.HNFJarvisCore = {
+    getJarvisUnifiedState,
+    buildJarvisDailyBrief,
+    buildJarvisActionBoard,
+    explainJarvisDecision,
+    computeJarvisExecutiveAlerts,
+    buildJarvisDirectorBrief,
+    runJarvisAutonomicCycle,
+    buildJarvisDecisionEngine,
+    buildJarvisStartupSequence,
+    buildJarvisPresence,
+    JarvisMemoryEngine,
+  };
+  window.HNFJarvisOS = {
+    buildJarvisPresence: jarvisOsBuildPresence,
+    buildJarvisDecisionEngine: jarvisOsBuildDecision,
+    registerJarvisMemory: registerJarvisOsMemory,
+    getJarvisMemory: getJarvisOsMemory,
+    processJarvisInput,
+  };
+  window.HNFJarvisOperador = {
+    getJarvisOperationalTasks,
+    dismissJarvisOperationalTask,
+    executeJarvisActions,
+    executeIntakeThroughActionPipeline,
+  };
+  window.HNFJarvisInfinity = {
+    markEventResolved: markJarvisInfinityEventResolved,
+  };
+  window.HNFJarvisMemory = {
+    rememberJarvisBrief,
+    rememberJarvisAction,
+    getJarvisMemorySummary,
+    getJarvisRecurringPatterns,
+    rememberOutlookIntakeEvent,
+    getOutlookFollowUpMemorySummary,
+    rememberHistoricalVaultImport,
+    rememberHistoricalPattern,
+    getHistoricalVaultMemorySummary,
+    getAutonomicCycleMemorySummary,
+    appendMemoryEvent,
+    getEvolutiveMemoryEvents,
+    detectPatternFromHistory,
+    adjustHeuristics,
+  };
+  window.HNFHistoricalVault = {
+    ingestHistoricalVaultBatch: (payload) => historicalVaultService.ingestBatch(payload),
+    searchHistoricalVault: (query, context) => searchHistoricalVault(query, context),
+    buildHistoricalTimeline: (records, filters) => buildHistoricalTimeline(records, filters),
+  };
+  window.HNFOutlookIntake = {
+    classifyOutlookMessage,
+    buildOutlookFollowUpSignals,
+    ingestOutlookMessage: (msg, clientNames) => outlookIntakeService.ingestMessage(msg, clientNames),
+    ingestOutlookBatch: (messages, clientNames) => outlookIntakeService.ingestBatch(messages, clientNames),
+    ingestFolderDocuments: (payload) => outlookIntakeService.ingestFolder(payload),
+  };
+};
 
 const app = document.querySelector('#app');
 if (!app) {
   throw new Error('No se encontró #app en el DOM.');
 }
 
-/** Carga unificada OT + planificación + flota + salud (Inicio y Asistente IA). */
-const loadFullOperationalData = async () => {
-  const [health, ots, clients, vehicles, expenses, cr, tr, mr, sol] = await Promise.all([
-    healthService.getStatus(),
-    otService.getAll(),
-    clientService.getAll(),
-    vehicleService.getAll(),
-    expenseService.getAll(),
-    planificacionService.getClientes(),
-    planificacionService.getTiendas({}),
-    planificacionService.getMantenciones({}),
-    flotaSolicitudService.getAll({}),
+if (typeof window !== 'undefined') {
+  window.onerror = (message, source, lineno, colno, error) => {
+    console.error('[HNF window.onerror]', { message, source, lineno, colno, error });
+    return false;
+  };
+  window.addEventListener('unhandledrejection', (ev) => {
+    console.error('[HNF unhandledrejection]', ev.reason);
+  });
+  registerHnfArchitectureDevHook();
+  exposeIntelGlobals();
+  exposeJarvisGlobals();
+  window.HNFJarvisControl = getHNFJarvisControlApi();
+  window.HNFJarvisPulse = getHNFJarvisPulseApi();
+  window.HNFJarvisUI = getHNFJarvisUIApi();
+  const syncJarvisViewportClass = () => {
+    document.body.classList.toggle('hnf-viewport-tablet', isTabletMode());
+  };
+  syncJarvisViewportClass();
+  window.addEventListener('resize', syncJarvisViewportClass);
+}
+
+const toListEnvelope = (fallback) => () => fallback;
+
+/** Vistas que comparten el mismo snapshot operativo (misma función load). */
+const VIEWS_WITH_UNIFIED_LOAD = new Set([
+  'jarvis',
+  'jarvis-intake',
+  'jarvis-vault',
+  'dashboard',
+  'asistente',
+  'operacion-control',
+  'ingreso-operativo',
+  'control-gerencial',
+]);
+
+const minimalOperationalViewData = () => ({
+  health: {
+    success: true,
+    data: {
+      status: 'ok',
+      app: 'HNF API',
+      database: { status: 'unknown', message: 'Datos mínimos tras error de procesamiento.' },
+    },
+    meta: { resource: 'health' },
+  },
+  ots: { data: [] },
+  clients: { data: [] },
+  vehicles: { data: [] },
+  expenses: { data: [] },
+  planClientes: [],
+  planTiendas: [],
+  planMantenciones: [],
+  planOts: [],
+  operationalCalendar: { entries: [] },
+  operationalCalendarAlerts: [],
+  technicalDocuments: [],
+  technicalDocumentAlerts: [],
+  commercialOpportunities: [],
+  commercialOpportunityAlerts: [],
+  flotaSolicitudes: [],
+  whatsappFeed: {
+    messages: [],
+    ingestLogs: [],
+    errors: [],
+    operationalSummary: null,
+  },
+  outlookFeed: {
+    messages: [],
+    historicalImports: [],
+    ingestErrors: [],
+    lastIngestAt: null,
+    futureOutlookHooks: {
+      inboxSync: false,
+      replyDraft: false,
+      threadSync: false,
+      sendMail: false,
+      autoReply: false,
+      outboundSync: false,
+      note: 'Sin datos de Outlook.',
+    },
+    outlookIntakeMode: 'recepcion_solo_lectura',
+  },
+  historicalVault: { records: [], importBatches: [], computed: null },
+  jarvisOperativeEvents: getCentroIngestaState().events,
+  operationalPanelDaily: null,
+  operationalEvents: [],
+});
+
+/** Carga unificada OT + planificación + flota + salud (Inicio y Asistente IA). Nunca rechaza: un fallo de sub-recurso no debe tumbar toda la app ni marcar “sin conexión”. */
+const loadFullOperationalDataImpl = async () => {
+  const opRange = defaultOperationalCalendarRange();
+  const healthFallback = {
+    success: true,
+    data: {
+      app: 'HNF API',
+      status: 'ok',
+      database: { status: 'unknown', message: 'Health no revalidado en este lote.' },
+    },
+    meta: { resource: 'health' },
+  };
+  const [
+    health,
+    ots,
+    clients,
+    vehicles,
+    expenses,
+    cr,
+    tr,
+    mr,
+    sol,
+    whatsappFeed,
+    outlookFeed,
+    ocMerged,
+    techDocs,
+    commercialOpps,
+    historicalVault,
+    operationalPanelDaily,
+    operationalEvents,
+  ] = await Promise.all([
+    healthService.getStatus().catch(toListEnvelope(healthFallback)),
+    otService.getAll().catch(toListEnvelope({ data: [] })),
+    clientService.getAll().catch(toListEnvelope({ data: [] })),
+    vehicleService.getAll().catch(toListEnvelope({ data: [] })),
+    expenseService.getAll().catch(toListEnvelope({ data: [] })),
+    planificacionService.getClientes().catch(toListEnvelope({ data: [] })),
+    planificacionService.getTiendas({}).catch(toListEnvelope({ data: [] })),
+    planificacionService.getMantenciones({}).catch(toListEnvelope({ data: [] })),
+    flotaSolicitudService.getAll({}).catch(toListEnvelope({ data: [] })),
+    whatsappFeedService.getFeed().catch(() => ({
+      messages: [],
+      ingestLogs: [],
+      errors: [],
+      operationalSummary: null,
+    })),
+    outlookIntakeService.getFeed().catch(() => null),
+    operationalCalendarService.getMerged(opRange).catch(() => ({ entries: [] })),
+    technicalDocumentsService.getAll().catch(() => []),
+    commercialOpportunitiesService.getAll().catch(() => []),
+    historicalVaultService.getVault().catch(() => ({
+      records: [],
+      importBatches: [],
+      computed: null,
+    })),
+    operationalEventsService.getDailyPanel().catch(() => null),
+    operationalEventsService.listEvents().catch(() => []),
   ]);
+
+  const emptyOutlookFeed = {
+    messages: [],
+    historicalImports: [],
+    ingestErrors: [],
+    lastIngestAt: null,
+    futureOutlookHooks: {
+      inboxSync: false,
+      replyDraft: false,
+      threadSync: false,
+      sendMail: false,
+      autoReply: false,
+      outboundSync: false,
+      note: 'Sin datos de Outlook en este lote.',
+    },
+    outlookIntakeMode: 'recepcion_solo_lectura',
+  };
+  const outlookFeedNorm =
+    outlookFeed && typeof outlookFeed === 'object' ? outlookFeed : { ...emptyOutlookFeed };
+
+  const planClientes = cr.data ?? [];
+  const planTiendas = tr.data ?? [];
+  const planMantenciones = mr.data ?? [];
+  const planOts = ots?.data ?? (Array.isArray(ots) ? ots : []);
+  const operationalCalendar =
+    ocMerged && typeof ocMerged === 'object' ? ocMerged : { entries: [] };
+  const operationalCalendarAlerts = computeOperationalCalendarAlerts({
+    entries: Array.isArray(operationalCalendar.entries) ? operationalCalendar.entries : [],
+    ots: planOts,
+    mantenciones: planMantenciones,
+    tiendas: planTiendas,
+    clientes: planClientes,
+  });
+
+  const technicalDocuments = Array.isArray(techDocs) ? techDocs : [];
+  const technicalDocumentAlerts = hnfDocumentIntelligence.computeTechnicalDocumentAlerts(
+    technicalDocuments,
+    planOts
+  );
+
+  const commercialOpportunities = Array.isArray(commercialOpps) ? commercialOpps : [];
+  const commercialOpportunityAlerts =
+    hnfDocumentIntelligence.computeCommercialOpportunityAlerts(commercialOpportunities);
+
+  let jarvisOperativeEvents = [];
+  try {
+    const jr = await jarvisOperativeEventsService.getAll();
+    const apiEv = Array.isArray(jr?.events) ? jr.events : [];
+    mergeJarvisOperativeStoresFromServer(apiEv);
+    jarvisOperativeEvents = getCentroIngestaState().events;
+  } catch {
+    jarvisOperativeEvents = getCentroIngestaState().events;
+  }
 
   return {
     health,
@@ -45,14 +441,80 @@ const loadFullOperationalData = async () => {
     clients,
     vehicles,
     expenses,
-    planClientes: cr.data ?? [],
-    planTiendas: tr.data ?? [],
-    planMantenciones: mr.data ?? [],
+    planClientes,
+    planTiendas,
+    planMantenciones,
+    planOts,
+    operationalCalendar,
+    operationalCalendarAlerts,
+    technicalDocuments,
+    technicalDocumentAlerts,
+    commercialOpportunities,
+    commercialOpportunityAlerts,
     flotaSolicitudes: sol.data ?? [],
+    whatsappFeed,
+    outlookFeed: outlookFeedNorm,
+    historicalVault,
+    jarvisOperativeEvents,
+    operationalPanelDaily,
+    operationalEvents: Array.isArray(operationalEvents) ? operationalEvents : [],
+  };
+};
+
+const loadFullOperationalData = async () => {
+  try {
+    return await loadFullOperationalDataImpl();
+  } catch (e) {
+    console.warn('[HNF] loadFullOperationalData', e);
+    return minimalOperationalViewData();
+  }
+};
+
+const loadTechnicalDocumentsView = async () => {
+  const [ots, docs] = await Promise.all([
+    otService.getAll().catch(() => ({ data: [] })),
+    technicalDocumentsService.getAll().catch(() => []),
+  ]);
+  const planOts = ots?.data ?? (Array.isArray(ots) ? ots : []);
+  const technicalDocuments = Array.isArray(docs) ? docs : [];
+  return {
+    ots,
+    technicalDocuments,
+    technicalDocumentAlerts: hnfDocumentIntelligence.computeTechnicalDocumentAlerts(
+      technicalDocuments,
+      planOts
+    ),
+  };
+};
+
+const loadOportunidadesView = async () => {
+  const opps = await commercialOpportunitiesService.getAll().catch(() => []);
+  return {
+    commercialOpportunities: Array.isArray(opps) ? opps : [],
   };
 };
 
 const viewRegistry = {
+  'ingreso-operativo': {
+    render: ingresoOperativoView,
+    load: loadFullOperationalData,
+  },
+
+  jarvis: {
+    render: jarvisHqView,
+    load: loadFullOperationalData,
+  },
+
+  'jarvis-intake': {
+    render: jarvisIntakeHubView,
+    load: loadFullOperationalData,
+  },
+
+  'jarvis-vault': {
+    render: jarvisVaultView,
+    load: loadFullOperationalData,
+  },
+
   dashboard: {
     render: dashboardView,
     load: loadFullOperationalData,
@@ -63,23 +525,91 @@ const viewRegistry = {
     load: loadFullOperationalData,
   },
 
+  'operacion-control': {
+    render: operacionControlView,
+    load: loadFullOperationalData,
+  },
+
+  'control-gerencial': {
+    render: controlGerencialView,
+    load: loadFullOperationalData,
+  },
+
+  'panel-operativo-vivo': {
+    render: panelOperativoVivoView,
+    load: async () => {
+      const [operationalPanelDaily, operationalEvents] = await Promise.all([
+        operationalEventsService.getDailyPanel().catch(() => null),
+        operationalEventsService.listEvents().catch(() => []),
+      ]);
+      return { operationalPanelDaily, operationalEvents };
+    },
+  },
+
+  whatsapp: {
+    render: whatsappFeedView,
+    load: async () => {
+      const feed = await whatsappFeedService.getFeed().catch(() => ({
+        messages: [],
+        ingestLogs: [],
+        errors: [],
+        operationalSummary: null,
+      }));
+      return { feed, whatsappFeed: feed };
+    },
+  },
+
   clima: {
     render: climaView,
-    load: () => otService.getAll(),
+    load: async () => otService.getAll().catch(() => ({ data: [] })),
+  },
+
+  'documentos-tecnicos': {
+    render: technicalDocumentsView,
+    load: loadTechnicalDocumentsView,
+  },
+
+  'technical-documents': {
+    render: technicalDocumentsView,
+    load: loadTechnicalDocumentsView,
+  },
+
+  oportunidades: {
+    render: oportunidadesView,
+    load: loadOportunidadesView,
   },
 
   planificacion: {
     render: planificacionView,
     load: async () => {
-      const [cr, tr, mr] = await Promise.all([
-        planificacionService.getClientes(),
-        planificacionService.getTiendas({}),
-        planificacionService.getMantenciones({}),
+      const opRange = defaultOperationalCalendarRange();
+      const [cr, tr, mr, ots, ocMerged] = await Promise.all([
+        planificacionService.getClientes().catch(() => ({ data: [] })),
+        planificacionService.getTiendas({}).catch(() => ({ data: [] })),
+        planificacionService.getMantenciones({}).catch(() => ({ data: [] })),
+        otService.getAll().catch(() => ({ data: [] })),
+        operationalCalendarService.getMerged(opRange).catch(() => ({ entries: [] })),
       ]);
+      const planClientes = cr.data ?? [];
+      const planTiendas = tr.data ?? [];
+      const planMantenciones = mr.data ?? [];
+      const planOts = ots?.data ?? (Array.isArray(ots) ? ots : []);
+      const operationalCalendar =
+        ocMerged && typeof ocMerged === 'object' ? ocMerged : { entries: [] };
+      const operationalCalendarAlerts = computeOperationalCalendarAlerts({
+        entries: Array.isArray(operationalCalendar.entries) ? operationalCalendar.entries : [],
+        ots: planOts,
+        mantenciones: planMantenciones,
+        tiendas: planTiendas,
+        clientes: planClientes,
+      });
       return {
-        planClientes: cr.data ?? [],
-        planTiendas: tr.data ?? [],
-        planMantenciones: mr.data ?? [],
+        planClientes,
+        planTiendas,
+        planMantenciones,
+        planOts,
+        operationalCalendar,
+        operationalCalendarAlerts,
       };
     },
   },
@@ -88,9 +618,9 @@ const viewRegistry = {
     render: flotaView,
     load: async () => {
       const [vehicles, expenses, sol] = await Promise.all([
-        vehicleService.getAll(),
-        expenseService.getAll(),
-        flotaSolicitudService.getAll({}),
+        vehicleService.getAll().catch(() => ({ data: [] })),
+        expenseService.getAll().catch(() => ({ data: [] })),
+        flotaSolicitudService.getAll({}).catch(() => ({ data: [] })),
       ]);
 
       return { vehicles, expenses, flotaSolicitudes: sol.data ?? [] };
@@ -101,9 +631,9 @@ const viewRegistry = {
     render: adminView,
     load: async () => {
       const [clients, ots, expenses] = await Promise.all([
-        clientService.getAll(),
-        otService.getAll(),
-        expenseService.getAll(),
+        clientService.getAll().catch(() => ({ data: [] })),
+        otService.getAll().catch(() => ({ data: [] })),
+        expenseService.getAll().catch(() => ({ data: [] })),
       ]);
 
       return { clients, ots, expenses };
@@ -126,8 +656,9 @@ const openPdfBlobInNewTab = (blob) => {
   setTimeout(() => URL.revokeObjectURL(url), 180000);
 };
 
+/** Estado shell global. `integrationStatus` solo debe mutarse en este archivo (ver hnf-architecture-contract.js). */
 const state = {
-  activeView: 'dashboard',
+  activeView: 'jarvis',
   integrationStatus: 'pendiente',
   viewData: null,
   selectedOTId: null,
@@ -146,6 +677,99 @@ const state = {
   isSavingOtEconomics: false,
   /** Resultado económico persistido en servidor (válido) para la OT seleccionada en Clima */
   otEconomicsSaved: false,
+  /** Navegación desde Intelligence Engine (se aplica tras cargar datos). */
+  pendingIntelNav: null,
+  /** Tras redirigir control-operativo → jarvis, scroll al bloque #hnf-mando-principal-v2 */
+  pendingScrollToMando: false,
+  climaIntelFilter: null,
+  flotaIntelFilter: null,
+  /** Contexto planificación (un disparo por navegación intel). */
+  planIntelOneShot: null,
+  /** Banner guía (por qué / qué hacer / desbloqueo) tras navegar desde inteligencia. */
+  intelGuidanceOneShot: null,
+  /** Borrador / foco comercial al abrir Oportunidades desde Jarvis (un disparo hasta cerrar o salir). */
+  commercialIntelOneShot: null,
+};
+
+let jarvisOsLastUi = null;
+let jarvisOsLastSaludo = '';
+let jarvisOsLastMensaje = '';
+let jarvisOsLastMantra = '';
+
+const estadoSistema = {
+  bloqueos: 292600,
+  oportunidades: 1,
+};
+
+if (typeof window !== 'undefined' && window.HNFJarvisOS) {
+  window.HNFJarvisOS.estadoSistema = estadoSistema;
+  window.HNFJarvisOS.generarSaludo = jarvisOsGenerarSaludo;
+}
+
+const getJarvisOsState = () => {
+  const d = state.viewData;
+  if (!d || typeof d !== 'object') return { bloqueos: 0, oportunidades: 0 };
+  const ots = d.ots?.data || [];
+  let bloqueos = 0;
+  for (const o of ots) {
+    if (String(o.estado || '') === 'terminado') continue;
+    bloqueos += roundOtMoney(
+      o.montoPresupuestado ?? o.montoEstimado ?? o.montoCobrado ?? o.monto ?? 0
+    );
+  }
+  for (const s of d.flotaSolicitudes || []) {
+    if (String(s.estado || '').toLowerCase() === 'cerrada') continue;
+    bloqueos += roundOtMoney(s.ingresoFinal || s.ingresoEstimado || s.monto || 0);
+  }
+  const opps = Array.isArray(d.commercialOpportunities) ? d.commercialOpportunities : [];
+  const oportunidades = opps.filter((p) => {
+    const e = String(p.estado || '').toLowerCase();
+    return e && !['perdida', 'cerrada', 'descartada'].includes(e);
+  }).length;
+  return { bloqueos, oportunidades };
+};
+
+const getJarvisOsMergedState = () =>
+  state.viewData ? getJarvisOsState() : estadoSistema;
+
+const applyJarvisOsUi = (payload) => {
+  if (!payload?.presence || !payload?.decision) return;
+  const root = document.getElementById('hnf-jarvis-presence-root');
+  if (!root) return;
+  const { presence, decision } = payload;
+  const saludo = root.querySelector('.jarvis-presence__saludo');
+  const mensaje = root.querySelector('.jarvis-presence__mensaje');
+  const mantra = root.querySelector('.jarvis-presence__mantra');
+  const decisionLine = root.querySelector('.jarvis-presence__decision-line');
+  if (saludo) {
+    const nextS = presence.saludo || '';
+    if (nextS !== jarvisOsLastSaludo) {
+      jarvisOsLastSaludo = nextS;
+      typewriterInto(saludo, nextS, 11);
+    }
+  }
+  if (mensaje) {
+    const nextM = presence.mensaje || '';
+    if (nextM !== jarvisOsLastMensaje) {
+      jarvisOsLastMensaje = nextM;
+      typewriterInto(mensaje, nextM, 9);
+    }
+  }
+  if (mantra) {
+    const nextMa = presence.mantra || '';
+    if (nextMa !== jarvisOsLastMantra) {
+      jarvisOsLastMantra = nextMa;
+      typewriterInto(mantra, nextMa, 8);
+    }
+  }
+  if (decisionLine) {
+    const imp = Number(decision.impacto || 0);
+    decisionLine.textContent = `${decision.accion || '—'} · Prioridad ${decision.prioridad || '—'} · Impacto $${imp.toLocaleString('es-CL')}`;
+  }
+  root.dataset.jarvisEstado = String(presence.estado || 'NORMAL').toLowerCase();
+  root.dataset.jarvisPrioridad = String(decision.prioridad || 'NORMAL').toLowerCase();
+  root.classList.add('jarvis-presence--data-flash');
+  setTimeout(() => root.classList.remove('jarvis-presence--data-flash'), 620);
 };
 
 const roundOtMoney = (v) => {
@@ -192,6 +816,48 @@ const syncSelectedFlota = () => {
   }
 };
 
+const applyIntelNavigationAfterLoad = () => {
+  const p = state.pendingIntelNav;
+  state.pendingIntelNav = null;
+  if (!state.viewData) return;
+  if (!p) return;
+
+  if (state.activeView === 'clima') {
+    if (p.otId) {
+      const ots = state.viewData?.data || [];
+      if (ots.some((o) => o.id === p.otId)) state.selectedOTId = p.otId;
+    }
+    if (p.climaFilter && typeof p.climaFilter === 'object' && Object.keys(p.climaFilter).length) {
+      state.climaIntelFilter = { ...p.climaFilter };
+    }
+  }
+
+  if (state.activeView === 'flota') {
+    if (p.flotaId) {
+      const list = state.viewData?.flotaSolicitudes || [];
+      if (list.some((s) => s.id === p.flotaId)) state.selectedFlotaId = p.flotaId;
+    }
+    if (p.flotaFilter && typeof p.flotaFilter === 'object' && Object.keys(p.flotaFilter).length) {
+      state.flotaIntelFilter = { ...p.flotaFilter };
+    }
+  }
+
+  if (state.activeView === 'planificacion' && p.plan && typeof p.plan === 'object') {
+    state.planIntelOneShot = { ...p.plan };
+  }
+
+  if (p.guidance && typeof p.guidance === 'object') {
+    state.intelGuidanceOneShot = { ...p.guidance };
+  } else {
+    state.intelGuidanceOneShot = null;
+  }
+
+  if (state.activeView === 'oportunidades') {
+    state.commercialIntelOneShot =
+      p.commercial && typeof p.commercial === 'object' ? { ...p.commercial } : null;
+  }
+};
+
 const createActions = () => ({
   selectOT: (id) => {
     state.selectedOTId = id;
@@ -222,6 +888,28 @@ const createActions = () => ({
   setAdminFeedback: (fb) => {
     state.adminFeedback = fb;
     render();
+  },
+
+  clearIntelUiFilters: () => {
+    state.climaIntelFilter = null;
+    state.flotaIntelFilter = null;
+    state.intelGuidanceOneShot = null;
+    state.commercialIntelOneShot = null;
+    render();
+  },
+
+  dismissIntelGuidance: () => {
+    state.intelGuidanceOneShot = null;
+    render();
+  },
+
+  dismissCommercialIntel: () => {
+    state.commercialIntelOneShot = null;
+    render();
+  },
+
+  consumePlanIntelContext: () => {
+    state.planIntelOneShot = null;
   },
 
   createOT: async (payload) => {
@@ -505,15 +1193,38 @@ const createActions = () => ({
   },
 });
 
-async function navigateToView(viewId) {
+async function navigateToView(viewId, intelOptions = null) {
+  if (viewId === 'control-operativo-tiempo-real') {
+    viewId = 'jarvis';
+    state.pendingScrollToMando = true;
+  }
   if (!viewRegistry[viewId]) return;
   state.activeView = viewId;
+  if (viewId !== 'oportunidades') {
+    state.commercialIntelOneShot = null;
+  }
+  try {
+    if (typeof history !== 'undefined' && history.replaceState) {
+      history.replaceState(null, '', `#/${viewId}`);
+    }
+  } catch {
+    /* file:// u orígenes restringidos */
+  }
   state.integrationStatus = 'cargando';
+  if (!intelOptions || typeof intelOptions !== 'object') {
+    state.intelGuidanceOneShot = null;
+  }
+  state.pendingIntelNav = intelOptions && typeof intelOptions === 'object' ? intelOptions : null;
   if (viewId !== 'clima') {
     state.otFeedback = null;
+    state.climaIntelFilter = null;
   }
   if (viewId !== 'flota') {
     state.flotaFeedback = null;
+    state.flotaIntelFilter = null;
+  }
+  if (viewId !== 'planificacion') {
+    state.planIntelOneShot = null;
   }
   if (viewId !== 'admin') {
     state.adminFeedback = null;
@@ -522,65 +1233,383 @@ async function navigateToView(viewId) {
   await loadViewData();
 }
 
-const render = () => {
-  const currentView = viewRegistry[state.activeView];
-  app.innerHTML = '';
-
-  const shell = createShell({
-    activeView: state.activeView,
-    apiBaseLabel: formatApiBaseLabel(),
-    integrationStatus: state.integrationStatus,
-    onNavigate: (viewId) => navigateToView(viewId),
-  });
-
-  shell.content.className = `content content--view-${state.activeView}`;
-
-  shell.content.append(
-    currentView.render({
-      apiBaseLabel: formatApiBaseLabel(),
-      integrationStatus: state.integrationStatus,
-      lastDataRefreshAt: state.lastSuccessfulFetchAt,
-      data: state.viewData,
-      actions: createActions(),
-      feedback: state.otFeedback,
-      flotaFeedback: state.flotaFeedback,
-      adminFeedback: state.adminFeedback,
-      isSubmitting: state.isSubmittingOT,
-      isUpdatingStatus: state.isUpdatingOTStatus,
-      isClosingOT: state.isClosingOT,
-      isUploadingEvidence: state.isUploadingEvidence,
-      isGeneratingPdf: state.isGeneratingPdf,
-      isSavingEquipos: state.isSavingEquipos,
-      isSavingVisitText: state.isSavingVisitText,
-      isSavingOtEconomics: state.isSavingOtEconomics,
-      otEconomicsSaved: state.otEconomicsSaved,
-      selectedOTId: state.selectedOTId,
-      selectedFlotaId: state.selectedFlotaId,
-      reloadApp: loadViewData,
-      navigateToView,
-    })
+/** Fallback global si falla todo el render (shell incluido). */
+function paintGlobalRenderFallback() {
+  if (!app) return;
+  safeExecute(
+    'paintGlobalRenderFallback',
+    () => {
+      app.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'tarjeta';
+      wrap.style.cssText = 'margin:1rem;padding:1.25rem;max-width:42rem;font-family:system-ui,sans-serif;';
+      const t = document.createElement('p');
+      const strong = document.createElement('strong');
+      strong.textContent = 'HNF — Error al dibujar la interfaz.';
+      t.append(strong);
+      const sub = document.createElement('p');
+      sub.className = 'muted small';
+      sub.textContent = 'Reintentá la carga o actualizá la página.';
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'secondary-button';
+      b.textContent = 'Reintentar carga';
+      b.addEventListener('click', () => {
+        void loadViewData();
+      });
+      wrap.append(t, sub, b);
+      app.append(wrap);
+    },
+    () => {
+      try {
+        app.textContent = 'HNF: error crítico. Recargá la página.';
+      } catch {
+        /* ignore */
+      }
+    }
   );
+}
 
-  app.append(shell.element);
-};
-
-/** Recarga datos de la vista activa. Devuelve true si el servidor respondió bien. */
-const loadViewData = async () => {
-  try {
-    state.viewData = await viewRegistry[state.activeView].load();
+/**
+ * `conectado` / `sin conexión` SOLO según resultado de probeBackendHealth (FASE 6).
+ * Sin backend: intenta vista desde caché local.
+ */
+function applyConnectivityFromProbeResult(p) {
+  if (p?.ok) {
     state.integrationStatus = 'conectado';
-    state.lastSuccessfulFetchAt = new Date().toISOString();
-    syncSelectedOT();
-    syncSelectedFlota();
-    recomputeOtEconomicsSaved();
-    render();
-    return true;
-  } catch (error) {
-    state.viewData = null;
-    state.integrationStatus = 'sin conexión';
-    render();
-    return false;
+    return;
   }
+  state.integrationStatus = 'sin conexión';
+  const cached = loadViewCache(state.activeView);
+  state.viewData = cached ?? null;
+}
+
+const render = () => {
+  safeExecute(
+    'render',
+    () => {
+      if (typeof window !== 'undefined' && window.__hnfPulseUiTimer) {
+        clearInterval(window.__hnfPulseUiTimer);
+        window.__hnfPulseUiTimer = null;
+      }
+      if (typeof window !== 'undefined' && window.__hnfJarvisDayCommandTimer) {
+        clearInterval(window.__hnfJarvisDayCommandTimer);
+        window.__hnfJarvisDayCommandTimer = null;
+      }
+
+      setJarvisPulseContext({
+        getViewData: () => state.viewData,
+        getLastDataRefreshAt: () => state.lastSuccessfulFetchAt,
+      });
+
+      const currentView = viewRegistry[state.activeView];
+      app.innerHTML = '';
+
+      const shell = createShell({
+        activeView: state.activeView,
+        apiBaseLabel: formatApiBaseLabel(),
+        integrationStatus: state.integrationStatus,
+        onNavigate: (viewId) => navigateToView(viewId),
+        deployStatusElement: getHnfDeployIndicatorElement(),
+      });
+
+      const intelNavigate = (nav) => {
+        if (!nav?.view) return;
+        if (nav.view === 'jarvis' && nav.focusMando) {
+          state.pendingScrollToMando = true;
+        }
+        if (nav.view === 'dashboard') {
+          navigateToView('jarvis');
+          return;
+        }
+        if (nav.view === 'flujo-operativo-unificado') {
+          state.pendingScrollToMando = true;
+          navigateToView('jarvis', {
+            otId: nav.otId,
+            flotaId: nav.flotaId,
+            climaFilter: nav.climaFilter,
+            flotaFilter: nav.flotaFilter,
+            plan: nav.plan,
+            guidance: nav.guidance,
+            commercial: nav.commercial,
+          });
+          return;
+        }
+        navigateToView(nav.view, {
+          otId: nav.otId,
+          flotaId: nav.flotaId,
+          climaFilter: nav.climaFilter,
+          flotaFilter: nav.flotaFilter,
+          plan: nav.plan,
+          guidance: nav.guidance,
+          commercial: nav.commercial,
+        });
+      };
+
+      shell.content.className = `content content--view-${state.activeView}`;
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.toggle('hnf-view--control-operativo', false);
+        document.body.classList.toggle(
+          'hnf-view--jarvis-principal',
+          state.activeView === 'jarvis'
+        );
+      }
+
+      const viewProps = {
+        apiBaseLabel: formatApiBaseLabel(),
+        integrationStatus: state.integrationStatus,
+        lastDataRefreshAt: state.lastSuccessfulFetchAt,
+        data: state.viewData,
+        actions: createActions(),
+        feedback: state.otFeedback,
+        flotaFeedback: state.flotaFeedback,
+        adminFeedback: state.adminFeedback,
+        isSubmitting: state.isSubmittingOT,
+        isUpdatingStatus: state.isUpdatingOTStatus,
+        isClosingOT: state.isClosingOT,
+        isUploadingEvidence: state.isUploadingEvidence,
+        isGeneratingPdf: state.isGeneratingPdf,
+        isSavingEquipos: state.isSavingEquipos,
+        isSavingVisitText: state.isSavingVisitText,
+        isSavingOtEconomics: state.isSavingOtEconomics,
+        otEconomicsSaved: state.otEconomicsSaved,
+        selectedOTId: state.selectedOTId,
+        selectedFlotaId: state.selectedFlotaId,
+        reloadApp: loadViewData,
+        navigateToView,
+        intelNavigate,
+        intelListFilter: state.activeView === 'clima' ? state.climaIntelFilter : null,
+        flotaIntelFilter: state.activeView === 'flota' ? state.flotaIntelFilter : null,
+        intelPlanContext: state.activeView === 'planificacion' ? state.planIntelOneShot : null,
+        intelGuidance:
+          state.activeView === 'clima' || state.activeView === 'flota' || state.activeView === 'planificacion'
+            ? state.intelGuidanceOneShot
+            : null,
+        commercialIntelContext: state.activeView === 'oportunidades' ? state.commercialIntelOneShot : null,
+      };
+
+      try {
+        if (!currentView?.render) {
+          throw new Error(`Vista desconocida: ${state.activeView}`);
+        }
+        shell.content.append(currentView.render(viewProps));
+      } catch (err) {
+        console.error('[HNF] Error al renderizar la vista', state.activeView, err);
+        const fall = document.createElement('div');
+        fall.className = 'tarjeta';
+        fall.setAttribute('role', 'alert');
+        const t = document.createElement('p');
+        const strong = document.createElement('strong');
+        strong.textContent = 'No se pudo dibujar esta pantalla.';
+        t.append(strong);
+        const m = document.createElement('p');
+        m.className = 'muted small';
+        m.textContent = err?.message ? String(err.message) : String(err);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'secondary-button';
+        b.textContent = 'Reintentar carga';
+        b.addEventListener('click', () => {
+          void loadViewData();
+        });
+        fall.append(t, m, b);
+        shell.content.append(fall);
+      }
+
+      app.append(shell.element);
+      if ((state.activeView === 'jarvis' || state.activeView === 'dashboard') && jarvisOsLastUi) {
+        applyJarvisOsUi(jarvisOsLastUi);
+      }
+
+      if (state.pendingScrollToMando && state.activeView === 'jarvis') {
+        const runScroll = () => {
+          const el = document.getElementById('hnf-mando-principal-v2');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            state.pendingScrollToMando = false;
+          }
+        };
+        requestAnimationFrame(() => requestAnimationFrame(runScroll));
+      }
+    },
+    () => paintGlobalRenderFallback()
+  );
 };
 
-loadViewData();
+async function loadViewData() {
+  return safeAsync(
+    'loadViewData',
+    async () => {
+      const healthProbe = await probeBackendHealth();
+      applyConnectivityFromProbeResult(healthProbe);
+      if (!healthProbe.ok) {
+        render();
+        return false;
+      }
+
+      try {
+        state.viewData = await viewRegistry[state.activeView].load();
+        state.lastSuccessfulFetchAt = new Date().toISOString();
+        saveViewCache(state.activeView, state.viewData);
+        saveShellMeta({ activeView: state.activeView, lastSuccessfulFetchAt: state.lastSuccessfulFetchAt });
+        try {
+          const u = getJarvisUnifiedState(state.viewData || {});
+          window.__hnfJarvisBoot = {
+            startup: buildJarvisStartupSequence(u),
+            presence: buildJarvisPresence(u),
+            at: state.lastSuccessfulFetchAt,
+          };
+        } catch {
+          window.__hnfJarvisBoot = null;
+        }
+        try {
+          applyIntelNavigationAfterLoad();
+          syncSelectedOT();
+          syncSelectedFlota();
+          recomputeOtEconomicsSaved();
+        } catch {
+          /* Errores de UI/selección no deben simular caída de API */
+        }
+        render();
+        return true;
+      } catch (e) {
+        console.warn('[HNF] Carga de vista con error (/health ya OK; se degrada datos)', e);
+        state.lastSuccessfulFetchAt = new Date().toISOString();
+        if (VIEWS_WITH_UNIFIED_LOAD.has(state.activeView)) {
+          try {
+            state.viewData = await loadFullOperationalData();
+          } catch {
+            state.viewData = loadViewCache(state.activeView);
+          }
+        } else {
+          try {
+            state.viewData = await viewRegistry[state.activeView].load();
+          } catch {
+            state.viewData = loadViewCache(state.activeView);
+          }
+        }
+        saveViewCache(state.activeView, state.viewData);
+        saveShellMeta({ activeView: state.activeView, lastSuccessfulFetchAt: state.lastSuccessfulFetchAt });
+        try {
+          const u = getJarvisUnifiedState(state.viewData || {});
+          window.__hnfJarvisBoot = {
+            startup: buildJarvisStartupSequence(u),
+            presence: buildJarvisPresence(u),
+            at: state.lastSuccessfulFetchAt,
+          };
+        } catch {
+          window.__hnfJarvisBoot = null;
+        }
+        try {
+          applyIntelNavigationAfterLoad();
+          syncSelectedOT();
+          syncSelectedFlota();
+          recomputeOtEconomicsSaved();
+        } catch {
+          /* ignore */
+        }
+        render();
+        return true;
+      }
+    },
+    async () => {
+      const probe = await probeBackendHealth();
+      applyConnectivityFromProbeResult(probe);
+      try {
+        render();
+      } catch {
+        paintGlobalRenderFallback();
+      }
+      return false;
+    }
+  );
+}
+
+const viewIdFromLocation = () => {
+  const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '')
+    .replace(/^#\/?/, '')
+    .trim();
+  const seg = h.split('/')[0].split('?')[0];
+  let mapped = seg === 'dashboard' ? 'jarvis' : seg;
+  if (mapped === 'flujo-operativo-unificado' || mapped === 'control-operativo-tiempo-real') {
+    mapped = 'jarvis';
+  }
+  return mapped && viewRegistry[mapped] ? mapped : null;
+};
+
+const initialRoute = viewIdFromLocation();
+if (initialRoute) {
+  state.activeView = initialRoute;
+}
+if (typeof window !== 'undefined') {
+  const rawSeg = (window.location.hash || '').replace(/^#\/?/, '').split('/')[0].split('?')[0];
+  if (rawSeg === 'control-operativo-tiempo-real' || rawSeg === 'flujo-operativo-unificado') {
+    state.pendingScrollToMando = true;
+    try {
+      if (history.replaceState) history.replaceState(null, '', '#/jarvis');
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    const v = viewIdFromLocation();
+    if (v && v !== state.activeView) {
+      navigateToView(v);
+    }
+  });
+  window.addEventListener('hnf-jarvis-evo', () => {
+    try {
+      if (state.activeView === 'jarvis') render();
+    } catch {
+      /* ignore */
+    }
+  });
+  window.HNFJarvisPulse?.startJarvisEvolutionAutoloop?.({ intervalMs: 300_000, kickoff: true });
+}
+
+state.integrationStatus = 'cargando';
+try {
+  render();
+} catch (bootRenderErr) {
+  console.error('[HNF] render de arranque', bootRenderErr);
+}
+
+loadViewData()
+  .then(() => {
+    try {
+      startJarvisAutonomicSurface({ getViewData: () => state.viewData });
+      const pushJarvisOsUi = (data) => {
+        jarvisOsLastUi = data;
+        registerJarvisOsMemory({ presence: data.presence, decision: data.decision });
+        applyJarvisOsUi(data);
+      };
+      const s0 = getJarvisOsMergedState();
+      pushJarvisOsUi({
+        presence: jarvisOsBuildPresence(s0),
+        decision: jarvisOsBuildDecision(s0),
+      });
+      startJarvisAutonomousLoop(() => getJarvisOsMergedState(), pushJarvisOsUi);
+      startJarvisConsciousLoop({
+        getMergedState: getJarvisOsMergedState,
+        getViewData: () => state.viewData,
+      });
+      if (typeof window !== 'undefined') {
+        window.HNFJarvisConscious = { notifyExternalEvent: notifyJarvisExternalEvent };
+      }
+    } catch (bootErr) {
+      console.error('[HNF] post-load bootstrap', bootErr);
+    }
+  })
+  .catch(async (e) => {
+    console.error('[HNF] promesa loadViewData rechazada', e);
+    const probe = await probeBackendHealth();
+    applyConnectivityFromProbeResult(probe);
+    try {
+      render();
+    } catch {
+      paintGlobalRenderFallback();
+    }
+  });

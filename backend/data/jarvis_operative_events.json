@@ -1,0 +1,46 @@
+{
+  "events": [
+    {
+      "id": "jev-mn5iyjth-qlmx9z0",
+      "at": "2026-03-25T04:09:39.797Z",
+      "version": "2026-03-24",
+      "rawExcerpt": "Andrés prueba",
+      "tipoClasificado": "documento",
+      "prioridad": "NORMAL",
+      "clienteDetectado": null,
+      "responsableSugerido": "sin dueño",
+      "impactoEconomicoHeuristico": 0,
+      "accionInmediata": "sin dueño: validar cliente, último contacto y un solo próximo paso (cobro o venta).",
+      "canalSalida": "manual",
+      "tipoSalida": "cliente",
+      "fuente": "pegado_hq",
+      "archivo": "pegado_hq",
+      "persistencia": "servidor",
+      "generaIngreso": false,
+      "generaRiesgo": false,
+      "generaOportunidad": false,
+      "vinculoSugerido": "Registrar número de OT o RUT cliente en ERP para empalme formal."
+    },
+    {
+      "id": "jev-mn5fvzau-qk6y4a1",
+      "at": "2026-03-25T02:43:41.046Z",
+      "version": "2026-03-24",
+      "rawExcerpt": "Andres Vilches\nEn Puma Alerce\nEquipo sin evidencia\nSe retiran sin cierre O",
+      "tipoClasificado": "documento",
+      "prioridad": "NORMAL",
+      "clienteDetectado": "Puma",
+      "responsableSugerido": "sin dueño",
+      "impactoEconomicoHeuristico": 0,
+      "accionInmediata": "sin dueño: validar cliente, último contacto y un solo próximo paso (cobro o venta).",
+      "canalSalida": "manual",
+      "tipoSalida": "cliente",
+      "fuente": "pegado_hq",
+      "archivo": "pegado_hq",
+      "persistencia": "servidor",
+      "generaIngreso": false,
+      "generaRiesgo": false,
+      "generaOportunidad": false,
+      "vinculoSugerido": "Registrar número de OT o RUT cliente en ERP para empalme formal."
+    }
+  ]
+}

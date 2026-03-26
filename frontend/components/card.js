@@ -1,6 +1,6 @@
 export const createCard = ({ title, description, items }) => {
   const article = document.createElement('article');
-  article.className = 'card';
+  article.className = 'card hnf-live-card';
 
   const list = items.map((item) => `<li>${item}</li>`).join('');
   article.innerHTML = `

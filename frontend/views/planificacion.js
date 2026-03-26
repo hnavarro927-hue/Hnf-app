@@ -1,5 +1,6 @@
 import { generateClienteCalendarioPdfBlob } from '../services/pdf.service.js';
 import { planificacionService } from '../services/planificacion.service.js';
+import { buildPlanOperativoCalendarSection } from './plan-operativo-calendar.js';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const toYmd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -18,6 +19,9 @@ const addDaysYmd = (ymd, delta) => {
 
 const TIPOS = ['preventivo', 'correctivo'];
 const ESTADOS = ['pendiente', 'programado', 'realizado'];
+
+/** Tras «Quitar filtro» se fuerza render global; recuperar pestaña Plan sin perder el módulo. */
+let __planIntelTabStash = null;
 
 const openPdfBlob = (blob) => {
   const url = URL.createObjectURL(blob);
@@ -38,10 +42,38 @@ const tabIds = [
   { id: 'clientes', label: 'Clientes' },
   { id: 'tiendas', label: 'Tiendas' },
   { id: 'calendario', label: 'Calendario' },
+  { id: 'operativo', label: 'Calendario operativo' },
   { id: 'plan', label: 'Mantenciones' },
 ];
 
-export const planificacionView = ({ data, reloadApp } = {}) => {
+const buildPlanIntelChecklist = (guidance, mantPreset, focusTiendaId) => {
+  const items = [];
+  const c = guidance?.codigo;
+  if (mantPreset === 'atrasadas' || c === 'PLAN_MANT_ATRAS' || c === 'PLAN_ATRASADAS') {
+    items.push({ ok: false, label: 'Mantenciones atrasadas: nueva fecha o estado realizado' });
+  }
+  if (mantPreset === 'proximas' || c === 'PLAN_PROXIMAS') {
+    items.push({ ok: false, label: 'Ventana próxima: confirmar técnico, franja y estado' });
+  }
+  if (c === 'PLAN_SIN_CONT') {
+    items.push({
+      ok: false,
+      label: focusTiendaId
+        ? `Programar próxima visita (tienda ${focusTiendaId})`
+        : 'Programar próxima mantención (continuidad de tienda)',
+    });
+  }
+  return items;
+};
+
+export const planificacionView = ({
+  data,
+  reloadApp,
+  intelPlanContext,
+  intelGuidance,
+  actions,
+  intelNavigate,
+} = {}) => {
   const section = document.createElement('section');
   section.className = 'planificacion-module';
 
@@ -52,8 +84,29 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
   const clienteById = Object.fromEntries(clientes.map((c) => [c.id, c]));
   const tiendaById = Object.fromEntries(tiendas.map((t) => [t.id, t]));
 
+  const ctx = intelPlanContext ? { ...intelPlanContext } : null;
+  if (intelPlanContext) {
+    actions?.consumePlanIntelContext?.();
+  }
+
   let activeTab = 'clientes';
+  if (__planIntelTabStash && tabIds.some((t) => t.id === __planIntelTabStash)) {
+    activeTab = __planIntelTabStash;
+    __planIntelTabStash = null;
+  } else if (ctx?.tab && tabIds.some((t) => t.id === ctx.tab)) {
+    activeTab = ctx.tab;
+  }
+  let mantIntelPreset = ctx?.mantFilter || null;
+  let planClienteFocus = ctx?.focusClienteNombre || null;
+  let planTiendaFocus = ctx?.focusTiendaId || null;
+
   let weekAnchorYmd = toYmd(mondayOf(new Date()));
+  if (ctx?.weekContainingDate) {
+    const raw = String(ctx.weekContainingDate).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      weekAnchorYmd = toYmd(mondayOf(new Date(`${raw}T12:00:00`)));
+    }
+  }
   const feedback = document.createElement('div');
   feedback.className = 'form-feedback';
   feedback.hidden = true;
@@ -82,6 +135,14 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
   const runReload = async () => {
     if (typeof reloadApp === 'function') return await reloadApp();
     return false;
+  };
+
+  const clearIntelPlanFilters = () => {
+    mantIntelPreset = null;
+    planClienteFocus = null;
+    planTiendaFocus = null;
+    if (activeTab === 'plan') __planIntelTabStash = 'plan';
+    actions?.dismissIntelGuidance?.();
   };
 
   const renderBody = () => {
@@ -401,11 +462,107 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
       body.append(card);
     }
 
+    if (activeTab === 'operativo') {
+      body.append(
+        buildPlanOperativoCalendarSection({
+          getWeekStart: () => weekAnchorYmd,
+          setWeekStart: (ymd) => {
+            weekAnchorYmd = ymd;
+          },
+          addDaysYmd,
+          mondayOf,
+          toYmd,
+          data,
+          clientes,
+          tiendas,
+          clienteById,
+          tiendaById,
+          showFeedback,
+          runReload,
+          intelNavigate,
+        })
+      );
+    }
+
     if (activeTab === 'plan') {
       const card = document.createElement('article');
       card.className = 'plan-card';
       card.innerHTML =
         '<h3>Mantenciones programadas</h3><p class="muted">Agendá visitas, cambiá estado o técnico, y generá un PDF limpio para enviar al cliente.</p>';
+
+      const hasPlanFilter = mantIntelPreset || planClienteFocus || planTiendaFocus;
+      const hasGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
+      if (hasPlanFilter || hasGuide) {
+        const stack = document.createElement('div');
+        stack.className = 'intel-guide-stack';
+        if (hasGuide) {
+          const g = document.createElement('div');
+          g.className = 'intel-guide-banner';
+          const title = document.createElement('div');
+          title.className = 'intel-guide-banner__title';
+          title.textContent = 'Resolución guiada · inteligencia operativa';
+          g.append(title);
+          const mkLine = (k, v) => {
+            if (!v) return;
+            const kk = document.createElement('div');
+            kk.className = 'intel-guide-banner__k';
+            kk.textContent = k;
+            const p = document.createElement('p');
+            p.className = 'intel-guide-banner__p';
+            p.textContent = v;
+            g.append(kk, p);
+          };
+          mkLine('Por qué estás acá', intelGuidance.why);
+          mkLine('Qué corregir', intelGuidance.fix);
+          mkLine('Cierra cuando', intelGuidance.unlock);
+          if (intelGuidance.recordLabel) {
+            mkLine('Referencia', String(intelGuidance.recordLabel));
+          }
+          stack.append(g);
+          const chk = buildPlanIntelChecklist(intelGuidance, mantIntelPreset, planTiendaFocus);
+          if (chk.length) {
+            const box = document.createElement('div');
+            box.className = 'intel-guide-checklist';
+            const hh = document.createElement('div');
+            hh.className = 'intel-guide-checklist__h';
+            hh.textContent = 'Checklist (reglas actuales)';
+            const ul = document.createElement('ul');
+            ul.className = 'intel-guide-checklist__ul';
+            chk.forEach(({ ok, label }) => {
+              const li = document.createElement('li');
+              li.className = ok ? 'intel-guide-checklist__li is-ok' : 'intel-guide-checklist__li is-pend';
+              li.textContent = `${ok ? '✓ ' : '○ '}${label}`;
+              ul.append(li);
+            });
+            box.append(hh, ul);
+            stack.append(box);
+          }
+        }
+        if (hasPlanFilter) {
+          const ban = document.createElement('div');
+          ban.className = 'intel-filter-banner intel-filter-banner--nested';
+          const lab = document.createElement('span');
+          lab.className = 'intel-filter-banner__text';
+          const parts = [];
+          if (mantIntelPreset === 'atrasadas') parts.push('Solo atrasadas');
+          if (mantIntelPreset === 'proximas') parts.push('Próximas 7 días');
+          if (planClienteFocus) parts.push(`Cliente contiene «${planClienteFocus}»`);
+          if (planTiendaFocus) parts.push(`Tienda ${planTiendaFocus}`);
+          lab.textContent = `Filtro: ${parts.join(' · ')}`;
+          ban.append(lab);
+          stack.append(ban);
+        }
+        const act = document.createElement('div');
+        act.className = 'intel-guide-actions';
+        const clr = document.createElement('button');
+        clr.type = 'button';
+        clr.className = 'secondary-button';
+        clr.textContent = hasPlanFilter ? 'Quitar filtro y guía' : 'Cerrar guía';
+        clr.addEventListener('click', () => clearIntelPlanFilters());
+        act.append(clr);
+        stack.append(act);
+        card.append(stack);
+      }
 
       const pdfRow = document.createElement('div');
       pdfRow.className = 'plan-form-row plan-pdf-row';
@@ -516,7 +673,25 @@ export const planificacionView = ({ data, reloadApp } = {}) => {
         '<thead><tr><th>Tienda</th><th>Fecha</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>';
       const tb = document.createElement('tbody');
 
-      const sorted = [...mantenciones].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+      const todayP = toYmd(new Date());
+      let sorted = [...mantenciones].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+      if (mantIntelPreset === 'atrasadas') {
+        sorted = sorted.filter((m) => m.fecha < todayP && m.estado !== 'realizado');
+      } else if (mantIntelPreset === 'proximas') {
+        const end = addDaysYmd(todayP, 7);
+        sorted = sorted.filter((m) => m.fecha >= todayP && m.fecha <= end && m.estado !== 'realizado');
+      }
+      if (planTiendaFocus) {
+        sorted = sorted.filter((m) => m.tiendaId === planTiendaFocus);
+      }
+      if (planClienteFocus) {
+        const qn = planClienteFocus.toLowerCase();
+        sorted = sorted.filter((m) => {
+          const t = tiendaById[m.tiendaId];
+          const c = t ? clienteById[t.clienteId] : null;
+          return (c?.nombre || '').toLowerCase().includes(qn);
+        });
+      }
       if (!sorted.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');

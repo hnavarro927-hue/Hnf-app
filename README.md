@@ -1,5 +1,18 @@
 # HNF Servicios Integrales
 
+## Arranque desarrollo (rápido)
+
+En la raíz del proyecto:
+
+- **Todo junto:** `npm run start:all` (frontend + backend en paralelo; script `scripts/start-all.mjs`)
+- **Solo UI:** `npm run start:frontend`
+- **Solo API:** `npm run start:backend`
+- **Windows (doble clic):** `start-hnf.cmd` — misma función que `start:all`, mensajes claros en consola
+
+Detalle para iPad, IP, recuperación y fallos: **[OPERACION-LOCAL.md](./OPERACION-LOCAL.md)**.
+
+---
+
 Sistema operativo para la gestión de servicios de:
 
 • Flota

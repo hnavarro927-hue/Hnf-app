@@ -1,0 +1,28 @@
+---
+description: Autoprotección HNF — dominio, JSDoc, JSX, encoding
+globs: frontend/**/*.js, backend/**/*.js
+alwaysApply: false
+---
+
+# HNF — Autoprotección de código
+
+Antes de **guardar** cambios en JS del repo:
+
+1. **Dominio (`frontend/domain/`, `backend` sin UI)**  
+   - Prohibido JSX (`<div`, `<Component`, `return (` + `<`).  
+   - La UI va en `views/` o componentes `.jsx`.
+
+2. **JSDoc y Vite**  
+   - No usar `@type { ... }>` con cierre literal `}>` en el comentario (rompe el import-analysis de Vite).  
+   - Preferir comentarios `//` o tipos planos sin genéricos anidados con `}>`.
+
+3. **Encoding**  
+   - Archivos UTF-8. Evitar mojibake (`Ã©`, `â€”`, etc.).  
+   - Tras ediciones masivas: `npm run validate:code:fix` en la raíz del repo.
+
+4. **Validación obligatoria**  
+   - `npm run validate:code` (raíz) o `npm run build` (incluye validación).  
+   - Con `HNF_CODE_GUARD_DEBUG=1` el guardián detalla archivos revisados.
+
+5. **No romper el build**  
+   - Si el guardián falla, corregir antes de commit; no silenciar con exclusión salvo motivo documentado.

@@ -1,5 +1,17 @@
 import { createCard } from '../components/card.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
+import {
+  attachGuidanceToIntelNav,
+  buildIntelExecutionQueue,
+  buildTodayOperationsPanel,
+  detectOperationalIssues,
+  generateActionPlan,
+  getOperationalHealthState,
+  getOperationalSnapshot,
+  getProactiveSignals,
+  runAIAnalysis,
+} from '../domain/hnf-intelligence-engine.js';
+import { computeCommercialOpportunitySummary } from '../domain/technical-document-intelligence.js';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -136,6 +148,37 @@ const formatRefresh = (iso) => {
   }
 };
 
+const formatRelativeAgo = (iso) => {
+  if (!iso) return 'sin registro de sincronización';
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return '—';
+  const sec = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (sec < 12) return 'hace unos segundos';
+  if (sec < 60) return `hace ${sec} segundos`;
+  const m = Math.floor(sec / 60);
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 36) return `hace ${h} h`;
+  return formatRefresh(iso);
+};
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const portalSvgIcon = (pathD) => {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'portal-tile__icon-svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.5');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  const p = document.createElementNS(SVG_NS, 'path');
+  p.setAttribute('d', pathD);
+  svg.append(p);
+  return svg;
+};
+
 export const dashboardView = ({
   apiBaseLabel,
   integrationStatus,
@@ -143,9 +186,39 @@ export const dashboardView = ({
   data,
   reloadApp,
   navigateToView,
+  intelNavigate,
 } = {}) => {
   const section = document.createElement('section');
-  section.className = 'dashboard-module dashboard-module--stack dashboard-portal-root';
+  section.className = 'dashboard-module dashboard-module--stack dashboard-ops';
+
+  const jarvisPresence = document.createElement('div');
+  jarvisPresence.className = 'jarvis-presence';
+  jarvisPresence.id = 'hnf-jarvis-presence-root';
+  jarvisPresence.dataset.jarvisEstado = 'normal';
+  jarvisPresence.dataset.jarvisPrioridad = 'normal';
+  jarvisPresence.innerHTML = `
+    <div class="jarvis-presence__row">
+      <div class="jarvis-core-wrap" aria-hidden="true">
+        <div class="jarvis-core">
+          <span class="jarvis-core__ring jarvis-core__ring--a"></span>
+          <span class="jarvis-core__ring jarvis-core__ring--b"></span>
+        </div>
+      </div>
+      <div class="jarvis-presence__copy">
+        <h1 class="jarvis-presence__saludo"></h1>
+        <p class="jarvis-presence__mensaje"></p>
+        <span class="jarvis-presence__mantra"></span>
+        <p class="jarvis-presence__eval-kicker"></p>
+        <p class="jarvis-presence__eval-line"></p>
+        <div class="jarvis-presence__intel">
+          <p class="jarvis-presence__intel-last"></p>
+          <p class="jarvis-presence__intel-next"></p>
+        </div>
+        <p class="jarvis-presence__decision-line"></p>
+      </div>
+    </div>
+  `;
+  section.append(jarvisPresence);
 
   const today = toYmd(new Date());
   const weekStart = toYmd(mondayOf(new Date()));
@@ -333,10 +406,6 @@ export const dashboardView = ({
       roundMoney(o.montoCobrado) <= 0
   ).length;
 
-  const flotaEjecucionSinCierre = flotaSolicitudes.filter(
-    (s) => s.estado === 'en_ruta' || s.estado === 'completada'
-  ).length;
-
   const tiendasConRealizado = new Set(
     planMantenciones.filter((m) => m.estado === 'realizado' && m.tiendaId).map((m) => m.tiendaId)
   );
@@ -400,65 +469,109 @@ export const dashboardView = ({
         ? 'Esperá un momento mientras se obtienen los datos.'
         : 'No se pudo contactar al API. Revisá que el backend esté en marcha y la URL en la configuración.';
 
-  section.innerHTML = `
-    <header class="module-header module-header--portal">
-      <p class="dashboard-eyebrow">HNF · plataforma operativa</p>
-      <h2>Portal principal</h2>
-      <p class="muted">Estado de la operación en segundos: accesos directos, alertas, números del mes y rentabilidad. Criterio financiero: ingreso real en Clima (<code>montoCobrado</code>); en Flota solo con <code>ingresoFinal</code> positivo.</p>
-    </header>
-  `;
-
   const pilotBar = document.createElement('div');
-  pilotBar.className = 'module-toolbar';
+  pilotBar.className = 'module-toolbar ops-toolbar';
+  const livePill = document.createElement('div');
+  livePill.className = `ops-toolbar-live ${
+    integrationStatus === 'conectado'
+      ? 'ops-toolbar-live--ok'
+      : integrationStatus === 'cargando'
+        ? 'ops-toolbar-live--load'
+        : 'ops-toolbar-live--off'
+  }`;
+  const liveDot = document.createElement('span');
+  liveDot.className = 'ops-live-dot ops-live-dot--toolbar';
+  const liveLbl = document.createElement('span');
+  liveLbl.className = 'ops-toolbar-live__text';
+  liveLbl.textContent =
+    integrationStatus === 'conectado'
+      ? `Datos vivos · ${formatRelativeAgo(lastDataRefreshAt)}`
+      : integrationStatus === 'cargando'
+        ? 'Sincronizando…'
+        : 'Sin enlace al servidor';
+  livePill.append(liveDot, liveLbl);
+
   const refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
-  refreshBtn.className = 'secondary-button';
-  refreshBtn.textContent = 'Actualizar datos';
-  refreshBtn.title = 'Trae de nuevo OT, flota, planificación y clientes desde el servidor.';
+  refreshBtn.className = 'secondary-button hnf-action-sync';
+  refreshBtn.title = 'Recarga OT, flota y planificación desde el API.';
+  const syncLab = document.createElement('span');
+  syncLab.className = 'hnf-action-sync__label';
+  syncLab.textContent = 'Sincronizar';
+  const syncLd = document.createElement('span');
+  syncLd.className = 'hnf-action-sync__loader';
+  syncLd.setAttribute('aria-hidden', 'true');
+  refreshBtn.append(syncLab, syncLd);
   const refreshHint = document.createElement('span');
   refreshHint.className = 'muted module-toolbar__hint';
-  refreshHint.textContent =
-    'Sincroniza OT, flota y planificación. Al entrar en Inicio también se actualiza solo.';
+  refreshHint.textContent = 'Pulse corta: actualiza el centro de operaciones.';
   refreshBtn.addEventListener('click', async () => {
-    const label = refreshBtn.textContent;
     refreshBtn.disabled = true;
-    refreshBtn.textContent = 'Actualizando…';
-    const ok = typeof reloadApp === 'function' ? await reloadApp() : false;
-    refreshBtn.textContent = ok ? 'Listo' : 'Sin conexión';
-    setTimeout(() => {
-      refreshBtn.textContent = label;
-      refreshBtn.disabled = false;
-    }, 1800);
+    refreshBtn.classList.add('is-loading');
+    await (typeof reloadApp === 'function' ? reloadApp() : Promise.resolve(false));
+    refreshBtn.classList.remove('is-loading');
+    refreshBtn.disabled = false;
   });
-  pilotBar.append(refreshBtn, refreshHint);
+  pilotBar.append(livePill, refreshBtn, refreshHint);
   section.append(pilotBar);
 
-  const portalSection = document.createElement('div');
-  portalSection.className = 'portal-stack';
-  const portalHero = document.createElement('div');
-  portalHero.className = 'portal-hero';
-  const phInner = document.createElement('div');
-  phInner.className = 'portal-hero__inner';
-  const phEyebrow = document.createElement('p');
-  phEyebrow.className = 'portal-hero__eyebrow';
-  phEyebrow.textContent = 'Centro de comando';
-  const phTitle = document.createElement('h3');
-  phTitle.className = 'portal-hero__title';
-  phTitle.textContent = 'Líneas de negocio';
-  const phLead = document.createElement('p');
-  phLead.className = 'portal-hero__lead muted';
-  phLead.textContent =
-    'Elegí un módulo para trabajar. La misma barra lateral está siempre disponible; acá tenés acceso ejecutivo rápido.';
-  phInner.append(phEyebrow, phTitle, phLead);
-  portalHero.append(phInner);
+  const opsStack = document.createElement('div');
+  opsStack.className = 'ops-intro-stack';
+
+  const hero = document.createElement('div');
+  hero.className = 'ops-hero';
+  ['ops-hero__veil', 'ops-hero__aurora', 'ops-hero__particles', 'ops-hero__core'].forEach((c) => {
+    const el = document.createElement('div');
+    el.className = c;
+    el.setAttribute('aria-hidden', 'true');
+    hero.append(el);
+  });
+  const hc = document.createElement('div');
+  hc.className = 'ops-hero__content';
+  const brand = document.createElement('p');
+  brand.className = 'ops-hero__brand';
+  brand.textContent = 'HNF Servicios Integrales';
+  const headline = document.createElement('h1');
+  headline.className = 'ops-hero__headline';
+  headline.textContent = 'Centro de Operaciones Inteligente';
+  const tagline = document.createElement('p');
+  tagline.className = 'ops-hero__tagline';
+  tagline.textContent = 'Control total de Clima y Flota en tiempo real';
+  const heroLive = document.createElement('div');
+  heroLive.className = 'ops-hero__live';
+  const hDot = document.createElement('span');
+  hDot.className = 'ops-live-dot';
+  const hLiveTxt = document.createElement('span');
+  hLiveTxt.className = 'ops-live-text';
+  hLiveTxt.textContent = `Última sincronización ${formatRelativeAgo(lastDataRefreshAt)} · ${apiBaseLabel || 'API'}`;
+  heroLive.append(hDot, hLiveTxt);
+  hc.append(brand, headline, tagline, heroLive);
+  hero.append(hc);
 
   const portalGrid = document.createElement('div');
-  portalGrid.className = 'portal-grid';
+  portalGrid.className = 'portal-grid portal-grid--premium';
 
-  const mkPortalTile = (viewId, modClass, kicker, title, desc) => {
+  const ICON_CLIM =
+    'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z';
+  const ICON_PLAN =
+    'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
+  const ICON_FLOT =
+    'M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM3 11h12v4H3v-4zm0-2h12V7l-2-3H5L3 7v2zm14 6h3l2 2v3h-5v-5z';
+  const ICON_ADM =
+    'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z';
+  const ICON_IA =
+    'M13 10V3L4 14h7v7l9-11h-7z';
+  const ICON_OPP = 'M3 17l6-6 4 4 8-8M3 21h18M3 3v18h18';
+
+  const mkPortalTile = (viewId, modClass, pathD, kicker, title, desc) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `portal-tile portal-tile--${modClass}`;
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'portal-tile__icon-wrap';
+    iconWrap.append(portalSvgIcon(pathD));
+    const body = document.createElement('span');
+    body.className = 'portal-tile__body';
     const k = document.createElement('span');
     k.className = 'portal-tile__kicker';
     k.textContent = kicker;
@@ -468,7 +581,11 @@ export const dashboardView = ({
     const d = document.createElement('span');
     d.className = 'portal-tile__desc';
     d.textContent = desc;
-    b.append(k, t, d);
+    body.append(k, t, d);
+    const cta = document.createElement('span');
+    cta.className = 'portal-tile__cta';
+    cta.textContent = 'Ingresar →';
+    b.append(iconWrap, body, cta);
     b.addEventListener('click', () => {
       if (typeof navigateToView === 'function') navigateToView(viewId);
     });
@@ -476,70 +593,421 @@ export const dashboardView = ({
   };
 
   portalGrid.append(
+    mkPortalTile('clima', 'clima', ICON_CLIM, 'Línea HVAC', 'Clima operativo', 'OT, evidencias, economía, cierre.'),
+    mkPortalTile('planificacion', 'plan', ICON_PLAN, 'Agenda', 'Planificación', 'Clientes, tiendas, AM/PM, mantenciones.'),
+    mkPortalTile('flota', 'flota', ICON_FLOT, 'Movilidad', 'Flota', 'Solicitudes, pipeline, costos e ingresos.'),
     mkPortalTile(
-      'clima',
-      'clima',
-      'HVAC / Clima',
-      'Gestión integral Clima',
-      'OT, equipos, fotos, economía, cierre e informe PDF.'
+      'oportunidades',
+      'comercial',
+      ICON_OPP,
+      'Ingresos',
+      'Oportunidades',
+      'Desde informes técnicos aprobados: prioridad y montos estimados.'
     ),
-    mkPortalTile(
-      'planificacion',
-      'plan',
-      'Agenda',
-      'Planificación y control',
-      'Clientes, tiendas, comuna, AM/PM, técnico y mantenciones.'
-    ),
-    mkPortalTile(
-      'flota',
-      'flota',
-      'Movilidad',
-      'Gestión integral de flotas',
-      'Solicitudes, pipeline, costos, ingreso y utilidad.'
-    ),
-    mkPortalTile(
-      'admin',
-      'admin',
-      'Corporativo',
-      'Administración y respaldos',
-      'Clientes maestros, operador y exportación JSON.'
-    ),
-    mkPortalTile(
-      'asistente',
-      'ia',
-      'Inteligencia',
-      'Asistente IA HNF',
-      'Pendientes, cierres y diagnóstico sobre datos reales.'
-    )
+    mkPortalTile('admin', 'admin', ICON_ADM, 'Corporativo', 'Administración', 'Respaldos JSON y datos maestros.'),
+    mkPortalTile('asistente', 'ia', ICON_IA, 'Inteligencia', 'Asistente HNF', 'Diagnóstico sobre datos reales.')
   );
 
-  portalSection.append(portalHero, portalGrid);
+  opsStack.append(hero, portalGrid);
 
-  const execStrip = document.createElement('div');
-  execStrip.className = 'exec-strip';
   const mesRef = monthLabelEs(new Date(monthStart + 'T12:00:00'));
-  const mkExecStat = (label, value, sub) => {
-    const w = document.createElement('div');
-    w.className = 'exec-strip__stat';
-    const lb = document.createElement('span');
-    lb.className = 'exec-strip__label';
-    lb.textContent = label;
-    const val = document.createElement('span');
-    val.className = 'exec-strip__value';
-    val.textContent = value;
-    const su = document.createElement('span');
-    su.className = 'exec-strip__sub';
-    su.textContent = sub;
-    w.append(lb, val, su);
-    return w;
-  };
-  execStrip.append(
-    mkExecStat('OT abiertas', String(otAbiertas.length), 'Sin cerrar (terminado)'),
-    mkExecStat('Alertas operativas', String(alerts.length), 'Requieren seguimiento'),
-    mkExecStat('Ingreso real del mes', formatMoney(ingresoRealTotalMes), mesRef),
-    mkExecStat('Flota en curso', String(flotaActivas.length), 'Pipeline hasta completada'),
-    mkExecStat('Mantenciones 7 días', String(mantProx.length), 'Programadas o pendientes')
-  );
+  const cmd = document.createElement('section');
+  cmd.className = 'ops-command';
+  const cmdHead = document.createElement('div');
+  cmdHead.className = 'ops-command__head';
+  const cmdTitle = document.createElement('h2');
+  cmdTitle.className = 'ops-command__title';
+  cmdTitle.textContent = 'Panel de control operativo';
+  const cmdSub = document.createElement('p');
+  cmdSub.className = 'ops-command__sub muted';
+  cmdSub.textContent = `Indicadores en vivo · ${mesRef} · ingreso real consolidado`;
+  cmdHead.append(cmdTitle, cmdSub);
+
+  const cmdGrid = document.createElement('div');
+  cmdGrid.className = 'ops-command__grid';
+
+  const donutDeg = pctTerm != null ? Math.min(360, (pctTerm / 100) * 360) : 0;
+  const wDonut = document.createElement('article');
+  wDonut.className = 'ops-widget ops-widget--donut';
+  wDonut.innerHTML = `<h3 class="ops-widget__label">Cierre OT (mes)</h3>
+    <div class="ops-donut" style="--donut-deg:${donutDeg}deg">
+      <div class="ops-donut__hole"><span class="ops-donut__pct">${pctTerm != null ? `${pctTerm}%` : '—'}</span><span class="ops-donut__cap">cerradas / creadas</span></div>
+    </div>
+    <p class="ops-widget__foot muted">${terminadasMes} / ${creadasMes} OT</p>`;
+
+  const openPct = ots.length ? Math.round((otAbiertas.length / ots.length) * 100) : 0;
+  const wOt = document.createElement('article');
+  wOt.className = 'ops-widget ops-widget--bars ops-widget--clima';
+  wOt.innerHTML = `<h3 class="ops-widget__label">OT abiertas</h3>
+    <p class="ops-widget__value"><strong>${otAbiertas.length}</strong> <span class="muted">/ ${ots.length} registro</span></p>
+    <div class="ops-progress"><span class="ops-progress__fill ops-progress__fill--clima" style="width:${openPct}%"></span></div>
+    <p class="ops-widget__foot muted">Pendientes ${otPend} · En proceso ${otProc}</p>`;
+
+  const flMax = Math.max(1, flotaSolicitudes.length);
+  const flPct = Math.round((flotaActivas.length / flMax) * 100);
+  const wFl = document.createElement('article');
+  wFl.className = 'ops-widget ops-widget--bars ops-widget--flota';
+  wFl.innerHTML = `<h3 class="ops-widget__label">Flota en curso</h3>
+    <p class="ops-widget__value"><strong>${flotaActivas.length}</strong> <span class="muted">activas en pipeline</span></p>
+    <div class="ops-progress"><span class="ops-progress__fill ops-progress__fill--flota" style="width:${flPct}%"></span></div>
+    <p class="ops-widget__foot muted">Ingreso mes ${formatMoney(ingresoRealTotalMes)}</p>`;
+
+  const alertLevel =
+    alerts.length > 4 ? 'ops-widget--alert-sev-high' : alerts.length > 0 ? 'ops-widget--alert-sev-mid' : 'ops-widget--alert-sev-ok';
+  const wAl = document.createElement('article');
+  wAl.className = `ops-widget ops-widget--alerts ${alertLevel}`;
+  const alH = document.createElement('h3');
+  alH.className = 'ops-widget__label';
+  alH.textContent = 'Alertas operativas';
+  const alVal = document.createElement('p');
+  alVal.className = 'ops-widget__value';
+  alVal.innerHTML = `<strong>${alerts.length}</strong> <span class="muted">condiciones</span>`;
+  const alList = document.createElement('ul');
+  alList.className = 'ops-alert-list';
+  (alerts.length ? alerts.slice(0, 4) : ['Sin alertas en los criterios vigentes.']).forEach((txt) => {
+    const li = document.createElement('li');
+    li.textContent = txt;
+    alList.append(li);
+  });
+  wAl.append(alH, alVal, alList);
+
+  cmdGrid.append(wDonut, wOt, wFl, wAl);
+  cmd.append(cmdHead, cmdGrid);
+
+  const comSum = computeCommercialOpportunitySummary(data?.commercialOpportunities || [], monthStart, monthEnd);
+  const cmdCommHead = document.createElement('div');
+  cmdCommHead.className = 'ops-command__head ops-command__head--sub';
+  const cti = document.createElement('h2');
+  cti.className = 'ops-command__title';
+  cti.textContent = 'Oportunidades comerciales (mes)';
+  const cts = document.createElement('p');
+  cts.className = 'ops-command__sub muted';
+  cts.textContent = `Generadas al aprobar informes técnicos · ${mesRef}`;
+  cmdCommHead.append(cti, cts);
+
+  const commGrid = document.createElement('div');
+  commGrid.className = 'ops-command__grid';
+
+  const wOppMes = document.createElement('article');
+  wOppMes.className = 'ops-widget ops-widget--commercial';
+  wOppMes.innerHTML = `<h3 class="ops-widget__label">Oportunidades del mes</h3>
+    <p class="ops-widget__value"><strong>${comSum.countMes}</strong> <span class="muted">registros</span></p>
+    <p class="ops-widget__foot muted">Pipeline detectado por Jarvis / reglas</p>`;
+
+  const wPot = document.createElement('article');
+  wPot.className = 'ops-widget ops-widget--commercial';
+  wPot.innerHTML = `<h3 class="ops-widget__label">Monto potencial (mes)</h3>
+    <p class="ops-widget__value"><strong>$ ${formatMoney(comSum.potencialTotalMes)}</strong> <span class="muted">estimado</span></p>
+    <p class="ops-widget__foot muted">Bases editables en config comercial</p>`;
+
+  const wUrg = document.createElement('article');
+  wUrg.className = `ops-widget ops-widget--commercial ${comSum.urgentesPendientesMes > 0 ? 'ops-widget--alert-sev-mid' : ''}`;
+  wUrg.innerHTML = `<h3 class="ops-widget__label">Urgentes pendientes</h3>
+    <p class="ops-widget__value"><strong>${comSum.urgentesPendientesMes}</strong> <span class="muted">prioridad alta</span></p>
+    <p class="ops-widget__foot muted">Revisar en Oportunidades</p>`;
+
+  const btnOpp = document.createElement('button');
+  btnOpp.type = 'button';
+  btnOpp.className = 'secondary-button ops-widget__foot';
+  btnOpp.textContent = 'Abrir oportunidades →';
+  btnOpp.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('oportunidades'));
+  wUrg.append(btnOpp);
+
+  commGrid.append(wOppMes, wPot, wUrg);
+  cmd.append(cmdCommHead, commGrid);
+
+  const intel = document.createElement('section');
+  intel.className = 'hnf-intelligence-center';
+  const ieHead = document.createElement('div');
+  ieHead.className = 'hnf-ie-head';
+  const ieTitle = document.createElement('h2');
+  ieTitle.className = 'hnf-ie-title';
+  ieTitle.textContent = 'Centro de inteligencia HNF';
+  const ieSub = document.createElement('p');
+  ieSub.className = 'muted hnf-ie-sub';
+  ieSub.textContent = 'Reglas sobre datos vivos: prioriza, enlaza al módulo y guía el cierre (no es chat).';
+  ieHead.append(ieTitle, ieSub);
+
+  const ieRefresh = document.createElement('button');
+  ieRefresh.type = 'button';
+  ieRefresh.className = 'secondary-button hnf-ie-refresh';
+  ieRefresh.textContent = 'Actualizar análisis';
+  ieRefresh.title = 'Recarga datos del servidor y vuelve a evaluar el snapshot operativo.';
+  ieRefresh.addEventListener('click', async () => {
+    ieRefresh.disabled = true;
+    ieRefresh.classList.add('is-loading');
+    await (typeof reloadApp === 'function' ? reloadApp() : Promise.resolve(false));
+    ieRefresh.classList.remove('is-loading');
+    ieRefresh.disabled = false;
+  });
+
+  const ieTopRow = document.createElement('div');
+  ieTopRow.className = 'hnf-ie-top';
+  ieTopRow.append(ieHead, ieRefresh);
+
+  const ieBody = document.createElement('div');
+  ieBody.className = 'hnf-ie-body';
+
+  if (integrationStatus !== 'conectado' || !data) {
+    const off = document.createElement('p');
+    off.className = 'hnf-ie-offline';
+    off.textContent =
+      integrationStatus === 'cargando'
+        ? 'Conectando… El análisis inteligente se mostrará al obtener datos del API.'
+        : 'Sin datos del servidor. Conectá el backend y sincronizá para activar el motor de detección.';
+    ieBody.append(off);
+  } else {
+    const snap = getOperationalSnapshot(data);
+    const issues = detectOperationalIssues(snap, data);
+    const plan = generateActionPlan(issues);
+    const proactive = getProactiveSignals(snap);
+    const health = getOperationalHealthState(issues);
+    const execQueue = buildIntelExecutionQueue(data);
+    const todayPanel = buildTodayOperationsPanel(data);
+    void runAIAnalysis(snap);
+
+    const estadoLab =
+      health === 'critico' ? 'Crítico' : health === 'atencion' ? 'Atención' : 'Óptimo';
+    const status = document.createElement('div');
+    status.className = `hnf-ie-status hnf-ie-status--${health}`;
+    status.setAttribute('role', 'status');
+    const stLabel = document.createElement('span');
+    stLabel.className = 'hnf-ie-status__k';
+    stLabel.textContent = 'Estado general';
+    const stVal = document.createElement('span');
+    stVal.className = 'hnf-ie-status__v';
+    stVal.textContent = estadoLab;
+    const stHint = document.createElement('span');
+    stHint.className = 'hnf-ie-status__hint';
+    stHint.textContent =
+      health === 'optimo'
+        ? 'Sin hallazgos críticos ni de atención con las reglas vigentes.'
+        : `${issues.filter((i) => i.tipo === 'CRITICO').length} crítico(s) · ${issues.filter((i) => i.tipo === 'ATENCION').length} atención`;
+    status.append(stLabel, stVal, stHint);
+
+    const todayBox = document.createElement('div');
+    todayBox.className = 'hnf-ie-today';
+    const todayH = document.createElement('h3');
+    todayH.className = 'hnf-ie-col__title';
+    todayH.textContent = 'Qué hacer hoy';
+    const todayGrid = document.createElement('div');
+    todayGrid.className = 'hnf-ie-today-grid';
+
+    const mkTodayMini = (title, items, emptyMsg) => {
+      const col = document.createElement('div');
+      col.className = 'hnf-ie-today-col';
+      const h = document.createElement('h4');
+      h.className = 'hnf-ie-today-col__h';
+      h.textContent = title;
+      const ul = document.createElement('ul');
+      ul.className = 'hnf-ie-today-list';
+      if (!items.length) {
+        const li = document.createElement('li');
+        li.className = 'muted';
+        li.textContent = emptyMsg;
+        ul.append(li);
+      } else {
+        items.forEach((it) => {
+          const li = document.createElement('li');
+          li.className = `hnf-ie-today-li hnf-ie-today-li--${String(it.tipo || 'atencion').toLowerCase()}`;
+          const t = document.createElement('span');
+          t.className = 'hnf-ie-today-li__t';
+          t.textContent = it.titulo;
+          li.append(t);
+          if (it.nav && typeof intelNavigate === 'function') {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'primary-button hnf-ie-today-li__go';
+            b.textContent = 'Resolver ahora';
+            b.addEventListener('click', () => intelNavigate(it.nav));
+            li.append(b);
+          }
+        });
+      }
+      col.append(h, ul);
+      return col;
+    };
+
+    todayGrid.append(
+      mkTodayMini('Prioridades (crítico)', todayPanel.prioridades, 'Sin críticos detectados.'),
+      mkTodayMini('Top pendientes', todayPanel.topPendientes, 'Sin OT pendientes.'),
+      mkTodayMini('Cierres urgentes', todayPanel.topCierres, 'Ninguna lista para cierre inmediato.'),
+      mkTodayMini('Riesgos operativos', todayPanel.topRiesgos, 'Sin riesgos de atención en cola.'),
+      mkTodayMini('Seguimiento', todayPanel.seguimiento, 'Sin ítems de seguimiento.')
+    );
+    todayBox.append(todayH, todayGrid);
+
+    const sigWrap = document.createElement('div');
+    sigWrap.className = 'hnf-ie-col';
+    const sigH = document.createElement('h3');
+    sigH.className = 'hnf-ie-col__title';
+    sigH.textContent = 'Señales automáticas';
+    const sigUl = document.createElement('ul');
+    sigUl.className = 'hnf-ie-syslist';
+    (proactive.length ? proactive : ['Operación estable según umbrales actuales; seguí sincronizando datos.']).forEach(
+      (line) => {
+        const li = document.createElement('li');
+        li.textContent = line;
+        sigUl.append(li);
+      }
+    );
+    sigWrap.append(sigH, sigUl);
+
+    const execWrap = document.createElement('div');
+    execWrap.className = 'hnf-ie-exec-wrap hnf-ie-exec-wrap--hero';
+    const execH = document.createElement('h3');
+    execH.className = 'hnf-ie-col__title hnf-ie-exec-wrap__title';
+    execH.textContent = 'Resolver ahora';
+    const execUl = document.createElement('ul');
+    execUl.className = 'hnf-ie-exec-list';
+    if (!execQueue.length) {
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.textContent = 'Cola vacía con los datos actuales.';
+      execUl.append(li);
+    } else {
+      execQueue.forEach((it) => {
+        const li = document.createElement('li');
+        li.className = `hnf-ie-exec hnf-ie-exec--${String(it.tipo).toLowerCase()}`;
+        const top = document.createElement('div');
+        top.className = 'hnf-ie-exec__top';
+        const badge = document.createElement('span');
+        badge.className = 'hnf-ie-exec__badge';
+        badge.textContent = it.tipo;
+        const mod = document.createElement('span');
+        mod.className = 'hnf-ie-exec__mod';
+        mod.textContent = it.modulo;
+        top.append(badge, mod);
+        const tit = document.createElement('div');
+        tit.className = 'hnf-ie-exec__tit';
+        tit.textContent = it.titulo;
+        const desc = document.createElement('div');
+        desc.className = 'muted hnf-ie-exec__desc';
+        desc.textContent = it.descripcion;
+        const row = document.createElement('div');
+        row.className = 'hnf-ie-exec__row';
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'primary-button hnf-ie-exec__go hnf-ie-exec__go--now';
+        go.textContent = 'Resolver ahora';
+        go.title = it.accionCorta || 'Abrir módulo';
+        go.addEventListener('click', () => intelNavigate?.(it.nav));
+        row.append(go);
+        if (it.automation?.kind) {
+          const au = document.createElement('span');
+          au.className = 'hnf-ie-exec__auto muted';
+          au.textContent = `Automatización futura: ${it.automation.kind}`;
+          row.append(au);
+        }
+        li.append(top, tit, desc, row);
+        execUl.append(li);
+      });
+    }
+    const rollup = document.createElement('div');
+    rollup.className = 'hnf-ie-rollups';
+    const mkRoll = (label, nav) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'secondary-button hnf-ie-roll';
+      b.textContent = label;
+      b.addEventListener('click', () => intelNavigate?.(nav));
+      return b;
+    };
+    rollup.append(
+      mkRoll(
+        'Clima · terminadas sin costo',
+        attachGuidanceToIntelNav({ view: 'clima', climaFilter: { sinCostoTerminadas: true } }, 'FILTER_SIN_COSTO', '')
+      ),
+      mkRoll(
+        'Clima · mes actual',
+        attachGuidanceToIntelNav({ view: 'clima', climaFilter: { soloMesActual: true } }, 'FILTER_MES', '')
+      ),
+      mkRoll(
+        'Planificación · atrasadas',
+        attachGuidanceToIntelNav(
+          { view: 'planificacion', plan: { tab: 'plan', mantFilter: 'atrasadas' } },
+          'PLAN_ATRASADAS',
+          ''
+        )
+      ),
+      mkRoll(
+        'Planificación · próximas 7 días',
+        attachGuidanceToIntelNav(
+          { view: 'planificacion', plan: { tab: 'plan', mantFilter: 'proximas' } },
+          'PLAN_PROXIMAS',
+          ''
+        )
+      )
+    );
+    execWrap.append(execH, execUl, rollup);
+
+    const planWrap = document.createElement('div');
+    planWrap.className = 'hnf-ie-plan-wrap';
+    const planH = document.createElement('h3');
+    planH.className = 'hnf-ie-col__title';
+    planH.textContent = 'Plan de acción sugerido (resumen)';
+    const planOl = document.createElement('ol');
+    planOl.className = 'hnf-ie-plan';
+    plan.forEach((line) => {
+      const li = document.createElement('li');
+      li.textContent = line;
+      planOl.append(li);
+    });
+    planWrap.append(planH, planOl);
+
+    const rowSigPlan = document.createElement('div');
+    rowSigPlan.className = 'hnf-ie-row2';
+    rowSigPlan.append(sigWrap, planWrap);
+
+    ieBody.append(status, execWrap, todayBox, rowSigPlan);
+  }
+
+  intel.append(ieTopRow, ieBody);
+
+  const asst = document.createElement('section');
+  asst.className = 'ops-assistant';
+  const asH = document.createElement('div');
+  asH.className = 'ops-assistant__head';
+  const asTitle = document.createElement('h2');
+  asTitle.className = 'ops-assistant__title';
+  asTitle.textContent = 'Asistente HNF';
+  const asBadge = document.createElement('span');
+  asBadge.className = 'ops-assistant__badge';
+  asBadge.textContent = 'Beta · UI';
+  asH.append(asTitle, asBadge);
+  const asSub = document.createElement('p');
+  asSub.className = 'muted ops-assistant__sub';
+  asSub.textContent =
+    'Consultas preparadas; el motor completo está en el módulo Asistente IA. No se envía nada a servicios externos desde acá.';
+  const asRow = document.createElement('div');
+  asRow.className = 'ops-assistant__row';
+  const asInp = document.createElement('input');
+  asInp.type = 'text';
+  asInp.className = 'ops-assistant__input';
+  asInp.placeholder = 'Preguntá por pendientes, ingresos o alertas…';
+  const asGo = document.createElement('button');
+  asGo.type = 'button';
+  asGo.className = 'ops-assistant__send';
+  asGo.textContent = 'Abrir análisis';
+  const openAsistente = () => navigateToView?.('asistente');
+  asGo.addEventListener('click', openAsistente);
+  asInp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') openAsistente();
+  });
+  asRow.append(asInp, asGo);
+  const chips = document.createElement('div');
+  chips.className = 'ops-assistant__chips';
+  ['¿Qué falta cerrar hoy?', 'Resumen de ingresos', 'Alertas críticas'].forEach((label) => {
+    const ch = document.createElement('button');
+    ch.type = 'button';
+    ch.className = 'ops-assistant__chip';
+    ch.textContent = label;
+    ch.addEventListener('click', openAsistente);
+    chips.append(ch);
+  });
+  asst.append(asH, asSub, asRow, chips);
+
+  const portalSection = opsStack;
 
   const activityBox = document.createElement('article');
   activityBox.className = 'activity-feed';
@@ -626,8 +1094,7 @@ export const dashboardView = ({
       <li><strong>Mantenciones atrasadas</strong> · ${mantAtras.length}</li>
       <li><strong>Flota en etapa inicial (recibida)</strong> · ${flotaPendientes.length}</li>
       <li><strong>Flota aprobada sin ejecutar</strong> · ${flotaAprobadaNoEjecutada}</li>
-      <li><strong>Flota completada sin cerrar</strong> · ${flotaCompletadaNoCerrada}</li>
-      <li><strong>Flota en ruta o completada (sin cierre adm.)</strong> · ${flotaEjecucionSinCierre}</li>
+      <li><strong>Flota completada sin cierre administrativo</strong> · ${flotaCompletadaNoCerrada}</li>
       <li><strong>OT terminadas sin costos</strong> · ${otSinCostos}</li>
       <li><strong>OT informadas no cobradas</strong> · ${otInformadasNoCobradas}</li>
       <li><strong>OT terminadas sin informe</strong> · ${otTerminadasNoInformadas}</li>
@@ -901,8 +1368,8 @@ export const dashboardView = ({
       text: 'Solicitudes flota cerradas sin ingreso final registrado.',
     },
     {
-      count: flotaEjecucionSinCierre,
-      text: 'Flota en «en ruta» o «completada» aún sin cierre administrativo (cerrada).',
+      count: flotaCompletadaNoCerrada,
+      text: 'Solicitudes en «completada»: falta cierre administrativo (estado «cerrada» con costos y observación).',
     },
     {
       count: mantSinContinuidadTiendas,
@@ -978,7 +1445,7 @@ export const dashboardView = ({
   tecRow.append(tecList);
 
   const alertBox = document.createElement('div');
-  alertBox.className = 'dashboard-alerts';
+  alertBox.className = 'dashboard-alerts ops-warning-panel';
   alertBox.innerHTML =
     '<h3>Alertas operativas</h3><p class="muted dashboard-alerts__sub">Ejecución en terreno, evidencias, plazos en flota y mantenciones vencidas. Para control administrativo y facturación usá el bloque <strong>Alertas de cierre gerencial</strong> (más abajo).</p>';
   if (!alerts.length) {
@@ -1023,7 +1490,9 @@ export const dashboardView = ({
 
   section.append(
     portalSection,
-    execStrip,
+    cmd,
+    intel,
+    asst,
     activityBox,
     alertBox,
     diag,

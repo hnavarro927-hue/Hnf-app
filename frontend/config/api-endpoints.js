@@ -7,5 +7,12 @@ export const apiEndpoints = {
   planClientes: '/clientes',
   planTiendas: '/tiendas',
   planMantenciones: '/mantenciones',
+  operationalCalendar: '/operational-calendar',
+  technicalDocuments: '/technical-documents',
+  commercialOpportunities: '/commercial-opportunities',
   flotaSolicitudes: '/flota/solicitudes',
+  jarvisOperativeEvents: '/jarvis-operative-events',
+  operationalEvents: '/operational-events',
+  operationalPanelDaily: '/operational-panel/daily',
+  operationalIngest: '/operational-ingest',
 };

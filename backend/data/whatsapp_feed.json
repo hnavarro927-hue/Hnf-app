@@ -1,0 +1,146 @@
+{
+  "messages": [
+    {
+      "id": "WA-0001",
+      "externalId": "",
+      "tipo": "clima",
+      "cliente": "Cliente Demo",
+      "tecnico": "Test limpieza filtro",
+      "fecha": "2026-03-23",
+      "ubicacion": null,
+      "patente": null,
+      "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+      "tipoTrabajo": "limpieza",
+      "evidencias": [],
+      "estado": "en_proceso",
+      "observaciones": "Cliente Demo tecnico: Test limpieza filtro",
+      "fuente": "whatsapp",
+      "hashContenido": "98d4b212f010d8571abf89f7f8483d9a8d731a8b14af2a600ef1a9f38e29f0c7",
+      "procesado": true,
+      "errores": [],
+      "otIdRelacionado": "OT-006",
+      "rawOriginal": {
+        "body": "Cliente Demo tecnico: Test limpieza filtro",
+        "timestamp": 1774268408647
+      },
+      "parsedData": {
+        "cliente": "Cliente Demo",
+        "tecnico": "Test limpieza filtro",
+        "fecha": "2026-03-23",
+        "hora": "12:20",
+        "ubicacion": null,
+        "patente": null,
+        "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+        "tipoTrabajo": "limpieza",
+        "tipo": "clima",
+        "estado": "en_proceso",
+        "erroresParseo": []
+      },
+      "resultadoIngesta": "creado",
+      "createdAt": "2026-03-23T12:20:08.689Z",
+      "updatedAt": "2026-03-23T12:20:08.689Z"
+    },
+    {
+      "id": "WA-0002",
+      "externalId": "",
+      "tipo": "clima",
+      "cliente": "Cliente Demo",
+      "tecnico": "Test",
+      "fecha": "2026-03-23",
+      "ubicacion": null,
+      "patente": null,
+      "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+      "tipoTrabajo": "limpieza",
+      "evidencias": [],
+      "estado": "en_proceso",
+      "observaciones": "Cliente Demo tecnico: Test limpieza filtro",
+      "fuente": "whatsapp",
+      "hashContenido": "7e23d68cf2d3fe30365d52af16f9506d8608fd837ac43aa9b65864166e56af69",
+      "procesado": true,
+      "errores": [],
+      "otIdRelacionado": "OT-007",
+      "rawOriginal": {
+        "body": "Cliente Demo tecnico: Test limpieza filtro",
+        "timestamp": 1774268457376
+      },
+      "parsedData": {
+        "cliente": "Cliente Demo",
+        "tecnico": "Test",
+        "fecha": "2026-03-23",
+        "hora": "12:20",
+        "ubicacion": null,
+        "patente": null,
+        "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+        "tipoTrabajo": "limpieza",
+        "tipo": "clima",
+        "estado": "en_proceso",
+        "erroresParseo": []
+      },
+      "resultadoIngesta": "actualizado",
+      "createdAt": "2026-03-23T12:20:57.475Z",
+      "updatedAt": "2026-03-23T12:20:57.495Z"
+    }
+  ],
+  "ingestLogs": [
+    {
+      "messageId": "WA-0001",
+      "parsedData": {
+        "cliente": "Cliente Demo",
+        "tecnico": "Test limpieza filtro",
+        "fecha": "2026-03-23",
+        "hora": "12:20",
+        "ubicacion": null,
+        "patente": null,
+        "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+        "tipoTrabajo": "limpieza",
+        "tipo": "clima",
+        "estado": "en_proceso",
+        "erroresParseo": []
+      },
+      "resultado": "creado",
+      "detalle": "OT-006",
+      "otId": "OT-006",
+      "timestamp": "2026-03-23T12:20:08.691Z"
+    },
+    {
+      "messageId": "WA-0002",
+      "parsedData": {
+        "cliente": "Cliente Demo",
+        "tecnico": "Test",
+        "fecha": "2026-03-23",
+        "hora": "12:20",
+        "ubicacion": null,
+        "patente": null,
+        "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+        "tipoTrabajo": "limpieza",
+        "tipo": "clima",
+        "estado": "en_proceso",
+        "erroresParseo": []
+      },
+      "resultado": "creado",
+      "detalle": "OT-007",
+      "otId": "OT-007",
+      "timestamp": "2026-03-23T12:20:57.483Z"
+    },
+    {
+      "messageId": "WA-0002",
+      "parsedData": {
+        "cliente": "Cliente Demo",
+        "tecnico": "Test",
+        "fecha": "2026-03-23",
+        "hora": "12:20",
+        "ubicacion": null,
+        "patente": null,
+        "descripcion": "Cliente Demo tecnico: Test limpieza filtro",
+        "tipoTrabajo": "limpieza",
+        "tipo": "clima",
+        "estado": "en_proceso",
+        "erroresParseo": []
+      },
+      "resultado": "ignorado",
+      "detalle": "duplicado_hash",
+      "otId": "OT-007",
+      "timestamp": "2026-03-23T12:20:57.497Z"
+    }
+  ]
+}

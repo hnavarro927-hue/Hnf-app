@@ -1,5 +1,6 @@
 import { appConfig } from '../config/app.config.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
+import { fetchWithRetry } from '../domain/hnf-network.js';
 
 const buildUrl = (path) => `${appConfig.apiBaseUrl}${path}`;
 
@@ -9,16 +10,32 @@ const actorHeaders = () => {
 };
 
 const request = async (path, options = {}) => {
-  const response = await fetch(buildUrl(path), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...actorHeaders(),
-      ...(options.headers || {}),
+  const response = await fetchWithRetry(
+    buildUrl(path),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        ...actorHeaders(),
+        ...(options.headers || {}),
+      },
+      ...options,
     },
-    ...options,
-  });
+    { retries: 3, timeoutMs: 30000 }
+  );
 
-  const data = await response.json();
+  const raw = await response.text();
+  let data = {};
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      const err = new Error(
+        'El servidor devolvió una respuesta que no es JSON (¿proxy o ruta mal configurada?).'
+      );
+      err.status = response.status;
+      throw err;
+    }
+  }
 
   if (!response.ok) {
     let msg = data.error?.message || 'No se pudo completar la operación con el servidor.';
@@ -26,7 +43,10 @@ const request = async (path, options = {}) => {
     if (Array.isArray(vals) && vals.length) {
       msg = `${msg} ${vals.join(' ')}`;
     }
-    throw new Error(msg.trim());
+    const err = new Error(msg.trim());
+    err.status = response.status;
+    err.validations = vals;
+    throw err;
   }
 
   return data;

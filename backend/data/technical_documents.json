@@ -1,0 +1,235 @@
+[
+  {
+    "id": "DOC-0001",
+    "otId": "",
+    "cliente": "",
+    "tiendaNombre": "",
+    "sucursal": "",
+    "fechaServicio": "",
+    "horaIngreso": "",
+    "horaSalida": "",
+    "tecnicos": [],
+    "tipoMantencion": "",
+    "estadoDocumento": "en_revision",
+    "estado": "en_revision",
+    "fuente": "romina",
+    "numeroDocumento": "",
+    "tituloDocumento": "",
+    "resumenEjecutivo": "",
+    "inspeccionInicial": "",
+    "trabajosRealizados": "",
+    "materialesHerramientas": "",
+    "epp": "",
+    "observacionesTecnicas": "",
+    "recomendaciones": "",
+    "recepcionTrabajo": "",
+    "limitacionesServicio": "",
+    "garantiaObservada": "",
+    "hallazgosCriticos": [],
+    "mediciones": [],
+    "evidencias": [],
+    "comentariosInternos": [],
+    "versiones": [
+      {
+        "at": "2026-03-25T21:50:31.765Z",
+        "actor": "sistema",
+        "estadoDocumento": "borrador",
+        "nota": "Alta"
+      },
+      {
+        "at": "2026-03-25T21:52:54.285Z",
+        "actor": "sistema",
+        "estadoDocumento": "en_revision",
+        "nota": "Horario"
+      }
+    ],
+    "activosRelacionados": [],
+    "eventosIngesta": [],
+    "enviadoRevisionPor": "sistema",
+    "enviadoRevisionEn": "2026-03-25T21:52:54.279Z",
+    "observadoPor": null,
+    "observadoEn": null,
+    "aprobadoPor": null,
+    "aprobadoEn": null,
+    "enviadoClientePor": null,
+    "enviadoClienteEn": null,
+    "createdAt": "2026-03-25T21:50:31.765Z",
+    "updatedAt": "2026-03-25T21:52:54.285Z",
+    "createdBy": "sistema",
+    "updatedBy": "sistema",
+    "creadoPor": "sistema",
+    "revisadoPor": "sistema",
+    "fechaRevision": "2026-03-25T21:52:54.279Z",
+    "fechaAprobacion": null,
+    "fechaEnvio": null,
+    "comentariosRevision": [],
+    "historialDocumental": [
+      {
+        "id": "AUD-0001",
+        "accion": "crear",
+        "actor": "sistema",
+        "fecha": "2026-03-25T21:50:31.765Z",
+        "comentario": "",
+        "estadoAntes": null,
+        "estadoDespues": "borrador"
+      },
+      {
+        "id": "AUD-0002",
+        "accion": "revisar",
+        "actor": "sistema",
+        "fecha": "2026-03-25T21:52:54.279Z",
+        "comentario": "Horario",
+        "estadoAntes": "borrador",
+        "estadoDespues": "en_revision"
+      }
+    ],
+    "documentSnapshots": [
+      {
+        "version": 2,
+        "at": "2026-03-25T21:52:54.279Z",
+        "actor": "sistema",
+        "accion": "revisar",
+        "snapshot": {
+          "id": "DOC-0001",
+          "estadoDocumento": "borrador",
+          "cliente": "",
+          "tituloDocumento": "",
+          "resumenEjecutivo": "",
+          "trabajosRealizados": "",
+          "observacionesTecnicas": "",
+          "recomendaciones": "",
+          "alertasIngesta": [],
+          "hallazgosCriticos": [],
+          "otId": "",
+          "fechaServicio": ""
+        }
+      }
+    ],
+    "version": 2,
+    "clienteInformePremium": null,
+    "alertasIngesta": [],
+    "ingestaResumen": null,
+    "analisisJarvis": null
+  },
+  {
+    "id": "DOC-0002",
+    "otId": "",
+    "cliente": "",
+    "tiendaNombre": "",
+    "sucursal": "",
+    "fechaServicio": "",
+    "horaIngreso": "",
+    "horaSalida": "",
+    "tecnicos": [],
+    "tipoMantencion": "",
+    "estadoDocumento": "en_revision",
+    "estado": "en_revision",
+    "fuente": "romina",
+    "numeroDocumento": "",
+    "tituloDocumento": "",
+    "resumenEjecutivo": "",
+    "inspeccionInicial": "",
+    "trabajosRealizados": "",
+    "materialesHerramientas": "",
+    "epp": "",
+    "observacionesTecnicas": "",
+    "recomendaciones": "",
+    "recepcionTrabajo": "",
+    "limitacionesServicio": "",
+    "garantiaObservada": "",
+    "hallazgosCriticos": [],
+    "mediciones": [],
+    "evidencias": [],
+    "comentariosInternos": [],
+    "versiones": [
+      {
+        "at": "2026-03-25T21:54:57.862Z",
+        "actor": "sistema",
+        "estadoDocumento": "borrador",
+        "nota": "Alta"
+      },
+      {
+        "at": "2026-03-25T21:55:41.903Z",
+        "actor": "sistema",
+        "estadoDocumento": "en_revision",
+        "nota": "Paso a revisión formal"
+      }
+    ],
+    "activosRelacionados": [],
+    "eventosIngesta": [
+      {
+        "id": "DEV-0001",
+        "at": "2026-03-25T21:56:58.954Z",
+        "tipo": "envio",
+        "actor": "operador",
+        "texto": "",
+        "fuente": "whatsapp"
+      }
+    ],
+    "enviadoRevisionPor": "sistema",
+    "enviadoRevisionEn": "2026-03-25T21:55:41.902Z",
+    "observadoPor": null,
+    "observadoEn": null,
+    "aprobadoPor": null,
+    "aprobadoEn": null,
+    "enviadoClientePor": null,
+    "enviadoClienteEn": null,
+    "createdAt": "2026-03-25T21:54:57.862Z",
+    "updatedAt": "2026-03-25T21:56:58.954Z",
+    "createdBy": "sistema",
+    "updatedBy": "sistema",
+    "creadoPor": "sistema",
+    "revisadoPor": "sistema",
+    "fechaRevision": "2026-03-25T21:55:41.902Z",
+    "fechaAprobacion": null,
+    "fechaEnvio": null,
+    "comentariosRevision": [],
+    "historialDocumental": [
+      {
+        "id": "AUD-0001",
+        "accion": "crear",
+        "actor": "sistema",
+        "fecha": "2026-03-25T21:54:57.862Z",
+        "comentario": "",
+        "estadoAntes": null,
+        "estadoDespues": "borrador"
+      },
+      {
+        "id": "AUD-0002",
+        "accion": "revisar",
+        "actor": "sistema",
+        "fecha": "2026-03-25T21:55:41.902Z",
+        "comentario": "",
+        "estadoAntes": "borrador",
+        "estadoDespues": "en_revision"
+      }
+    ],
+    "documentSnapshots": [
+      {
+        "version": 2,
+        "at": "2026-03-25T21:55:41.902Z",
+        "actor": "sistema",
+        "accion": "revisar",
+        "snapshot": {
+          "id": "DOC-0002",
+          "estadoDocumento": "borrador",
+          "cliente": "",
+          "tituloDocumento": "",
+          "resumenEjecutivo": "",
+          "trabajosRealizados": "",
+          "observacionesTecnicas": "",
+          "recomendaciones": "",
+          "alertasIngesta": [],
+          "hallazgosCriticos": [],
+          "otId": "",
+          "fechaServicio": ""
+        }
+      }
+    ],
+    "version": 2,
+    "clienteInformePremium": null,
+    "alertasIngesta": [],
+    "ingestaResumen": null,
+    "analisisJarvis": null
+  }
+]

@@ -7,6 +7,19 @@ import {
   runAssistantQuery,
   todayYmd,
 } from '../domain/intelligence-engine.js';
+import {
+  attachGuidanceToIntelNav,
+  buildIntelExecutionQueue,
+  buildTodayOperationsPanel,
+  detectOperationalIssues,
+  generateActionPlan,
+  getDirectorOperationalBrief,
+  getOperationalHealthState,
+  getOperationalSnapshot,
+  getProactiveSignals,
+  runAIAnalysis,
+} from '../domain/hnf-intelligence-engine.js';
+import { createHnfAutopilotPanel } from '../components/hnf-autopilot-panel.js';
 import { intelligenceLog } from '../utils/intelligence-logger.js';
 
 const formatRefresh = (iso) => {
@@ -29,16 +42,17 @@ export const asistenteIaView = ({
   integrationStatus,
   lastDataRefreshAt,
   reloadApp,
+  intelNavigate,
 } = {}) => {
   const section = document.createElement('section');
-  section.className = 'ia-module';
+  section.className = 'ia-module ia-console';
 
   const header = document.createElement('div');
-  header.className = 'module-header';
+  header.className = 'module-header ia-console__header';
   header.innerHTML = `
-    <p class="dashboard-eyebrow ia-module__eyebrow">Inteligencia operativa</p>
-    <h2>Asistente IA HNF</h2>
-    <p class="muted">Respuestas basadas en <strong>datos reales</strong> del servidor (sin modelo generativo externo en esta fase). Usá las preguntas rápidas o escribí en lenguaje natural. El motor analiza OT, flota y planificación de forma continua al cargar esta vista.</p>
+    <p class="dashboard-eyebrow ia-module__eyebrow">HNF Intelligence Engine</p>
+    <h2>Directora operativa (reglas + datos)</h2>
+    <p class="muted">Vista consola: prioridades, acciones y diagnóstico sobre el mismo snapshot (no es chat).</p>
   `;
 
   const toolbar = document.createElement('div');
@@ -74,6 +88,13 @@ export const asistenteIaView = ({
     return section;
   }
 
+  const directorBrief = getDirectorOperationalBrief(data || {});
+  const autopilotPanel = createHnfAutopilotPanel({
+    brief: directorBrief,
+    viewData: data,
+    intelNavigate,
+  });
+
   let snapshot;
   try {
     snapshot = buildIntelligenceSnapshot(data || {});
@@ -87,15 +108,198 @@ export const asistenteIaView = ({
     const err = document.createElement('div');
     err.className = 'form-feedback form-feedback--error';
     err.textContent = 'No se pudieron normalizar los datos para análisis. Probá «Actualizar datos» o revisá la consola.';
-    section.append(header, toolbar, err);
+    section.append(header, toolbar, autopilotPanel, err);
     return section;
   }
+
+  const opSnap = getOperationalSnapshot(data || {});
+  const opIssues = detectOperationalIssues(opSnap, data || {});
+  const opPlan = generateActionPlan(opIssues);
+  const proactive = getProactiveSignals(opSnap);
+  const health = getOperationalHealthState(opIssues);
+  void runAIAnalysis(opSnap);
+
+  const execQ = buildIntelExecutionQueue(data || {});
+  const todayExec = buildTodayOperationsPanel(data || {});
+
+  const estadoLabel = health === 'critico' ? 'Crítico' : health === 'atencion' ? 'Atención' : 'Óptimo';
+  const statusStrip = document.createElement('div');
+  statusStrip.className = `ia-console-status ia-console-status--${health}`;
+  statusStrip.setAttribute('role', 'status');
+  const stK = document.createElement('span');
+  stK.className = 'ia-console-status__k';
+  stK.textContent = 'Estado general';
+  const stV = document.createElement('strong');
+  stV.className = 'ia-console-status__v';
+  stV.textContent = estadoLabel;
+  const stH = document.createElement('span');
+  stH.className = 'ia-console-status__hint';
+  stH.textContent =
+    health === 'optimo'
+      ? 'Sin críticos ni atención con las reglas vigentes.'
+      : `${opIssues.filter((i) => i.tipo === 'CRITICO').length} crítico(s) · ${opIssues.filter((i) => i.tipo === 'ATENCION').length} atención · ${execQ.length} en cola ejecutable`;
+  statusStrip.append(stK, stV, stH);
+
+  const critBlock = document.createElement('div');
+  critBlock.className = 'ia-console-block ia-console-block--crit';
+  const critH = document.createElement('h3');
+  critH.className = 'ia-section-title';
+  critH.textContent = 'Problemas críticos';
+  const critUl = document.createElement('ul');
+  critUl.className = 'ia-exec-deck__crit';
+  const crits = execQ.filter((x) => x.tipo === 'CRITICO').slice(0, 8);
+  if (!crits.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Sin críticos en cola.';
+    critUl.append(li);
+  } else {
+    crits.forEach((it) => {
+      const li = document.createElement('li');
+      li.className = 'ia-exec-deck__item ia-exec-deck__item--crit';
+      const sp = document.createElement('span');
+      sp.className = 'ia-exec-deck__item-t';
+      sp.textContent = it.titulo;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'primary-button ia-exec-deck__resolve';
+      b.textContent = 'Resolver ahora';
+      b.addEventListener('click', () => intelNavigate?.(it.nav));
+      li.append(sp, b);
+      critUl.append(li);
+    });
+  }
+  critBlock.append(critH, critUl);
+
+  const todayBlock = document.createElement('div');
+  todayBlock.className = 'ia-console-block ia-console-block--today';
+  const todayH = document.createElement('h3');
+  todayH.className = 'ia-section-title';
+  todayH.textContent = 'Qué hacer hoy';
+  const todayGrid = document.createElement('div');
+  todayGrid.className = 'ia-console-today-grid';
+
+  const mkTodayCol = (title, items, emptyMsg) => {
+    const col = document.createElement('div');
+    col.className = 'ia-console-today-col';
+    const h = document.createElement('h4');
+    h.className = 'ia-subtitle';
+    h.textContent = title;
+    const ul = document.createElement('ul');
+    ul.className = 'ia-exec-deck__crit';
+    if (!items.length) {
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.textContent = emptyMsg;
+      ul.append(li);
+    } else {
+      items.forEach((it) => {
+        const li = document.createElement('li');
+        li.className = 'ia-exec-deck__item';
+        const sp = document.createElement('span');
+        sp.textContent = it.titulo;
+        li.append(sp);
+        if (it.nav) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'primary-button ia-exec-deck__resolve';
+          b.textContent = 'Resolver ahora';
+          b.addEventListener('click', () => intelNavigate?.(it.nav));
+          li.append(b);
+        }
+        ul.append(li);
+      });
+    }
+    col.append(h, ul);
+    return col;
+  };
+
+  todayGrid.append(
+    mkTodayCol('Prioridades críticas', todayExec.prioridades, 'Sin críticos.'),
+    mkTodayCol('Pendientes', todayExec.topPendientes, 'Sin pendientes.'),
+    mkTodayCol('Listas para cerrar', todayExec.topCierres, 'Ninguna.'),
+    mkTodayCol('Atención', todayExec.topRiesgos, 'Sin ítems.')
+  );
+  todayBlock.append(todayH, todayGrid);
+
+  const quickBlock = document.createElement('div');
+  quickBlock.className = 'ia-console-block ia-console-block--quick';
+  const qh = document.createElement('h3');
+  qh.className = 'ia-section-title';
+  qh.textContent = 'Accesos rápidos';
+  const quickUl = document.createElement('ul');
+  quickUl.className = 'ia-exec-deck__quick';
+  [
+    {
+      label: 'OT terminadas sin costo',
+      nav: attachGuidanceToIntelNav({ view: 'clima', climaFilter: { sinCostoTerminadas: true } }, 'FILTER_SIN_COSTO', ''),
+    },
+    {
+      label: 'Plan · atrasadas',
+      nav: attachGuidanceToIntelNav(
+        { view: 'planificacion', plan: { tab: 'plan', mantFilter: 'atrasadas' } },
+        'PLAN_ATRASADAS',
+        ''
+      ),
+    },
+    {
+      label: 'Plan · próximas',
+      nav: attachGuidanceToIntelNav(
+        { view: 'planificacion', plan: { tab: 'plan', mantFilter: 'proximas' } },
+        'PLAN_PROXIMAS',
+        ''
+      ),
+    },
+  ].forEach(({ label, nav }) => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'secondary-button';
+    b.textContent = label;
+    b.addEventListener('click', () => intelNavigate?.(nav));
+    li.append(b);
+    quickUl.append(li);
+  });
+  quickBlock.append(qh, quickUl);
+
+  const enginePanel = document.createElement('div');
+  enginePanel.className = 'ia-engine-panel ia-engine-panel--secondary';
+  const epTitle = document.createElement('div');
+  epTitle.className = 'ia-engine-panel__bar';
+  epTitle.innerHTML =
+    '<span class="ia-engine-panel__label">SISTEMA</span><span class="ia-engine-panel__name">Señales y plan sugerido</span>';
+  const epGrid = document.createElement('div');
+  epGrid.className = 'ia-engine-grid ia-engine-grid--two';
+  const sigBox = document.createElement('div');
+  sigBox.className = 'ia-engine-block';
+  sigBox.innerHTML = '<h4 class="ia-engine-block__h">Señales</h4>';
+  const sigUl = document.createElement('ul');
+  sigUl.className = 'ia-engine-syslist';
+  (proactive.length ? proactive : ['Sin disparadores en umbrales actuales.']).forEach((t) => {
+    const li = document.createElement('li');
+    li.textContent = t;
+    sigUl.append(li);
+  });
+  sigBox.append(sigUl);
+  const planBox = document.createElement('div');
+  planBox.className = 'ia-engine-block';
+  planBox.innerHTML = '<h4 class="ia-engine-block__h">Plan sugerido</h4>';
+  const planOl = document.createElement('ol');
+  planOl.className = 'ia-engine-plan';
+  opPlan.forEach((line) => {
+    const li = document.createElement('li');
+    li.textContent = line;
+    planOl.append(li);
+  });
+  planBox.append(planOl);
+  epGrid.append(sigBox, planBox);
+  enginePanel.append(epTitle, epGrid);
 
   const diagWrap = document.createElement('div');
   diagWrap.className = 'ia-diagnostics';
   const diagTitle = document.createElement('h3');
   diagTitle.className = 'ia-section-title';
-  diagTitle.textContent = 'Diagnóstico automático (priorizado)';
+  diagTitle.textContent = 'Diagnóstico extendido (por ítem)';
   diagWrap.append(diagTitle);
 
   const diagnostics = collectDiagnostics(snapshot);
@@ -147,14 +351,14 @@ export const asistenteIaView = ({
 
   const qaTitle = document.createElement('h3');
   qaTitle.className = 'ia-section-title';
-  qaTitle.textContent = 'Consultas';
+  qaTitle.textContent = 'Consultas (mismo snapshot)';
   const chips = document.createElement('div');
   chips.className = 'ia-chips';
 
   const renderAnswer = (result) => {
     answerHost.innerHTML = '';
     const card = document.createElement('article');
-    card.className = 'ia-answer-card';
+    card.className = 'ia-answer-card ia-sys-panel';
     const h = document.createElement('h4');
     h.className = 'ia-answer-card__title';
     h.textContent = result.title;
@@ -239,7 +443,22 @@ export const asistenteIaView = ({
   foot.innerHTML =
     'Próximos pasos técnicos: API de análisis en backend, notificaciones proactivas y modelo de lenguaje sobre este mismo snapshot. Depuración: <code>localStorage.hnf.debugIntel = \"1\"</code>.';
 
-  section.append(header, toolbar, diagWrap, qaTitle, chips, form, answerHost, foot);
+  section.append(
+    header,
+    toolbar,
+    autopilotPanel,
+    statusStrip,
+    critBlock,
+    todayBlock,
+    quickBlock,
+    enginePanel,
+    diagWrap,
+    qaTitle,
+    chips,
+    form,
+    answerHost,
+    foot
+  );
 
   runId('diagnostico');
 

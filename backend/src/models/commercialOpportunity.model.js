@@ -1,0 +1,23 @@
+export const commercialOpportunityModel = {
+  name: 'commercialOpportunity',
+  tiposServicio: ['urgencia', 'reparacion', 'mejora', 'mantenimiento'],
+  prioridades: ['alta', 'media', 'baja'],
+  estados: ['pendiente', 'cotizado', 'ganado', 'perdido'],
+  origenes: ['automatico', 'manual'],
+  fields: [
+    'id',
+    'technicalDocumentId',
+    'cliente',
+    'tipoServicio',
+    'descripcion',
+    'prioridad',
+    'estimacionMonto',
+    'estimacionEtiqueta',
+    'estado',
+    'fechaCreacion',
+    'origen',
+    'regla',
+    'updatedAt',
+    'updatedBy',
+  ],
+};

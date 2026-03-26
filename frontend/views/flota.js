@@ -39,6 +39,23 @@ const monthPrefix = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
+const buildFlotaIntelChecklist = (sel, guidance) => {
+  if (!sel) return [];
+  const items = [];
+  if (guidance?.codigo === 'FLO_SIN_INGRESO') {
+    items.push({ ok: round2(sel.ingresoFinal) > 0, label: 'Ingreso final > 0 guardado' });
+  }
+  if (guidance?.codigo === 'FLO_RUTA_STALE' && sel.estado === 'en_ruta') {
+    items.push({
+      ok: false,
+      label: 'Registrar avance o cambiar estado (evitar ruta estancada)',
+    });
+  }
+  const brief = buildFlotaOperationalBrief(sel);
+  brief.blockers.forEach((b) => items.push({ ok: false, label: b.detail }));
+  return items;
+};
+
 const round2 = (v) => {
   const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
   if (!Number.isFinite(n)) return 0;
@@ -85,6 +102,8 @@ export const flotaView = ({
   flotaFeedback,
   selectedFlotaId,
   integrationStatus,
+  flotaIntelFilter,
+  intelGuidance,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'flota-module';
@@ -339,6 +358,12 @@ export const flotaView = ({
   });
   filtRow.append(fCliente, fEstado, refresh);
 
+  const hasFlotaIntelFilter =
+    flotaIntelFilter && typeof flotaIntelFilter === 'object' && Object.keys(flotaIntelFilter).length > 0;
+  if (hasFlotaIntelFilter && flotaIntelFilter.estado) {
+    fEstado.value = flotaIntelFilter.estado;
+  }
+
   const overview = document.createElement('div');
   overview.className = 'ot-overview';
 
@@ -353,8 +378,91 @@ export const flotaView = ({
   const detailCard = document.createElement('article');
   detailCard.className = 'ot-detail-card';
 
+  const rowsMatchIntel = (() => {
+    let r = [...solicitudes];
+    if (flotaIntelFilter?.estado) {
+      r = r.filter((s) => s.estado === flotaIntelFilter.estado);
+    }
+    return r;
+  })();
+  const effectiveFlotaId = rowsMatchIntel.some((s) => s.id === selectedFlotaId)
+    ? selectedFlotaId
+    : rowsMatchIntel[0]?.id ?? selectedFlotaId;
   const selected =
-    solicitudes.find((s) => s.id === selectedFlotaId) || solicitudes[0] || null;
+    solicitudes.find((s) => s.id === effectiveFlotaId) ||
+    solicitudes.find((s) => s.id === selectedFlotaId) ||
+    solicitudes[0] ||
+    null;
+
+  let intelStrip = null;
+  const hasIntelGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
+  if (hasFlotaIntelFilter || hasIntelGuide) {
+    intelStrip = document.createElement('div');
+    intelStrip.className = 'intel-guide-stack';
+    if (hasIntelGuide) {
+      const g = document.createElement('div');
+      g.className = 'intel-guide-banner';
+      const title = document.createElement('div');
+      title.className = 'intel-guide-banner__title';
+      title.textContent = 'Resolución guiada · inteligencia operativa';
+      g.append(title);
+      const mkLine = (k, v) => {
+        if (!v) return;
+        const lab = document.createElement('div');
+        lab.className = 'intel-guide-banner__k';
+        lab.textContent = k;
+        const p = document.createElement('p');
+        p.className = 'intel-guide-banner__p';
+        p.textContent = v;
+        g.append(lab, p);
+      };
+      mkLine('Por qué estás acá', intelGuidance.why);
+      mkLine('Qué corregir', intelGuidance.fix);
+      mkLine('Cierra cuando', intelGuidance.unlock);
+      if (intelGuidance.recordLabel) {
+        mkLine('Registro', String(intelGuidance.recordLabel));
+      }
+      intelStrip.append(g);
+      const chkItems = buildFlotaIntelChecklist(selected, intelGuidance);
+      if (chkItems.length) {
+        const box = document.createElement('div');
+        box.className = 'intel-guide-checklist';
+        const hh = document.createElement('div');
+        hh.className = 'intel-guide-checklist__h';
+        hh.textContent = 'Checklist (reglas actuales)';
+        const ul = document.createElement('ul');
+        ul.className = 'intel-guide-checklist__ul';
+        chkItems.forEach(({ ok, label }) => {
+          const li = document.createElement('li');
+          li.className = ok ? 'intel-guide-checklist__li is-ok' : 'intel-guide-checklist__li is-pend';
+          li.textContent = `${ok ? '✓ ' : '○ '}${label}`;
+          ul.append(li);
+        });
+        box.append(hh, ul);
+        intelStrip.append(box);
+      }
+    }
+    if (hasFlotaIntelFilter) {
+      const ban = document.createElement('div');
+      ban.className = 'intel-filter-banner intel-filter-banner--nested';
+      const lab = document.createElement('span');
+      lab.className = 'intel-filter-banner__text';
+      lab.textContent = 'Filtro desde inteligencia (también reflejado en el desplegable de estado).';
+      ban.append(lab);
+      intelStrip.append(ban);
+    }
+    const act = document.createElement('div');
+    act.className = 'intel-guide-actions';
+    const clr = document.createElement('button');
+    clr.type = 'button';
+    clr.className = 'secondary-button';
+    clr.textContent = hasFlotaIntelFilter ? 'Quitar filtro y guía' : 'Cerrar guía';
+    clr.addEventListener('click', () =>
+      hasFlotaIntelFilter ? actions?.clearIntelUiFilters?.() : actions?.dismissIntelGuidance?.()
+    );
+    act.append(clr);
+    intelStrip.append(act);
+  }
 
   const renderList = () => {
     list.innerHTML = '';
@@ -378,7 +486,10 @@ export const flotaView = ({
     rows.forEach((item) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = `ot-list__item ${selected?.id === item.id ? 'is-active' : ''}`.trim();
+      const isTarget = intelGuidance?.recordLabel && item.id === intelGuidance.recordLabel;
+      button.className = `ot-list__item ${selected?.id === item.id ? 'is-active' : ''} ${
+        isTarget ? 'is-intel-target' : ''
+      }`.trim();
       button.innerHTML = `
         <div>
           <span class="ot-list__id muted">${item.id}</span>
@@ -391,6 +502,10 @@ export const flotaView = ({
       button.append(createEstadoBadge(item.estado));
       button.addEventListener('click', () => actions?.selectFlota?.(item.id));
       list.append(button);
+    });
+    queueMicrotask(() => {
+      const t = list.querySelector('.ot-list__item.is-intel-target') || list.querySelector('.ot-list__item.is-active');
+      t?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     });
   };
 
@@ -430,6 +545,9 @@ export const flotaView = ({
     titleBlock.innerHTML = `<p class="muted">Detalle · ${sel.id}</p><h3>${sel.cliente}</h3>`;
     titleRow.append(titleBlock, createEstadoBadge(sel.estado));
     detailCard.append(titleRow);
+    if (intelGuidance?.recordLabel && sel.id === intelGuidance.recordLabel) {
+      detailCard.classList.add('is-intel-detail-focus');
+    }
 
     const idxCur = FLOTA_ESTADO_CHAIN.indexOf(sel.estado);
     const pipeWrap = document.createElement('div');
@@ -802,6 +920,7 @@ export const flotaView = ({
     form,
     filtTitle,
     filtRow,
+    ...(intelStrip ? [intelStrip] : []),
     overview
   );
   renderResumen();

@@ -1,29 +1,81 @@
 const groups = [
   {
-    label: 'Panel',
+    label: '1 · Ingreso de datos',
     items: [
-      { id: 'dashboard', label: 'Inicio', hint: 'Resumen, alertas y números del mes' },
       {
-        id: 'asistente',
-        label: 'Asistente IA HNF',
-        hint: 'Pendientes, cierres, cobros y diagnóstico sobre datos reales',
+        id: 'ingreso-operativo',
+        label: 'Ingreso operativo',
+        hint: 'WhatsApp → ingestas automáticas para validar; ingreso manual como respaldo',
       },
     ],
   },
   {
-    label: 'Clima (HVAC)',
+    label: '2 · Inteligencia (Jarvis)',
     items: [
-      { id: 'clima', label: 'Visitas y OT', hint: 'Equipos, evidencias, cierre e informe' },
-      { id: 'planificacion', label: 'Planificación', hint: 'Clientes, tiendas y mantenciones' },
+      {
+        id: 'jarvis',
+        label: 'Jarvis — mando principal',
+        hint: 'Vista única iPad: estado del día, alertas OT, WhatsApp, cuello de botella, acción y OT en vivo',
+      },
+      {
+        id: 'jarvis-intake',
+        label: 'Intake histórico',
+        hint: 'Correos y lotes (avanzado)',
+      },
+      {
+        id: 'jarvis-vault',
+        label: 'Historical Vault',
+        hint: 'Memoria histórica y lotes',
+      },
     ],
   },
   {
-    label: 'Flota',
-    items: [{ id: 'flota', label: 'Solicitudes', hint: 'Traslados y seguimiento por estado' }],
+    label: '3 · Ejecución operativa',
+    items: [
+      {
+        id: 'clima',
+        label: 'OT Clima (visitas)',
+        hint: 'Equipos, evidencia, cierre y economía en bloques separados',
+      },
+      { id: 'flota', label: 'Flota', hint: 'Solicitudes y traslados' },
+      { id: 'planificacion', label: 'Planificación', hint: 'Clientes, tiendas y mantenciones' },
+      {
+        id: 'technical-documents',
+        label: 'Documentos técnicos',
+        hint: 'PDF, Lyn y aprobación',
+      },
+      {
+        id: 'oportunidades',
+        label: 'Oportunidades',
+        hint: 'Pipeline comercial',
+      },
+    ],
   },
   {
-    label: 'Administración',
-    items: [{ id: 'admin', label: 'Datos y respaldos', hint: 'Operador, clientes y exportación JSON' }],
+    label: '4 · Control gerencial',
+    items: [
+      {
+        id: 'control-gerencial',
+        label: 'Panel de control',
+        hint: 'Hernan: OT abiertas, riesgo, WhatsApp y responsables — sin entrar al detalle',
+      },
+    ],
+  },
+  {
+    label: 'Herramientas',
+    items: [
+      {
+        id: 'asistente',
+        label: 'Asistente IA HNF',
+        hint: 'Diagnóstico y colas sobre datos',
+      },
+      {
+        id: 'operacion-control',
+        label: 'Operación y canales',
+        hint: 'Vista técnica combinada (opcional)',
+      },
+      { id: 'admin', label: 'Administración', hint: 'Datos, exportación y respaldos' },
+    ],
   },
 ];
 
@@ -37,6 +89,8 @@ const statusCopy = (integrationStatus) => {
   return map[integrationStatus] || integrationStatus || '—';
 };
 
+import { isTabletMode } from '../domain/jarvis-ui.js';
+
 const statusModifiers = (integrationStatus) => {
   if (integrationStatus === 'conectado') return 'shell-status--ok';
   if (integrationStatus === 'sin conexión') return 'shell-status--bad';
@@ -44,9 +98,29 @@ const statusModifiers = (integrationStatus) => {
   return 'shell-status--idle';
 };
 
-export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationStatus }) => {
+export const createShell = ({
+  activeView,
+  onNavigate,
+  apiBaseLabel,
+  integrationStatus,
+  deployStatusElement = null,
+}) => {
   const element = document.createElement('div');
   element.className = 'shell';
+  if (typeof window !== 'undefined' && isTabletMode()) {
+    element.classList.add('shell--tablet');
+  }
+
+  const navToggle = document.createElement('button');
+  navToggle.type = 'button';
+  navToggle.className = 'shell-nav-toggle';
+  navToggle.setAttribute('aria-label', 'Mostrar u ocultar menú');
+  navToggle.setAttribute('aria-expanded', 'true');
+  navToggle.textContent = '☰';
+  navToggle.addEventListener('click', () => {
+    const collapsed = element.classList.toggle('shell--sidebar-collapsed');
+    navToggle.setAttribute('aria-expanded', String(!collapsed));
+  });
 
   const sidebar = document.createElement('aside');
   sidebar.className = 'sidebar';
@@ -76,7 +150,7 @@ export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationS
   const pill = document.createElement('span');
   pill.className = 'shell-pill';
   pill.textContent = 'Piloto interno';
-  pilot.append(pill, document.createTextNode(' · Operación HNF'));
+  pilot.append(pill, document.createTextNode(' · Capas: ingreso → Jarvis → OT → control'));
 
   const statusRow = document.createElement('div');
   statusRow.className = `shell-status ${statusModifiers(integrationStatus)}`;
@@ -96,7 +170,11 @@ export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationS
   apiRow.append(apiLab, document.createTextNode(` ${apiBaseLabel || '—'}`));
 
   header.append(brand, pilot, statusRow, apiRow);
-  sidebar.append(header);
+  if (deployStatusElement) {
+    deployStatusElement.classList.add('shell-deploy-status');
+    header.append(deployStatusElement);
+  }
+  sidebar.append(navToggle, header);
 
   const nav = document.createElement('nav');
   nav.className = 'nav';
@@ -140,3 +218,4 @@ export const createShell = ({ activeView, onNavigate, apiBaseLabel, integrationS
 
   return { element, content };
 };
+

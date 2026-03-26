@@ -1,0 +1,23 @@
+Cliente: Supermercados del Sur S.A.
+Sucursal: Local 412 — Av. Costanera 2400
+Fecha: 15/03/2026
+Técnicos: Hernán F., Lyn R.
+Tipo: Mantención preventiva climatización
+
+Resumen ejecutivo
+Visita programada a equipos de frío de sala y cámara. Se detectó humedad en ducto de retorno.
+
+Inspección inicial
+Unidad exterior con presiones bajas; posible pérdida de refrigerante R410A. Aislamiento de línea líquido deficiente.
+
+Trabajos realizados
+Limpieza de serpentines, registro de presiones. No se interviene sellado de líneas por falta de repuesto.
+
+Observaciones
+Filtración leve en bandeja de condensado. Sin aislamiento en tramo expuesto a sol directo.
+
+Recomendaciones
+Reemplazar válvula de servicio y reparar tramo aislado. Programar recarga y búsqueda de fuga con detector electrónico.
+
+Mediciones
+Suction 62 PSI · Discharge 280 PSI · 7,2 A

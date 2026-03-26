@@ -1,14 +1,25 @@
 {
   "name": "hnf-app",
   "private": true,
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
   "scripts": {
-    "build": "npm run build:frontend && npm run check:backend",
+    "validate:code": "node scripts/hnf-code-guard.mjs",
+    "validate:code:fix": "node scripts/hnf-code-guard.mjs --fix",
+    "validate:code:strict": "node scripts/hnf-code-guard.mjs --strict",
+    "build": "npm run validate:code && npm run build:frontend && npm run check:backend",
     "build:frontend": "npm run build --prefix frontend",
     "start": "node backend/src/server.js",
     "check:frontend": "cd frontend && npm run check",
     "check:backend": "cd backend && npm run check",
+    "dev": "node scripts/hnf-dev-preflight.mjs && concurrently -n api,vite,listo -c cyan,magenta,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\" \"node scripts/hnf-dev-wait-ready.mjs\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
+    "start:frontend": "npm run dev --prefix frontend",
+    "start:backend": "npm run dev --prefix backend",
+    "start:all": "node scripts/start-all.mjs",
+    "dev:jarvis": "node scripts/hnf-auto-deploy.mjs",
     "postinstall": "npm install --prefix frontend"
   }
 }

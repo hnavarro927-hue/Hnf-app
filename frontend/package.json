@@ -9,9 +9,10 @@
     "vite": "^5.4.14"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
+    "prebuild": "node ../scripts/hnf-code-guard.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "vite build"
+    "check": "node ../scripts/hnf-code-guard.mjs && vite build"
   }
 }

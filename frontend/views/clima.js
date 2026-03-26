@@ -2,6 +2,7 @@ import { createCard } from '../components/card.js';
 import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
+import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
 import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
 
 const MAX_EQUIPOS = 12;
@@ -621,6 +622,64 @@ const utilidadToneClass = (utilidad, monto) => {
   return 'ot-econ-kpi--neutral';
 };
 
+const intelFilterActiveKeys = (f) =>
+  f && typeof f === 'object'
+    ? Object.keys(f).filter((k) => f[k] != null && f[k] !== false && f[k] !== '')
+    : [];
+
+const filterOtsIntelList = (list, intelListFilter) => {
+  if (!intelFilterActiveKeys(intelListFilter).length) return list;
+  let out = list;
+  if (intelListFilter.soloMesActual) {
+    const { start, end } = monthRangeYmd();
+    out = out.filter((o) => o.fecha >= start && o.fecha <= end);
+  }
+  if (intelListFilter.sinCostoTerminadas) {
+    out = out.filter((o) => o.estado === 'terminado' && roundEcon(o.costoTotal) <= 0);
+  }
+  if (intelListFilter.sinCobroConPdf) {
+    out = out.filter(
+      (o) =>
+        o.estado === 'terminado' &&
+        o.pdfUrl &&
+        String(o.pdfUrl).trim() &&
+        roundEcon(o.montoCobrado) <= 0
+    );
+  }
+  if (intelListFilter.sinPdfTerminadas) {
+    out = out.filter((o) => o.estado === 'terminado' && (!o.pdfUrl || !String(o.pdfUrl).trim()));
+  }
+  if (intelListFilter.soloAbiertas) {
+    out = out.filter((o) => o.estado !== 'terminado');
+  }
+  if (intelListFilter.clienteContains) {
+    const q = String(intelListFilter.clienteContains).toLowerCase();
+    out = out.filter((o) => String(o.cliente || '').toLowerCase().includes(q));
+  }
+  return out;
+};
+
+const buildClimaIntelChecklist = (ot, economicsSaved) => {
+  if (!ot) return [];
+  if (ot.estado === 'terminado') {
+    return [
+      { ok: roundEcon(ot.costoTotal) > 0, label: 'Costo total > 0 guardado' },
+      { ok: roundEcon(ot.montoCobrado) > 0, label: 'Monto cobrado > 0 guardado' },
+      { ok: Boolean(ot.pdfUrl && String(ot.pdfUrl).trim()), label: 'PDF informe en servidor' },
+    ];
+  }
+  const brief = buildOtOperationalBrief(ot, { economicsSaved });
+  if (brief.blockers.length) {
+    return brief.blockers.map((b) => ({ ok: false, label: b.detail }));
+  }
+  return [
+    {
+      ok: Boolean(otCanClose(ot) && economicsSaved),
+      label: 'Evidencias, textos y economía listos para cerrar',
+    },
+  ];
+};
+
 export const climaView = ({
   data,
   actions,
@@ -637,6 +696,8 @@ export const climaView = ({
   otEconomicsSaved,
   selectedOTId,
   reloadApp,
+  intelListFilter,
+  intelGuidance,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'ot-workspace';
@@ -644,7 +705,7 @@ export const climaView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Clima · visitas y órdenes de trabajo</h2><p class="muted"><strong>Flujo operativo:</strong> <strong>1</strong> Crear OT · <strong>2</strong> Cargar equipos y fotos (antes / durante / después) · <strong>3</strong> Guardar equipos · <strong>4</strong> Completar resumen de visita y checklist · <strong>5</strong> Guardar resultado económico · <strong>6</strong> PDF borrador (opcional) · <strong>7</strong> Cerrar OT e informe final (solo estado <em>terminado</em> archiva en servidor).</p>';
+    '<h2>Clima · ejecución OT</h2><p class="muted">Orden en pantalla: <strong>A</strong> completar ahora · <strong>B</strong> datos automáticos · <strong>C</strong> evidencia visita · <strong>D</strong> cierre. Flujo sistema: ingreso → Jarvis → OT → validación → cierre.</p>';
 
   if (feedback?.message) {
     const notice = document.createElement('div');
@@ -684,7 +745,11 @@ export const climaView = ({
   climaToolbar.append(climaRefresh, climaRefreshHint);
 
   const ots = [...(data?.data || [])].reverse();
-  const selectedOT = ots.find((item) => item.id === selectedOTId) || ots[0] || null;
+  const listOts = filterOtsIntelList(ots, intelListFilter);
+  const effectiveSelectedId = listOts.some((item) => item.id === selectedOTId)
+    ? selectedOTId
+    : listOts[0]?.id ?? selectedOTId;
+  const selectedOT = ots.find((item) => item.id === effectiveSelectedId) || ots[0] || null;
   const pendingCount = ots.filter((item) => item.estado === 'pendiente').length;
   const inProgressCount = ots.filter((item) => item.estado === 'en proceso').length;
   const eqTotal = ots.reduce((t, o) => t + (o.equipos?.length || 0), 0);
@@ -818,6 +883,77 @@ export const climaView = ({
   listCard.innerHTML =
     '<div class="ot-list-card__header"><h3>Visitas / OT</h3><p class="muted">Paso 2 · Tocá una fila para ver el detalle y cargar evidencias.</p></div>';
 
+  const hasIntelFilter = intelFilterActiveKeys(intelListFilter).length > 0;
+  const hasIntelGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
+  if (hasIntelFilter || hasIntelGuide) {
+    const stack = document.createElement('div');
+    stack.className = 'intel-guide-stack';
+    if (hasIntelGuide) {
+      const g = document.createElement('div');
+      g.className = 'intel-guide-banner';
+      const title = document.createElement('div');
+      title.className = 'intel-guide-banner__title';
+      title.textContent = 'Resolución guiada · inteligencia operativa';
+      g.append(title);
+      const mkLine = (k, v) => {
+        if (!v) return;
+        const lab = document.createElement('div');
+        lab.className = 'intel-guide-banner__k';
+        lab.textContent = k;
+        const p = document.createElement('p');
+        p.className = 'intel-guide-banner__p';
+        p.textContent = v;
+        g.append(lab, p);
+      };
+      mkLine('Por qué estás acá', intelGuidance.why);
+      mkLine('Qué corregir', intelGuidance.fix);
+      mkLine('Cierra cuando', intelGuidance.unlock);
+      if (intelGuidance.recordLabel) {
+        mkLine('Registro', String(intelGuidance.recordLabel));
+      }
+      stack.append(g);
+      const chkItems = buildClimaIntelChecklist(selectedOT, otEconomicsSaved);
+      if (chkItems.length) {
+        const box = document.createElement('div');
+        box.className = 'intel-guide-checklist';
+        const hh = document.createElement('div');
+        hh.className = 'intel-guide-checklist__h';
+        hh.textContent = 'Checklist (reglas actuales)';
+        const ul = document.createElement('ul');
+        ul.className = 'intel-guide-checklist__ul';
+        chkItems.forEach(({ ok, label }) => {
+          const li = document.createElement('li');
+          li.className = ok ? 'intel-guide-checklist__li is-ok' : 'intel-guide-checklist__li is-pend';
+          li.textContent = `${ok ? '✓ ' : '○ '}${label}`;
+          ul.append(li);
+        });
+        box.append(hh, ul);
+        stack.append(box);
+      }
+    }
+    if (hasIntelFilter) {
+      const ban = document.createElement('div');
+      ban.className = 'intel-filter-banner intel-filter-banner--nested';
+      const lab = document.createElement('span');
+      lab.className = 'intel-filter-banner__text';
+      lab.textContent = 'Listado filtrado desde el Centro de inteligencia.';
+      ban.append(lab);
+      stack.append(ban);
+    }
+    const act = document.createElement('div');
+    act.className = 'intel-guide-actions';
+    const clr = document.createElement('button');
+    clr.type = 'button';
+    clr.className = 'secondary-button';
+    clr.textContent = hasIntelFilter ? 'Quitar filtro y guía' : 'Cerrar guía';
+    clr.addEventListener('click', () =>
+      hasIntelFilter ? actions?.clearIntelUiFilters?.() : actions?.dismissIntelGuidance?.()
+    );
+    act.append(clr);
+    stack.append(act);
+    listCard.insertBefore(stack, listCard.firstChild);
+  }
+
   const list = document.createElement('div');
   list.className = 'ot-list';
 
@@ -829,11 +965,20 @@ export const climaView = ({
         ? 'Sin conexión al servidor: no hay órdenes cargadas. Revisá la red y tocá «Actualizar datos».'
         : 'No hay OT. Creá una visita arriba o sincronizá cuando el servidor esté disponible.';
     list.append(empty);
+  } else if (!listOts.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent =
+      'Ninguna OT coincide con el filtro inteligente. Quitá el filtro o ajustá criterios en el módulo.';
+    list.append(empty);
   } else {
-    ots.forEach((item) => {
+    listOts.forEach((item) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = `ot-list__item ${selectedOT?.id === item.id ? 'is-active' : ''}`.trim();
+      const isTarget = intelGuidance?.recordLabel && item.id === intelGuidance.recordLabel;
+      button.className = `ot-list__item ${selectedOT?.id === item.id ? 'is-active' : ''} ${
+        isTarget ? 'is-intel-target' : ''
+      }`.trim();
       button.innerHTML = `
         <div>
           <span class="ot-list__id muted">${item.id}</span>
@@ -848,6 +993,10 @@ export const climaView = ({
   }
 
   listCard.append(list);
+  queueMicrotask(() => {
+    const t = list.querySelector('.ot-list__item.is-intel-target') || list.querySelector('.ot-list__item.is-active');
+    t?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  });
 
   const detailCard = document.createElement('article');
   detailCard.className = 'ot-detail-card';
@@ -862,6 +1011,9 @@ export const climaView = ({
     titleBlock.innerHTML = `<p class="muted">Paso 3 · Detalle y cierre</p><h3>${selectedOT.id} · ${selectedOT.cliente}</h3>`;
     titleRow.append(titleBlock, createStatusBadge(selectedOT.estado));
     detailCard.append(titleRow);
+    if (intelGuidance?.recordLabel && selectedOT.id === intelGuidance.recordLabel) {
+      detailCard.classList.add('is-intel-detail-focus');
+    }
 
     const summaryGrid = document.createElement('div');
     summaryGrid.className = 'ot-summary-grid';
@@ -879,8 +1031,6 @@ export const climaView = ({
       row.innerHTML = `<span>${label}</span><strong>${value || '—'}</strong>`;
       summaryGrid.append(row);
     });
-    detailCard.append(summaryGrid);
-
     const lastHist = (() => {
       const h = selectedOT.historial;
       if (!Array.isArray(h) || !h.length) return null;
@@ -899,37 +1049,22 @@ export const climaView = ({
       <p class="ot-audit-strip__line"><strong>Alta:</strong> ${formatAuditTs(selectedOT.createdAt || selectedOT.creadoEn)} · <strong>Creado por:</strong> ${selectedOT.creadoPor || '—'} · <strong>Último cambio por:</strong> ${selectedOT.actualizadoPor || '—'}</p>
       <p class="ot-audit-strip__line"><strong>Última acción registrada:</strong> ${histLine}</p>
     `;
-    detailCard.append(audit);
 
-    if (selectedOT.estado !== 'terminado') {
-      const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
-      const opPanel = document.createElement('div');
-      opPanel.className = 'hnf-operational-context hnf-operational-context--clima';
-      opPanel.setAttribute('data-hnf-domain', 'clima-ot');
-      opPanel.setAttribute('data-hnf-schema', brief.schema);
-      const opTitle = document.createElement('h4');
-      opTitle.className = 'hnf-operational-context__title';
-      opTitle.textContent = 'Checklist operativo (cierre)';
-      if (!brief.blockers.length) {
-        const ok = document.createElement('p');
-        ok.className = 'hnf-operational-context__ok';
-        ok.textContent =
-          'Sin bloqueos detectados en este resumen. Confirmá siempre con «Guardar» en cada bloque y con el servidor antes de «Cerrar OT».';
-        opPanel.append(opTitle, ok);
-      } else {
-        const ul = document.createElement('ul');
-        ul.className = 'hnf-operational-context__list';
-        brief.blockers.forEach((b) => {
-          const li = document.createElement('li');
-          li.textContent = b.detail;
-          ul.append(li);
-        });
-        opPanel.append(opTitle, ul);
-      }
-      detailCard.append(opPanel);
-    }
+    const blockB = document.createElement('section');
+    blockB.className = 'ot-exec-block ot-exec-block--b-datos';
+    const bTitle = document.createElement('h3');
+    bTitle.className = 'ot-exec-block__title';
+    bTitle.textContent = 'B · Datos automáticos (solo lectura)';
+    blockB.append(bTitle, summaryGrid, audit);
 
     const ro = selectedOT.estado === 'terminado';
+
+    const blockA = document.createElement('section');
+    blockA.className = 'ot-exec-block ot-exec-block--a-trabajo';
+    const aTitle = document.createElement('h3');
+    aTitle.className = 'ot-exec-block__title';
+    aTitle.textContent = ro ? 'A · Registro de visita' : 'A · Completar ahora';
+    blockA.append(aTitle);
 
     if (selectedOT.estado !== 'terminado') {
       const visitWrap = document.createElement('div');
@@ -982,13 +1117,13 @@ export const climaView = ({
       });
 
       visitWrap.append(vtTitle, vtHint, vGrid, saveVisit);
-      detailCard.append(visitWrap);
+      blockA.append(visitWrap);
     }
 
     const equiposTitle = document.createElement('h3');
     equiposTitle.className = 'ot-section-title';
     equiposTitle.textContent = 'Equipos de la OT';
-    detailCard.append(equiposTitle);
+    blockA.append(equiposTitle);
 
     const detailEqHost = document.createElement('div');
     detailEqHost.className = 'ot-detail-equipos-host';
@@ -1030,7 +1165,7 @@ export const climaView = ({
     const eqToolbar = document.createElement('div');
     eqToolbar.className = 'ot-equipos-toolbar';
     eqToolbar.append(addDetailEq, saveEq);
-    detailCard.append(detailEqHost, eqToolbar);
+    blockA.append(detailEqHost, eqToolbar);
 
     const pdfRow = document.createElement('div');
     pdfRow.className = 'ot-pdf-actions';
@@ -1046,7 +1181,7 @@ export const climaView = ({
     pdfHelp.className = 'muted';
     pdfHelp.textContent = 'No cierra la OT: solo abre un PDF con lo que hay ahora para revisar o imprimir.';
     pdfRow.append(pdfBtn, pdfHelp);
-    detailCard.append(pdfRow);
+    blockA.append(pdfRow);
 
     if (selectedOT.pdfUrl && selectedOT.pdfName) {
       const reportRow = document.createElement('div');
@@ -1072,7 +1207,62 @@ export const climaView = ({
         a.remove();
       });
       reportRow.append(viewBtn, dlBtn);
-      detailCard.append(reportRow);
+      blockA.append(reportRow);
+    }
+
+    detailCard.append(blockA, blockB);
+
+    const blockC = document.createElement('section');
+    blockC.className = 'ot-exec-block ot-exec-block--c-evidencia';
+    const cTitle = document.createElement('h3');
+    cTitle.className = 'ot-exec-block__title';
+    cTitle.textContent = 'C · Evidencia a nivel visita (fotos)';
+    const legTitle = document.createElement('h4');
+    legTitle.className = 'ot-exec-block__sub';
+    legTitle.textContent = 'Antes / durante / después (OT sin equipos o legado)';
+    const evidenceGrid = document.createElement('div');
+    evidenceGrid.className = 'evidence-grid';
+    evidenceGrid.append(
+      createEvidenceSection('Antes (OT)', selectedOT.fotografiasAntes),
+      createEvidenceSection('Durante (OT)', selectedOT.fotografiasDurante),
+      createEvidenceSection('Después (OT)', selectedOT.fotografiasDespues)
+    );
+    blockC.append(cTitle, legTitle, evidenceGrid);
+    detailCard.append(blockC);
+
+    const blockD = document.createElement('section');
+    blockD.className = 'ot-exec-block ot-exec-block--d-cierre';
+    const dTitle = document.createElement('h3');
+    dTitle.className = 'ot-exec-block__title';
+    dTitle.textContent = 'D · Cierre (checklist, economía y estado)';
+    blockD.append(dTitle);
+
+    if (selectedOT.estado !== 'terminado') {
+      const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
+      const opPanel = document.createElement('div');
+      opPanel.className = 'hnf-operational-context hnf-operational-context--clima';
+      opPanel.setAttribute('data-hnf-domain', 'clima-ot');
+      opPanel.setAttribute('data-hnf-schema', brief.schema);
+      const opTitle = document.createElement('h4');
+      opTitle.className = 'hnf-operational-context__title';
+      opTitle.textContent = 'Checklist operativo (cierre)';
+      if (!brief.blockers.length) {
+        const ok = document.createElement('p');
+        ok.className = 'hnf-operational-context__ok';
+        ok.textContent =
+          'Sin bloqueos detectados en este resumen. Confirmá siempre con «Guardar» en cada bloque y con el servidor antes de «Cerrar OT».';
+        opPanel.append(opTitle, ok);
+      } else {
+        const ul = document.createElement('ul');
+        ul.className = 'hnf-operational-context__list';
+        brief.blockers.forEach((b) => {
+          const li = document.createElement('li');
+          li.textContent = b.detail;
+          ul.append(li);
+        });
+        opPanel.append(opTitle, ul);
+      }
+      blockD.append(opPanel);
     }
 
     let updateCloseButtonState = () => {};
@@ -1220,7 +1410,7 @@ export const climaView = ({
 
     econModern.append(econHead, econLiveRoot);
     if (!ro) econModern.append(saveEcon);
-    detailCard.append(econModern);
+    blockD.append(econModern);
 
     const statusActions = document.createElement('div');
     statusActions.className = 'status-actions';
@@ -1311,7 +1501,7 @@ export const climaView = ({
     });
     closeWrap.append(closeBtn);
     statusActions.append(closeWrap);
-    detailCard.append(statusActions);
+    blockD.append(statusActions);
 
     if (selectedOT.estado === 'terminado') {
       const textBlocks = document.createElement('div');
@@ -1326,20 +1516,10 @@ export const climaView = ({
         block.innerHTML = `<h4>${label}</h4><p class="muted">${value}</p>`;
         textBlocks.append(block);
       });
-      detailCard.append(textBlocks);
+      blockD.append(textBlocks);
     }
 
-    const legTitle = document.createElement('h4');
-    legTitle.textContent = 'Evidencias a nivel visita (OT sin equipos o legado)';
-    detailCard.append(legTitle);
-    const evidenceGrid = document.createElement('div');
-    evidenceGrid.className = 'evidence-grid';
-    evidenceGrid.append(
-      createEvidenceSection('Antes (OT)', selectedOT.fotografiasAntes),
-      createEvidenceSection('Durante (OT)', selectedOT.fotografiasDurante),
-      createEvidenceSection('Después (OT)', selectedOT.fotografiasDespues)
-    );
-    detailCard.append(evidenceGrid);
+    detailCard.append(blockD);
 
     detailCard.append(createClientPreview(selectedOT));
   }

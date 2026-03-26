@@ -1,17 +1,46 @@
-// Variables mínimas esperadas en runtime (public/env.js):
-// - API_BASE_URL: base absoluta del backend (opcional).
+// Resolución API (una sola verdad, en orden):
+// 1) public/env.js → window.__APP_ENV__.API_BASE_URL (runtime, máxima prioridad)
+// 2) Vite build → import.meta.env.VITE_API_BASE_URL (obligatorio en hosting estático tipo Vercel)
+// 3) Cadena vacía → rutas relativas al origen (dev con proxy, o backend sirviendo el mismo host)
 const runtimeConfig = globalThis.__APP_ENV__ || {};
 
-// Base vacía → fetch a rutas relativas (/health, /ots, …).
-// - Vite dev/preview: proxy → http://localhost:4000
-// - Backend sirviendo frontend empaquetado (dist): mismo origen en :4000
+const viteBuiltApi =
+  typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL
+    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
+    : '';
+
+const runtimeOverride =
+  runtimeConfig.API_BASE_URL != null && String(runtimeConfig.API_BASE_URL).trim() !== ''
+    ? String(runtimeConfig.API_BASE_URL).replace(/\/$/, '')
+    : '';
+
+const hostname =
+  typeof globalThis.location !== 'undefined' && globalThis.location?.hostname
+    ? String(globalThis.location.hostname)
+    : '';
+const isLocalhostHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+const isLanHost = Boolean(hostname && !isLocalhostHost);
+const isDev = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
+
 export const appConfig = {
-  apiBaseUrl: runtimeConfig.API_BASE_URL ?? '',
+  apiBaseUrl: runtimeOverride || viteBuiltApi || '',
 };
 
 /** Texto para UI (sidebar, dashboard). */
 export const formatApiBaseLabel = () => {
-  const u = runtimeConfig.API_BASE_URL;
-  if (u != null && String(u).trim() !== '') return String(u).trim();
-  return 'Rutas relativas · backend http://localhost:4000 (proxy en Vite dev)';
+  const base = appConfig.apiBaseUrl;
+  if (base) return base;
+  if (isLanHost) {
+    return `Origen ${hostname} · API vía proxy (mismo host de Vite)`;
+  }
+  if (isDev) {
+    return 'Desarrollo · API por proxy (rutas relativas)';
+  }
+  return 'Sin API_BASE_URL: revisá build (VITE_API_BASE_URL) o public/env.js';
 };
+
+export const getAppAccessContext = () => ({
+  hostname,
+  isLanHost,
+  isLocalhostHost,
+});
