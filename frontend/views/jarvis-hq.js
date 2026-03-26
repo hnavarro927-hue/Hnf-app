@@ -1232,6 +1232,13 @@ export const jarvisHqView = ({
   if (jarvisStructuralClean) oneCoreMain.classList.add('jarvis-structural-clean-v1');
   const pageTail = document.createElement('div');
   pageTail.className = 'jarvis-one-core-page-tail';
+  const jarvisSecondaryDeck = document.createElement('details');
+  jarvisSecondaryDeck.className = 'jarvis-hq-secondary-deck';
+  jarvisSecondaryDeck.open = false;
+  const jarvisSecondaryDeckSum = document.createElement('summary');
+  jarvisSecondaryDeckSum.className = 'jarvis-hq-secondary-deck__sum';
+  jarvisSecondaryDeckSum.innerHTML =
+    '<span class="jarvis-hq-secondary-deck__k">Comando extendido</span><span class="jarvis-hq-secondary-deck__h">Ingesta · ADN técnico · diagnóstico · memoria · paneles</span>';
   const legacyBulkFold = document.createElement('details');
   legacyBulkFold.className = 'jarvis-hq-legacy-bulk-fold tarjeta';
   const legacyBulkSum = document.createElement('summary');
@@ -1240,11 +1247,12 @@ export const jarvisHqView = ({
   legacyBulkFold.append(legacyBulkSum);
   const appendJarvisSecondaryPanel = (el) => {
     if (jarvisStructuralClean) legacyBulkFold.append(el);
-    else root.append(el);
+    else jarvisSecondaryDeck.append(el);
   };
   const stagePrimary = document.createElement('div');
   stagePrimary.className = 'jarvis-hq-stage-primary';
-  root.append(mandoPrincipalV2, oneCoreMain);
+  jarvisSecondaryDeck.append(jarvisSecondaryDeckSum, oneCoreMain);
+  root.append(mandoPrincipalV2, jarvisSecondaryDeck);
 
   const sistemaStrip = document.createElement('section');
   sistemaStrip.className = 'jarvis-sistema-vivo';
@@ -1739,9 +1747,10 @@ export const jarvisHqView = ({
   oneCoreExtended.className = 'jarvis-exec-adn-v1__extended';
   const oneCoreExtendedSum = document.createElement('summary');
   oneCoreExtendedSum.className = 'jarvis-exec-adn-v1__extended-sum';
-  oneCoreExtendedSum.textContent = 'Operativo extendido · línea de tiempo (opcional)';
+  oneCoreExtendedSum.textContent = 'Diagnóstico extendido · timeline · paneles (secundario)';
   oneCoreExtended.append(
     oneCoreExtendedSum,
+    execAdnRoot,
     jarvisDecideCommandEl,
     liveCommandUi.element,
     operativoNucleus,
@@ -1757,12 +1766,9 @@ export const jarvisHqView = ({
   if (jarvisStructuralClean) {
     legacyBulkFold.append(modulosNegocio, seaBarQuick);
   }
-  if (!jarvisStructuralClean && isTabletMode()) oneCoreExtended.setAttribute('open', '');
-
-  oneCoreMain.replaceChildren(execAdnRoot, stagePrimary, oneCoreExtended);
+  oneCoreMain.replaceChildren(stagePrimary, oneCoreExtended);
   const mandoFold = document.createElement('details');
   mandoFold.className = 'jarvis-hq-mando-fold tarjeta';
-  if (!jarvisStructuralClean && isTabletMode()) mandoFold.setAttribute('open', '');
   const mandoSum = document.createElement('summary');
   mandoSum.className = 'jarvis-hq-mando-fold__sum';
   mandoSum.textContent = 'Presencia, chips y centro de control';
@@ -4440,7 +4446,7 @@ export const jarvisHqView = ({
   jarvisDecide.append(operatorDecideGrid);
 
   if (jarvisStructuralClean) legacyBulkFold.append(securityStrip, pulseBar, jarvisDecide);
-  else root.append(securityStrip, pulseBar, jarvisDecide);
+  else jarvisSecondaryDeck.append(securityStrip, pulseBar, jarvisDecide);
   if (dataVacuum) {
     const vac = document.createElement('div');
     vac.className = 'jarvis-cc-data-vacuum tarjeta';
@@ -4586,7 +4592,7 @@ export const jarvisHqView = ({
     ${pulseSt.running ? '<p class="muted small">Pulse activo: capa fusionada en cada ciclo.</p>' : ''}
   `;
   flowSec.append(decBox);
-  root.append(flowSec);
+  jarvisSecondaryDeck.append(flowSec);
 
   /* —— Control empresarial (átomo + energía + sanación + evolución + comercial) —— */
   const atom = unified.jarvisAtom;
@@ -4719,7 +4725,7 @@ export const jarvisHqView = ({
 
   entGrid.append(atomCard, energyCard, healCard, evoCard, commCard, busCard);
   ent.append(entGrid);
-  root.append(ent);
+  jarvisSecondaryDeck.append(ent);
 
   /* —— Jarvis Operador (análisis continuo) —— */
   const opPulse = getJarvisPulseState().running ? jarvisRuntimeGetOperadorPack() : null;
@@ -4838,7 +4844,7 @@ export const jarvisHqView = ({
 
   opGrid.append(moneyCard, probCard, decCard, oppCard, teamCard);
   opSec.append(opGrid);
-  root.append(opSec);
+  jarvisSecondaryDeck.append(opSec);
 
   }
 
@@ -4877,7 +4883,7 @@ export const jarvisHqView = ({
         </g>
       </svg>`;
     radarSec.append(cards, svgBox);
-    root.append(radarSec);
+    jarvisSecondaryDeck.append(radarSec);
   }
 
   /* —— Sostenibilidad —— */
@@ -4909,7 +4915,7 @@ export const jarvisHqView = ({
     blind.append(li);
   }
   sus.append(blind);
-  root.append(sus);
+  jarvisSecondaryDeck.append(sus);
   }
 
   /* —— Actividad viva —— */
@@ -4933,7 +4939,7 @@ export const jarvisHqView = ({
     liveUl.append(li);
   }
   liveSec.append(liveUl);
-  root.append(liveSec);
+  jarvisSecondaryDeck.append(liveSec);
   }
 
   /* —— Centro directivo H/L —— */
@@ -5018,7 +5024,7 @@ export const jarvisHqView = ({
   bIn.addEventListener('click', () => intelNavigate?.({ view: 'jarvis-intake' }));
   romG.append(bIn);
   hl.append(romG);
-  root.append(hl);
+  jarvisSecondaryDeck.append(hl);
 
   if (showLegacyDashboard) {
   /* —— Feed de mando —— */
@@ -5051,13 +5057,13 @@ export const jarvisHqView = ({
     mini('Qué revisa Hernán', hernanMoney)
   );
   feedSec.append(feedGrid);
-  root.append(feedSec);
+  jarvisSecondaryDeck.append(feedSec);
 
   /* —— Resumen ejecutivo —— */
   const execBox = document.createElement('div');
   execBox.className = 'jarvis-cc-exec';
   execBox.innerHTML = `<p class="jarvis-cc-exec-label muted">Resumen ejecutivo</p><p class="jarvis-cc-exec-text">${brief.resumenEjecutivo}</p>`;
-  root.append(execBox);
+  jarvisSecondaryDeck.append(execBox);
   }
 
   /* —— Centro de alertas por bucket —— */
@@ -5105,7 +5111,7 @@ export const jarvisHqView = ({
     sub.append(ul);
     alertSec.append(sub);
   }
-  root.append(alertSec);
+  jarvisSecondaryDeck.append(alertSec);
 
   if (showLegacyDashboard) {
   /* —— Vista de movimiento —— */
@@ -5141,7 +5147,7 @@ export const jarvisHqView = ({
     tl.append(li);
   }
   move.append(tl);
-  root.append(move);
+  jarvisSecondaryDeck.append(move);
   }
 
   /* —— Panel autónomo seguro —— */
@@ -5174,7 +5180,7 @@ export const jarvisHqView = ({
     });
     row.append(bM);
     ap.append(row);
-    root.append(ap);
+    jarvisSecondaryDeck.append(ap);
   }
 
   if (showLegacyDashboard) {
@@ -5205,7 +5211,7 @@ export const jarvisHqView = ({
     ulR.append(li);
   }
   riskSec.append(ulR);
-  root.append(riskSec);
+  jarvisSecondaryDeck.append(riskSec);
 
   /* —— Paneles de valor —— */
   const valGrid = document.createElement('div');
@@ -5248,14 +5254,14 @@ export const jarvisHqView = ({
       { view: 'clima' }
     )
   );
-  root.append(valGrid);
+  jarvisSecondaryDeck.append(valGrid);
 
   /* —— Brief director + memoria —— */
   const director = document.createElement('pre');
   director.className = 'jarvis-cc-director';
   director.setAttribute('aria-label', 'Brief directores');
   director.textContent = directorText;
-  root.append(director);
+  jarvisSecondaryDeck.append(director);
 
   const mem = document.createElement('section');
   mem.className = 'jarvis-cc-mem';
@@ -5274,7 +5280,7 @@ export const jarvisHqView = ({
     ulP.append(li);
   }
   mem.append(ulP);
-  root.append(mem);
+  jarvisSecondaryDeck.append(mem);
 
   const secFeed = document.createElement('section');
   secFeed.className = 'jarvis-cc-decisions';
@@ -5287,11 +5293,11 @@ export const jarvisHqView = ({
     ulF.append(li);
   });
   secFeed.append(ulF);
-  root.append(secFeed);
+  jarvisSecondaryDeck.append(secFeed);
   }
 
   if (pageTail && pageTail.childElementCount) {
-    root.append(pageTail);
+    jarvisSecondaryDeck.append(pageTail);
   }
 
   return root;
