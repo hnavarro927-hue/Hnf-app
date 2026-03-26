@@ -492,13 +492,6 @@ const loadTechnicalDocumentsView = async () => {
   };
 };
 
-const loadOportunidadesView = async () => {
-  const opps = await commercialOpportunitiesService.getAll().catch(() => []);
-  return {
-    commercialOpportunities: Array.isArray(opps) ? opps : [],
-  };
-};
-
 const viewRegistry = {
   'ingreso-operativo': {
     render: ingresoOperativoView,
@@ -576,7 +569,7 @@ const viewRegistry = {
 
   oportunidades: {
     render: oportunidadesView,
-    load: loadOportunidadesView,
+    load: loadFullOperationalData,
   },
 
   planificacion: {

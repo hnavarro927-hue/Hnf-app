@@ -53,7 +53,57 @@ export const oportunidadesView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Oportunidades comerciales</h2><p class="muted">Propuestas concretas desde operación (Jarvis) y reglas de documentos. Gestioná estados y cierre.</p>';
+    '<h2>Comercial · radar operativo</h2><p class="muted">Conectado a OT, WhatsApp y pipeline. Una fila de mando + tabla de gestión.</p>';
+
+  const live = data?.hnfAdn?.commercialLive || data?.commercialLive;
+  const radar = document.createElement('div');
+  radar.className = 'opp-live-radar tarjeta';
+  if (live && typeof live === 'object') {
+    const row = document.createElement('div');
+    row.className = 'opp-live-radar__grid';
+    const mk = (lab, val, tone) => {
+      const cell = document.createElement('div');
+      cell.className = `opp-live-radar__cell ${tone ? `opp-live-radar__cell--${tone}` : ''}`;
+      const l = document.createElement('span');
+      l.className = 'opp-live-radar__lab';
+      l.textContent = lab;
+      const v = document.createElement('span');
+      v.className = 'opp-live-radar__val';
+      v.textContent = val;
+      cell.append(l, v);
+      return cell;
+    };
+    row.append(
+      mk('Jarvis / opp.', String(live.oportunidadesDetectadas ?? '—'), 'neo'),
+      mk('Prioridad alta', String(live.oportunidadesPrioritarias ?? '—'), 'hot'),
+      mk('Clientes repetidos', String(live.clientesRepetidos ?? '—'), 'ok'),
+      mk('Upsell (serv.)', String(live.upsellPotencial ?? '—'), 'ok'),
+      mk('Cotiz. pend.', String(live.cotizacionesPendientes ?? '—'), 'warn'),
+      mk('Abiertas', String(live.oportunidadesAbiertas ?? '—'), 'neo'),
+      mk('WA hoy', String(live.whatsappCrucesHoy ?? '—'), 'neo'),
+      mk('Presión', String(live.pressureScore ?? '—'), 'hot')
+    );
+    const act = document.createElement('ul');
+    act.className = 'opp-live-radar__actions';
+    const sug = Array.isArray(live.accionesSugeridas) ? live.accionesSugeridas : [];
+    if (sug.length) {
+      for (const s of sug.slice(0, 5)) {
+        const li = document.createElement('li');
+        li.textContent = s;
+        act.append(li);
+      }
+    } else {
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.textContent = 'Sin acciones sugeridas: sincronizá datos o cargá oportunidades.';
+      act.append(li);
+    }
+    radar.append(row, act);
+  } else {
+    radar.classList.add('opp-live-radar--empty');
+    radar.innerHTML =
+      '<p class="muted small">Sin snapshot comercial. Usá «Actualizar» o volvé al Jarvis tras cargar datos.</p>';
+  }
 
   const draftSlot = document.createElement('div');
   draftSlot.className = 'opp-jarvis-draft-slot';
@@ -260,7 +310,7 @@ export const oportunidadesView = ({
   bDash.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('jarvis'));
   back.append(bDash);
 
-  section.append(header, draftSlot, feedback, back, toolbar, tableWrap);
+  section.append(header, radar, draftSlot, feedback, back, toolbar, tableWrap);
   renderTable();
 
   function escapeHtml(s) {

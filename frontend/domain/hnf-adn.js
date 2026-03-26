@@ -6,6 +6,7 @@
 
 import { buildControlOperativoAlertas, buildControlOperativoCards } from './control-operativo-tiempo-real.js';
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from './evento-operativo.js';
+import { buildJarvisLiveOrbitModel } from './hnf-jarvis-live-orbit.js';
 
 /** @param {object} data - Misma forma que state.viewData tras loadFullOperationalData */
 export function buildHnfAdnSnapshot(data) {
@@ -72,6 +73,21 @@ export function buildHnfAdnSnapshot(data) {
   const opsEv = Array.isArray(d.operationalEvents) ? d.operationalEvents : [];
   const controlBadge = opsEv.filter((e) => e && String(e.estado || '').toLowerCase() !== 'cerrado').length;
 
+  const jarvisLiveOrbit = buildJarvisLiveOrbitModel(d, {
+    eventosUnificados,
+    cards,
+    alertas,
+    traffic: { bloqueos, pendientes, ok, totalOt: cards.length },
+    bottleneck,
+    whatsappHoy,
+    dineroEnRiesgo: agg.dinero_en_riesgo,
+  });
+
+  const comercialBadgeLive = Math.max(
+    commAlert.length || comm.length,
+    jarvisLiveOrbit.commercialLive?.pressureScore ?? 0
+  );
+
   return {
     version: 1,
     estadoGeneral: agg.estado_general,
@@ -85,6 +101,8 @@ export function buildHnfAdnSnapshot(data) {
     principalProblema,
     recomendacion,
     whatsappHoy,
+    jarvisLiveOrbit,
+    commercialLive: jarvisLiveOrbit.commercialLive,
     orbits: {
       clima: { view: 'clima', label: 'Clima', badge: bloqueos + pendientes, hint: 'OT · visitas' },
       flota: { view: 'flota', label: 'Flota', badge: flotaAbierta, hint: 'Solicitudes' },
@@ -96,8 +114,8 @@ export function buildHnfAdnSnapshot(data) {
       comercial: {
         view: 'oportunidades',
         label: 'Comercial',
-        badge: commAlert.length || comm.length,
-        hint: 'Pipeline',
+        badge: comercialBadgeLive,
+        hint: jarvisLiveOrbit.commercialLive?.accionesSugeridas?.[0] || 'Pipeline vivo',
       },
       control: { view: 'control-gerencial', label: 'Control', badge: controlBadge, hint: 'Gerencial' },
     },

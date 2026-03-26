@@ -1,28 +1,16 @@
 /**
- * Centro de mando operativo — Jarvis decide: problema + impacto + RESOLVER AHORA.
- * Órbitas vivas (color según riesgo). ADN = anillo segmentado con datos reales.
+ * Jarvis Live Orbit — núcleo holográfico operativo: doble anillo (origen + flujo) + decisión ejecutiva.
  */
 
 import { buildHnfAdnSnapshot } from '../domain/hnf-adn.js';
+import {
+  buildConicEntradaGradient,
+  buildConicFlujoGradient,
+  buildJarvisLiveOrbitModel,
+} from '../domain/hnf-jarvis-live-orbit.js';
 import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
 
-function fmtMoney(n) {
-  return Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
-}
-
-/** 0–1 intensidad para segmentos del anillo ADN */
-function segmentIntensities(adn) {
-  const t = adn.traffic || {};
-  const bloqueos = Number(t.bloqueos) || 0;
-  const pend = Number(t.pendientes) || 0;
-  const tot = Math.max(1, Number(t.totalOt) || 0);
-  const ev = Math.min(1, (Number(adn.totalEventosActivos) || 0) / 8);
-  const money = Math.min(1, (Number(adn.dineroEnRiesgo) || 0) / 2_000_000);
-  const otFlow = Math.min(1, tot / 25);
-  const block = Math.min(1, (bloqueos * 2 + pend) / 12);
-  const bot = adn.bottleneck && adn.bottleneck.global !== 'verde' ? 0.85 : 0.25;
-  return [otFlow, ev, money, block, bot];
-}
+const RGB_ENTRADA = ['0,194,168', '58,134,255', '251,191,36', '248,113,113', '123,97,255'];
 
 function toneFromCounts(bloqueos, pendientes) {
   if (bloqueos > 0) return { label: 'CRÍTICO', mod: 'crit' };
@@ -57,12 +45,26 @@ export function createHnfMandoPrincipalV2({
   const raw = data || {};
   const adn = raw.hnfAdn && typeof raw.hnfAdn === 'object' ? raw.hnfAdn : buildHnfAdnSnapshot(raw);
   const { bloqueos, pendientes, ok, totalOt } = adn.traffic;
-  const segs = segmentIntensities(adn);
+
+  let live = adn.jarvisLiveOrbit;
+  if (!live || typeof live !== 'object') {
+    live = buildJarvisLiveOrbitModel(raw, {
+      eventosUnificados: adn.eventosUnificados,
+      cards: adn.cards,
+      alertas: adn.alertas,
+      traffic: adn.traffic,
+      bottleneck: adn.bottleneck,
+      whatsappHoy: adn.whatsappHoy,
+      dineroEnRiesgo: adn.dineroEnRiesgo,
+    });
+  }
+  const nucleo = live.nucleo || {};
+  const commercialLive = adn.commercialLive || live.commercialLive || {};
 
   const wrap = document.createElement('section');
-  wrap.className = 'hnf-command-deck';
+  wrap.className = 'hnf-command-deck hnf-jarvis-live-orbit';
   wrap.id = 'hnf-mando-principal-v2';
-  wrap.setAttribute('aria-label', 'Centro de mando HNF');
+  wrap.setAttribute('aria-label', 'Jarvis Live Orbit · mando HNF');
 
   const field = document.createElement('div');
   field.className = 'hnf-command-deck__orbit-field';
@@ -99,6 +101,14 @@ export function createHnfMandoPrincipalV2({
   const comN = Number(o.comercial?.badge) || 0;
   const ctrlN = Number(o.control?.badge) || 0;
 
+  const comIndShort = (() => {
+    const a = commercialLive.oportunidadesAbiertas ?? 0;
+    const c = commercialLive.cotizacionesPendientes ?? 0;
+    const r = commercialLive.clientesRepetidos ?? 0;
+    if (a + c + r > 0) return `${a} opp. · ${c} cotiz. · ${r} cli. rep.`;
+    return comN ? `${comN} en radar` : 'Radar OK';
+  })();
+
   const orbitPlan = mkOrbit(
     'plan',
     o.planificacion || { label: 'Plan', view: 'planificacion' },
@@ -115,8 +125,8 @@ export function createHnfMandoPrincipalV2({
   const orbitCom = mkOrbit(
     'com',
     o.comercial || { label: 'Comercial', view: 'oportunidades' },
-    orbitTone(comN, { crit: 6, warn: 2 }),
-    comN ? `${comN} en pipeline` : 'Sin ítems'
+    orbitTone(comN, { crit: 8, warn: 3 }),
+    comIndShort
   );
   const orbitCtrl = mkOrbit(
     'ctrl',
@@ -127,41 +137,78 @@ export function createHnfMandoPrincipalV2({
 
   const nucleus = document.createElement('div');
   nucleus.className = 'hnf-command-nucleus';
-  nucleus.setAttribute('aria-label', 'Jarvis · decisión');
+  nucleus.setAttribute('aria-label', 'Jarvis Live · núcleo operativo');
 
-  const ring = document.createElement('div');
-  ring.className = 'hnf-command-nucleus__adn-ring';
-  const segWrap = document.createElement('div');
-  segWrap.className = 'hnf-adn-segments';
-  segWrap.setAttribute('aria-hidden', 'true');
-  segWrap.title = 'ADN: OT · eventos · ingresos · bloqueos · responsables';
-  segs.forEach((inten, i) => {
-    segWrap.style.setProperty(`--adn-a${i}`, String(0.28 + inten * 0.72));
-  });
-  ring.innerHTML =
-    '<span class="hnf-command-nucleus__adn-glow"></span><span class="hnf-command-nucleus__adn-track"></span>';
-  ring.append(segWrap);
+  const rings = document.createElement('div');
+  rings.className = 'hnf-command-nucleus__rings';
+
+  const glow = document.createElement('span');
+  glow.className = 'hnf-command-nucleus__live-glow';
+  glow.setAttribute('aria-hidden', 'true');
+
+  const sweep = document.createElement('span');
+  sweep.className = 'hnf-command-nucleus__radar-sweep';
+  sweep.setAttribute('aria-hidden', 'true');
+
+  const ringOut = document.createElement('div');
+  ringOut.className = 'hnf-live-ring hnf-live-ring--entrada';
+  ringOut.title = 'Origen: WA · manual · comercial · seguimiento · cierre';
+  const entInt = live.ringEntrada?.intensities || [0.3, 0.3, 0.3, 0.3, 0.3];
+  ringOut.style.background = buildConicEntradaGradient(entInt, RGB_ENTRADA);
+
+  const ringIn = document.createElement('div');
+  ringIn.className = 'hnf-live-ring hnf-live-ring--flujo';
+  ringIn.title = 'Flujo: ingreso → cobro (color = fricción)';
+  ringIn.style.background = buildConicFlujoGradient(live.ringFlujo || { estados: [], stress: [] });
+
+  const trackOut = document.createElement('span');
+  trackOut.className = 'hnf-command-nucleus__ring-track hnf-command-nucleus__ring-track--outer';
+  trackOut.setAttribute('aria-hidden', 'true');
+  const trackIn = document.createElement('span');
+  trackIn.className = 'hnf-command-nucleus__ring-track hnf-command-nucleus__ring-track--inner';
+  trackIn.setAttribute('aria-hidden', 'true');
+
+  rings.append(glow, sweep, trackOut, ringOut, trackIn, ringIn);
 
   const core = document.createElement('div');
-  core.className = 'hnf-command-nucleus__core';
+  core.className = 'hnf-command-nucleus__core hnf-command-nucleus__core--live';
 
   const kick = document.createElement('span');
-  kick.className = 'hnf-command-nucleus__kick';
-  kick.textContent = 'JARVIS';
+  kick.className = 'hnf-command-nucleus__kick hnf-command-nucleus__kick--live';
+  kick.textContent = 'JARVIS LIVE';
 
-  const problema = document.createElement('p');
-  problema.className = 'hnf-command-nucleus__problem';
-  problema.textContent = String(adn.principalProblema || 'Sin foco crítico.').slice(0, 72).toUpperCase();
+  const presion = document.createElement('p');
+  presion.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--pressure';
+  presion.textContent = String(nucleo.lineaPresion || adn.principalProblema || '—')
+    .toUpperCase()
+    .slice(0, 96);
 
-  const impactWrap = document.createElement('div');
-  impactWrap.className = 'hnf-command-nucleus__impact-wrap';
-  const impactLab = document.createElement('span');
-  impactLab.className = 'hnf-command-nucleus__impact-lab';
-  impactLab.textContent = 'IMPACTO';
+  const metrics = document.createElement('p');
+  metrics.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--metrics';
+  metrics.textContent = String(nucleo.cantidadReal || `${totalOt || 0} OT`).slice(0, 120);
+
+  const opHoy = document.createElement('p');
+  opHoy.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--sub';
+  opHoy.textContent = String(nucleo.operacionHoy || '').slice(0, 88);
+
+  const solHoy = document.createElement('p');
+  solHoy.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--sub';
+  solHoy.textContent = String(nucleo.solicitudesHoy || '').slice(0, 88);
+
   const impacto = document.createElement('p');
-  impacto.className = 'hnf-command-nucleus__impact';
-  impacto.textContent = `$${fmtMoney(adn.dineroEnRiesgo)} · ${bloqueos} bloqueos · ${pendientes} pend. · ${totalOt || 0} OT`;
-  impactWrap.append(impactLab, impacto);
+  impacto.className = 'hnf-command-nucleus__impact hnf-command-nucleus__impact--compact';
+  impacto.textContent = String(nucleo.impactoLine || '').slice(0, 96);
+
+  const accion = document.createElement('p');
+  accion.className = 'hnf-command-nucleus__live-line hnf-command-nucleus__live-line--action';
+  accion.textContent = String(nucleo.accionLabel || `ACCIÓN: ${nucleo.siguienteAccion || 'REVISAR'}`).slice(
+    0,
+    72
+  );
+
+  const resp = document.createElement('p');
+  resp.className = 'hnf-command-nucleus__live-resp';
+  resp.textContent = `→ ${String(nucleo.responsableSugerido || '—').slice(0, 32)}`;
 
   const btnExec = document.createElement('button');
   btnExec.type = 'button';
@@ -172,8 +219,8 @@ export function createHnfMandoPrincipalV2({
     ejecutarPropuestaGlobal(adn.eventosUnificados, { intelNavigate, navigateToView });
   });
 
-  core.append(kick, problema, impactWrap, btnExec);
-  nucleus.append(ring, core);
+  core.append(kick, presion, metrics, opHoy, solHoy, impacto, accion, resp, btnExec);
+  nucleus.append(rings, core);
 
   field.append(orbitPlan, orbitFlota, orbitClima, orbitCom, orbitCtrl, nucleus);
 
