@@ -478,6 +478,55 @@ export function createHnfJarvisPremiumCommand({
   const shell = document.createElement('div');
   shell.className = 'hnf-jarvis-premium__shell';
 
+  /* —— Portada hero · atmósfera premium HNF (sin imagen literal) —— */
+  const hero = document.createElement('header');
+  hero.className = 'hnf-jarvis-premium__hero';
+  hero.setAttribute('aria-label', 'Portada · identidad operativa HNF');
+
+  const heroVeil = document.createElement('div');
+  heroVeil.className = 'hnf-jarvis-premium__hero-veil';
+  heroVeil.setAttribute('aria-hidden', 'true');
+
+  const heroSides = document.createElement('div');
+  heroSides.className = 'hnf-jarvis-premium__hero-sides';
+  heroSides.setAttribute('aria-hidden', 'true');
+  const heroFlota = document.createElement('div');
+  heroFlota.className = 'hnf-jarvis-premium__hero-side hnf-jarvis-premium__hero-side--flota';
+  const heroClima = document.createElement('div');
+  heroClima.className = 'hnf-jarvis-premium__hero-side hnf-jarvis-premium__hero-side--clima';
+  heroSides.append(heroFlota, heroClima);
+
+  const heroNode = document.createElement('div');
+  heroNode.className = 'hnf-jarvis-premium__hero-node';
+  heroNode.setAttribute('aria-hidden', 'true');
+  const heroGlow = document.createElement('div');
+  heroGlow.className = 'hnf-jarvis-premium__hero-node-glow';
+  const heroRing = document.createElement('div');
+  heroRing.className = 'hnf-jarvis-premium__hero-node-ring';
+  const heroCore = document.createElement('div');
+  heroCore.className = 'hnf-jarvis-premium__hero-node-core';
+  heroNode.append(heroGlow, heroRing, heroCore);
+
+  const heroCopy = document.createElement('div');
+  heroCopy.className = 'hnf-jarvis-premium__hero-copy';
+  const heroTag = document.createElement('p');
+  heroTag.className = 'hnf-jarvis-premium__hero-tag';
+  heroTag.textContent = 'HNF Servicios Integrales';
+  const heroLine = document.createElement('p');
+  heroLine.className = 'hnf-jarvis-premium__hero-line';
+  heroLine.textContent = 'Continuidad operacional sin interrupciones';
+  const heroChips = document.createElement('div');
+  heroChips.className = 'hnf-jarvis-premium__hero-chips';
+  const chipFlota = document.createElement('span');
+  chipFlota.className = 'hnf-jarvis-premium__hero-chip hnf-jarvis-premium__hero-chip--flota';
+  chipFlota.textContent = 'Flota';
+  const chipClima = document.createElement('span');
+  chipClima.className = 'hnf-jarvis-premium__hero-chip hnf-jarvis-premium__hero-chip--clima';
+  chipClima.textContent = 'Clima · HVAC';
+  heroChips.append(chipFlota, chipClima);
+  heroCopy.append(heroTag, heroLine, heroChips);
+  hero.append(heroVeil, heroSides, heroNode, heroCopy);
+
   /* —— KPI superior: Crítico / En proceso / Operación —— */
   const kpiRow = document.createElement('div');
   kpiRow.className = 'hnf-jarvis-premium__kpi-row';
@@ -870,6 +919,8 @@ export function createHnfJarvisPremiumCommand({
     const panel = document.createElement('button');
     panel.type = 'button';
     panel.className = 'hnf-jarvis-premium__panel';
+    if (key === 'flota') panel.classList.add('hnf-jarvis-premium__panel--line-flota');
+    if (key === 'clima') panel.classList.add('hnf-jarvis-premium__panel--line-clima');
     panel.addEventListener('click', () => {
       emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, {
         key,
@@ -964,7 +1015,7 @@ export function createHnfJarvisPremiumCommand({
   });
 
   main.append(jarvisIa, otLive, modules, intel);
-  shell.append(kpiRow, main);
+  shell.append(hero, kpiRow, main);
   root.append(atm, shell);
 
   if (typeof window !== 'undefined') {
