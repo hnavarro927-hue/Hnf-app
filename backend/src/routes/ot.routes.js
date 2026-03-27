@@ -6,6 +6,7 @@ import {
   patchOTReport,
   patchOTVisit,
   patchOTEconomics,
+  patchOTOperational,
   updateOTStatus,
 } from '../controllers/ot.controller.js';
 
@@ -49,5 +50,10 @@ export const otRoutes = [
     method: 'PATCH',
     path: '/ots/:id/economics',
     handler: patchOTEconomics,
+  },
+  {
+    method: 'PATCH',
+    path: '/ots/:id/operacion',
+    handler: patchOTOperational,
   },
 ];

@@ -12,7 +12,6 @@ export const otFormDefinition = {
         { name: 'telefonoContacto', label: 'Teléfono de contacto', type: 'tel', required: true },
         { name: 'tipoServicio', label: 'Tipo de servicio', type: 'select', required: true, options: ['clima', 'flota'] },
         { name: 'subtipoServicio', label: 'Subtipo de servicio', type: 'text', required: true },
-        { name: 'tecnicoAsignado', label: 'Técnico asignado', type: 'text', required: false },
         { name: 'fecha', label: 'Fecha', type: 'date', required: true },
         { name: 'hora', label: 'Hora', type: 'time', required: true },
         { name: 'estado', label: 'Estado inicial', type: 'readonly', required: true, defaultValue: 'pendiente' },

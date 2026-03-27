@@ -729,6 +729,7 @@ const state = {
   isSavingEquipos: false,
   isSavingVisitText: false,
   isSavingOtEconomics: false,
+  isPatchingOtOperational: false,
   /** Resultado económico persistido en servidor (válido) para la OT seleccionada en Clima */
   otEconomicsSaved: false,
   /** Navegación desde Intelligence Engine (se aplica tras cargar datos). */
@@ -987,6 +988,29 @@ const createActions = () => ({
       render();
     } finally {
       state.isSubmittingOT = false;
+      render();
+    }
+  },
+
+  patchOtOperational: async (id, body) => {
+    state.isPatchingOtOperational = true;
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.patchOperational(id, body);
+      state.otFeedback = {
+        type: 'success',
+        message: 'Modo, técnico u origen actualizados en el servidor.',
+      };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudo guardar el control operativo de la OT.',
+      };
+      render();
+    } finally {
+      state.isPatchingOtOperational = false;
       render();
     }
   },
@@ -1487,6 +1511,7 @@ const render = () => {
         isSavingEquipos: state.isSavingEquipos,
         isSavingVisitText: state.isSavingVisitText,
         isSavingOtEconomics: state.isSavingOtEconomics,
+        isPatchingOtOperational: state.isPatchingOtOperational,
         otEconomicsSaved: state.otEconomicsSaved,
         selectedOTId: state.selectedOTId,
         selectedFlotaId: state.selectedFlotaId,

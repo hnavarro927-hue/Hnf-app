@@ -161,3 +161,24 @@ export const patchOTEconomics = async (request, response) => {
     action: 'patchOTEconomics',
   });
 };
+
+export const patchOTOperational = async (request, response) => {
+  const actor = getRequestActor(request);
+  const result = await otService.patchOperational(request.params.id, request.body || {}, actor);
+
+  if (result.errors) {
+    return sendError(response, 400, 'Cambio operativo inválido.', {
+      resource: 'ots',
+      validations: result.errors,
+    });
+  }
+
+  if (result.error) {
+    return sendError(response, 404, result.error, { resource: 'ots' });
+  }
+
+  return sendSuccess(response, 200, result, {
+    resource: 'ots',
+    action: 'patchOTOperational',
+  });
+};

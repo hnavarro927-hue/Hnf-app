@@ -43,10 +43,67 @@ export const validateOTPayload = (payload = {}) => {
     errors.push('La hora es obligatoria.');
   }
 
+  if (payload.id != null && String(payload.id).trim()) {
+    const id = String(payload.id).trim();
+    if (id.length < 2 || id.length > 64) {
+      errors.push('El número / id de OT manual debe tener entre 2 y 64 caracteres.');
+    } else if (!/^[A-Za-z0-9._-]+$/.test(id)) {
+      errors.push('El id de OT solo puede usar letras, números, punto, guión y guión bajo.');
+    }
+  }
+
+  if (payload.operationMode != null && String(payload.operationMode).trim()) {
+    const m = String(payload.operationMode).trim();
+    if (!otModel.operationModes.includes(m)) {
+      errors.push(`Modo operación inválido. Valores: ${otModel.operationModes.join(', ')}.`);
+    }
+  }
+
+  if (payload.origenPedido != null && String(payload.origenPedido).length > 120) {
+    errors.push('Origen del pedido: máximo 120 caracteres.');
+  }
+
   return {
     valid: errors.length === 0,
     errors,
   };
+};
+
+export const validateOperationalPatch = (payload = {}) => {
+  const errors = [];
+  const keys = ['operationMode', 'tecnicoAsignado', 'origenPedido', 'responsableActual'];
+  const hasAny = keys.some((k) => k in payload);
+  if (!hasAny) {
+    errors.push('Enviá al menos uno de: operationMode, tecnicoAsignado, origenPedido, responsableActual.');
+  }
+  if ('operationMode' in payload && payload.operationMode != null) {
+    const m = String(payload.operationMode).trim();
+    if (!otModel.operationModes.includes(m)) {
+      errors.push(`operationMode inválido. Valores: ${otModel.operationModes.join(', ')}.`);
+    }
+  }
+  if ('tecnicoAsignado' in payload && payload.tecnicoAsignado != null) {
+    if (typeof payload.tecnicoAsignado !== 'string') {
+      errors.push('tecnicoAsignado debe ser texto.');
+    } else if (String(payload.tecnicoAsignado).length > 120) {
+      errors.push('tecnicoAsignado: máximo 120 caracteres.');
+    }
+  }
+  if ('origenPedido' in payload && payload.origenPedido != null) {
+    if (typeof payload.origenPedido !== 'string') {
+      errors.push('origenPedido debe ser texto.');
+    } else if (String(payload.origenPedido).length > 120) {
+      errors.push('origenPedido: máximo 120 caracteres.');
+    }
+  }
+  if ('responsableActual' in payload && payload.responsableActual != null) {
+    if (typeof payload.responsableActual !== 'string') {
+      errors.push('responsableActual debe ser texto.');
+    } else if (String(payload.responsableActual).length > 120) {
+      errors.push('responsableActual: máximo 120 caracteres.');
+    }
+  }
+  return { valid: errors.length === 0, errors };
 };
 
 const EVIDENCE_KEYS = ['fotografiasAntes', 'fotografiasDurante', 'fotografiasDespues'];

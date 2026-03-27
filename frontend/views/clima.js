@@ -5,6 +5,13 @@ import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
 import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import {
+  HNF_OT_OPERATION_MODES,
+  HNF_OT_ORIGEN_PEDIDO,
+  HNF_OT_TECNICOS_PRESETS,
+  labelOperationMode,
+  labelOrigenPedido,
+} from '../constants/hnf-ot-operation.js';
 
 const MAX_EQUIPOS = 12;
 const EQ_ESTADOS = ['operativo', 'mantenimiento', 'falla'];
@@ -249,6 +256,235 @@ const createStatusBadge = (status) => {
   badge.className = `status-badge status-badge--${(status || 'pendiente').replace(/\s+/g, '-')}`;
   badge.textContent = status || 'pendiente';
   return badge;
+};
+
+const buildOtAltaOperationSection = () => {
+  const fs = document.createElement('fieldset');
+  fs.className = 'ot-form__section ot-form__section--operation';
+  const leg = document.createElement('legend');
+  leg.textContent = 'Modo operación · Nº OT · Origen · Técnico';
+  const grid = document.createElement('div');
+  grid.className = 'ot-form__grid';
+
+  const mk = (labelText, inner) => {
+    const w = document.createElement('label');
+    w.className = 'form-field';
+    const lb = document.createElement('span');
+    lb.className = 'form-field__label';
+    lb.textContent = labelText;
+    w.append(lb, inner);
+    return w;
+  };
+
+  const idInp = document.createElement('input');
+  idInp.type = 'text';
+  idInp.name = 'otCustomId';
+  idInp.placeholder = 'Vacío = siguiente OT-### automático';
+  idInp.autocomplete = 'off';
+
+  const modeSel = document.createElement('select');
+  modeSel.name = 'operationModeCreate';
+  HNF_OT_OPERATION_MODES.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    modeSel.append(op);
+  });
+
+  const origenSel = document.createElement('select');
+  origenSel.name = 'origenPedidoCreate';
+  HNF_OT_ORIGEN_PEDIDO.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    origenSel.append(op);
+  });
+
+  const techWrap = document.createElement('div');
+  techWrap.className = 'ot-tech-pick';
+  const techSel = document.createElement('select');
+  techSel.name = 'tecnicoPreset';
+  HNF_OT_TECNICOS_PRESETS.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    techSel.append(op);
+  });
+  const otroOpt = document.createElement('option');
+  otroOpt.value = '__otro__';
+  otroOpt.textContent = 'Otro (nombre libre)';
+  techSel.append(otroOpt);
+  const techOther = document.createElement('input');
+  techOther.type = 'text';
+  techOther.name = 'tecnicoOtro';
+  techOther.placeholder = 'Nombre del técnico';
+  techOther.className = 'ot-tech-pick__other';
+  techOther.hidden = true;
+  techSel.addEventListener('change', () => {
+    techOther.hidden = techSel.value !== '__otro__';
+    if (!techOther.hidden) techOther.focus();
+  });
+  techWrap.append(techSel, techOther);
+
+  const hint = document.createElement('p');
+  hint.className = 'muted small';
+  hint.style.gridColumn = '1 / -1';
+  hint.innerHTML =
+    '<strong>Manual:</strong> vos definís técnico y, si querés, un número de OT fijo. <strong>Automático:</strong> si no elegís técnico, el servidor aplica reglas Jarvis (stub) y lo deja registrado como asignado por Jarvis; siempre podés corregir después.';
+
+  grid.append(
+    mk('Nº OT (opcional)', idInp),
+    mk('Modo operación', modeSel),
+    mk('Origen del pedido', origenSel),
+    mk('Técnico asignado', techWrap),
+    hint
+  );
+  fs.append(leg, grid);
+  return fs;
+};
+
+const resolveTecnicoFromAltaForm = (form) => {
+  const preset = form.elements.tecnicoPreset?.value;
+  const otro = form.elements.tecnicoOtro?.value?.trim() || '';
+  if (preset === '__otro__') return otro || 'Por asignar';
+  return preset || 'Por asignar';
+};
+
+const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
+  const sec = document.createElement('section');
+  sec.className = 'ot-op-detail';
+  sec.setAttribute('aria-label', 'Modo operación y responsabilidades');
+
+  const mode = ot.operationMode === 'automatic' ? 'automatic' : 'manual';
+
+  const head = document.createElement('div');
+  head.className = 'ot-op-detail__head';
+  const ht = document.createElement('h3');
+  ht.className = 'ot-section-title';
+  ht.textContent = 'Control operativo (modo · responsables · origen)';
+  const hp = document.createElement('p');
+  hp.className = 'muted small';
+  hp.innerHTML =
+    'Indicadores siempre visibles. <strong>Automático</strong> = Jarvis puede proponer técnico al crear; el equipo mantiene control y puede anular.';
+  head.append(ht, hp);
+
+  const badges = document.createElement('div');
+  badges.className = 'ot-op-detail__badges';
+  const bMode = document.createElement('span');
+  bMode.className = `ot-op-badge ot-op-badge--mode ot-op-badge--mode-${mode}`;
+  bMode.textContent = labelOperationMode(mode);
+  const bOrig = document.createElement('span');
+  bOrig.className = 'ot-op-badge ot-op-badge--neutral';
+  bOrig.textContent = `Origen: ${labelOrigenPedido(ot.origenPedido)}`;
+  badges.append(bMode, bOrig);
+
+  const grid = document.createElement('div');
+  grid.className = 'ot-op-detail__grid';
+  const row = (k, v) => {
+    const d = document.createElement('div');
+    d.className = 'ot-op-detail__kv';
+    const sk = document.createElement('span');
+    sk.textContent = k;
+    const sv = document.createElement('strong');
+    sv.textContent = v || '—';
+    d.append(sk, sv);
+    return d;
+  };
+  grid.append(
+    row('Creada por', ot.creadoPor),
+    row('Asignación por', ot.asignadoPor),
+    row('Responsable actual', ot.responsableActual || ot.tecnicoAsignado),
+    row('Técnico (OT)', ot.tecnicoAsignado)
+  );
+
+  sec.append(head, badges, grid);
+
+  if (readOnly || typeof actions?.patchOtOperational !== 'function') {
+    return sec;
+  }
+
+  const ctl = document.createElement('div');
+  ctl.className = 'ot-op-detail__controls';
+
+  const rowCtrl = document.createElement('div');
+  rowCtrl.className = 'ot-op-detail__ctrl-row';
+
+  const ms = document.createElement('select');
+  ms.className = 'ot-op-detail__select';
+  ms.setAttribute('aria-label', 'Modo operación');
+  [
+    ['manual', 'Manual'],
+    ['automatic', 'Automático (Jarvis)'],
+  ].forEach(([v, l]) => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = l;
+    if (v === mode) o.selected = true;
+    ms.append(o);
+  });
+
+  const tSel = document.createElement('select');
+  tSel.className = 'ot-op-detail__select';
+  tSel.setAttribute('aria-label', 'Técnico');
+  HNF_OT_TECNICOS_PRESETS.forEach((p) => {
+    const o = document.createElement('option');
+    o.value = p.value;
+    o.textContent = p.label;
+    tSel.append(o);
+  });
+  const otroOpt = document.createElement('option');
+  otroOpt.value = '__otro__';
+  otroOpt.textContent = 'Otro…';
+  tSel.append(otroOpt);
+  const tOther = document.createElement('input');
+  tOther.type = 'text';
+  tOther.className = 'ot-op-detail__other';
+  tOther.placeholder = 'Nombre técnico';
+  tOther.hidden = true;
+  const curTech = String(ot.tecnicoAsignado || '').trim() || 'Por asignar';
+  if (HNF_OT_TECNICOS_PRESETS.some((p) => p.value === curTech)) {
+    tSel.value = curTech;
+  } else {
+    tSel.value = '__otro__';
+    tOther.value = curTech === 'Por asignar' ? '' : curTech;
+    tOther.hidden = false;
+  }
+  tSel.addEventListener('change', () => {
+    tOther.hidden = tSel.value !== '__otro__';
+    if (!tOther.hidden) tOther.focus();
+  });
+
+  const os = document.createElement('select');
+  os.className = 'ot-op-detail__select';
+  os.setAttribute('aria-label', 'Origen del pedido');
+  HNF_OT_ORIGEN_PEDIDO.forEach((p) => {
+    const o = document.createElement('option');
+    o.value = p.value;
+    o.textContent = p.label;
+    if ((ot.origenPedido || '') === p.value) o.selected = true;
+    os.append(o);
+  });
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'primary-button';
+  save.textContent = isPatching ? 'Guardando…' : 'Guardar modo / técnico / origen';
+  save.disabled = Boolean(isPatching);
+  save.addEventListener('click', () => {
+    let t = tSel.value;
+    if (t === '__otro__') t = tOther.value.trim() || 'Por asignar';
+    actions.patchOtOperational(ot.id, {
+      operationMode: ms.value,
+      tecnicoAsignado: t,
+      origenPedido: os.value,
+    });
+  });
+
+  rowCtrl.append(ms, tSel, tOther, os, save);
+  ctl.append(rowCtrl);
+  sec.append(ctl);
+
+  return sec;
 };
 
 const createEquipoFormRow = () => {
@@ -699,6 +935,7 @@ export const climaView = ({
   reloadApp,
   intelListFilter,
   intelGuidance,
+  isPatchingOtOperational,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'ot-workspace hnf-op-view hnf-op-view--clima';
@@ -817,6 +1054,8 @@ export const climaView = ({
     form.append(fieldset);
   });
 
+  form.append(buildOtAltaOperationSection());
+
   const eqWrap = document.createElement('div');
   eqWrap.className = 'ot-form__section';
   eqWrap.innerHTML = '<h4 class="ot-equipos-title">Equipos en sitio (máx. 12)</h4><p class="muted">Cada equipo lleva sus propias fotos antes / durante / después.</p>';
@@ -857,7 +1096,9 @@ export const climaView = ({
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const equipos = collectEquiposFromCreateForm(eqContainer);
+    const customId = form.elements.otCustomId?.value?.trim() || '';
     const payload = {
+      ...(customId ? { id: customId } : {}),
       cliente: form.elements.cliente.value.trim(),
       direccion: form.elements.direccion.value.trim(),
       comuna: form.elements.comuna.value.trim(),
@@ -865,7 +1106,9 @@ export const climaView = ({
       telefonoContacto: form.elements.telefonoContacto.value.trim(),
       tipoServicio: form.elements.tipoServicio.value,
       subtipoServicio: form.elements.subtipoServicio.value.trim(),
-      tecnicoAsignado: form.elements.tecnicoAsignado.value.trim(),
+      tecnicoAsignado: resolveTecnicoFromAltaForm(form),
+      operationMode: form.elements.operationModeCreate?.value || 'manual',
+      origenPedido: form.elements.origenPedidoCreate?.value || '',
       fecha: form.elements.fecha.value,
       hora: form.elements.hora.value,
       observaciones: form.elements.observaciones.value.trim(),
@@ -982,9 +1225,11 @@ export const climaView = ({
       button.className = `ot-list__item ${selectedOT?.id === item.id ? 'is-active' : ''} ${
         isTarget ? 'is-intel-target' : ''
       }`.trim();
+      const opMode = item.operationMode === 'automatic' ? 'automatic' : 'manual';
       button.innerHTML = `
         <div>
           <span class="ot-list__id muted">${item.id}</span>
+          <span class="ot-list__mode ot-list__mode--${opMode}" title="Modo operación">${opMode === 'automatic' ? 'AUTO' : 'MANUAL'}</span>
           <strong>${item.cliente}</strong>
           <span class="muted">${item.fecha} · ${item.equipos?.length || 0} eq. · ${item.tipoServicio}</span>
         </div>
@@ -1008,12 +1253,16 @@ export const climaView = ({
     detailCard.innerHTML =
       '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado del medio.</p>';
   } else {
+    const ro = selectedOT.estado === 'terminado';
     const titleRow = document.createElement('div');
     titleRow.className = 'ot-detail-card__header';
     const titleBlock = document.createElement('div');
     titleBlock.innerHTML = `<p class="muted">Paso 3 · Detalle y cierre</p><h3>${selectedOT.id} · ${selectedOT.cliente}</h3>`;
     titleRow.append(titleBlock, createStatusBadge(selectedOT.estado));
-    detailCard.append(titleRow);
+    detailCard.append(
+      titleRow,
+      buildOtOperationalDetailPanel(selectedOT, actions, ro, isPatchingOtOperational)
+    );
     if (intelGuidance?.recordLabel && selectedOT.id === intelGuidance.recordLabel) {
       detailCard.classList.add('is-intel-detail-focus');
     }
@@ -1025,6 +1274,8 @@ export const climaView = ({
       ['Comuna', selectedOT.comuna],
       ['Contacto', selectedOT.contactoTerreno],
       ['Teléfono', selectedOT.telefonoContacto],
+      ['Modo operación', labelOperationMode(selectedOT.operationMode)],
+      ['Origen del pedido', labelOrigenPedido(selectedOT.origenPedido)],
       ['Técnico', selectedOT.tecnicoAsignado],
       ['Tipo / subtipo', `${selectedOT.tipoServicio} / ${selectedOT.subtipoServicio}`],
       ['Fecha / hora', `${selectedOT.fecha} · ${selectedOT.hora}`],
@@ -1059,8 +1310,6 @@ export const climaView = ({
     bTitle.className = 'ot-exec-block__title';
     bTitle.textContent = 'B · Datos automáticos (solo lectura)';
     blockB.append(bTitle, summaryGrid, audit);
-
-    const ro = selectedOT.estado === 'terminado';
 
     const blockA = document.createElement('section');
     blockA.className = 'ot-exec-block ot-exec-block--a-trabajo';

@@ -1,4 +1,5 @@
 import { HVAC_CHECKLIST_TEMPLATE } from '../constants/hvacChecklist.js';
+import { suggestTechnicianAutomatic } from '../domain/jarvisOtAssignment.stub.js';
 import {
   normalizeEvidenceItem,
   normalizeFiles,
@@ -9,6 +10,7 @@ import {
   validateEconomicsPatch,
   validateEquiposPatchBody,
   validateEvidencePatchBody,
+  validateOperationalPatch,
   validateOTPayload,
   validateReportPayload,
   validateVisitFieldsPatch,
@@ -205,32 +207,76 @@ export const otService = {
 
     const equipos = normalizeEquiposList(data.equipos);
 
-    return otRepository.create({
-      cliente: data.cliente || null,
-      direccion: data.direccion || '',
-      comuna: data.comuna || '',
-      contactoTerreno: data.contactoTerreno || '',
-      telefonoContacto: data.telefonoContacto || '',
-      clienteRelacionado: data.clienteRelacionado || null,
-      vehiculoRelacionado: data.vehiculoRelacionado || null,
-      tipoServicio: data.tipoServicio || '',
-      subtipoServicio: data.subtipoServicio || '',
-      tecnicoAsignado: data.tecnicoAsignado || 'Por asignar',
-      estado: 'pendiente',
-      fecha: data.fecha,
-      hora: data.hora || '',
-      observaciones: data.observaciones || '',
-      resumenTrabajo: data.resumenTrabajo || '',
-      recomendaciones: data.recomendaciones || '',
-      creadoEn: new Date().toISOString(),
-      cerradoEn: null,
-      pdfName: null,
-      pdfUrl: null,
-      equipos,
-      fotografiasAntes: normalizeFiles(data, 'fotografiasAntes'),
-      fotografiasDurante: normalizeFiles(data, 'fotografiasDurante'),
-      fotografiasDespues: normalizeFiles(data, 'fotografiasDespues'),
-    }, actor);
+    const mode = data.operationMode === 'automatic' ? 'automatic' : 'manual';
+    let tecnico = String(data.tecnicoAsignado || '').trim() || 'Por asignar';
+    let jarvisPickedTech = false;
+    if (mode === 'automatic' && (!String(data.tecnicoAsignado || '').trim() || tecnico === 'Por asignar')) {
+      tecnico = suggestTechnicianAutomatic({
+        tipoServicio: data.tipoServicio,
+        comuna: data.comuna,
+        direccion: data.direccion,
+      });
+      jarvisPickedTech = true;
+    }
+
+    const asignadoPor =
+      tecnico === 'Por asignar' ? null : jarvisPickedTech ? 'Jarvis' : actor;
+    const responsableActual = tecnico === 'Por asignar' ? null : tecnico;
+    const origenPedido = String(data.origenPedido || '').trim().slice(0, 120);
+    const optionalId = data.id != null ? String(data.id).trim() : '';
+
+    const created = await otRepository.create(
+      {
+        ...(optionalId ? { id: optionalId } : {}),
+        cliente: data.cliente || null,
+        direccion: data.direccion || '',
+        comuna: data.comuna || '',
+        contactoTerreno: data.contactoTerreno || '',
+        telefonoContacto: data.telefonoContacto || '',
+        clienteRelacionado: data.clienteRelacionado || null,
+        vehiculoRelacionado: data.vehiculoRelacionado || null,
+        tipoServicio: data.tipoServicio || '',
+        subtipoServicio: data.subtipoServicio || '',
+        tecnicoAsignado: tecnico,
+        operationMode: mode,
+        origenPedido,
+        asignadoPor,
+        responsableActual,
+        estado: 'pendiente',
+        fecha: data.fecha,
+        hora: data.hora || '',
+        observaciones: data.observaciones || '',
+        resumenTrabajo: data.resumenTrabajo || '',
+        recomendaciones: data.recomendaciones || '',
+        creadoEn: new Date().toISOString(),
+        cerradoEn: null,
+        pdfName: null,
+        pdfUrl: null,
+        equipos,
+        fotografiasAntes: normalizeFiles(data, 'fotografiasAntes'),
+        fotografiasDurante: normalizeFiles(data, 'fotografiasDurante'),
+        fotografiasDespues: normalizeFiles(data, 'fotografiasDespues'),
+      },
+      actor
+    );
+
+    if (created?.error === 'DUPLICATE_ID') {
+      return { errors: [`Ya existe una OT con el identificador «${created.id}».`] };
+    }
+
+    return created;
+  },
+
+  async patchOperational(id, body, actor = 'sistema') {
+    const validation = validateOperationalPatch(body);
+    if (!validation.valid) {
+      return { errors: validation.errors };
+    }
+    const item = await otRepository.patchOperational(id, body, actor);
+    if (!item) {
+      return { error: 'OT no encontrada.' };
+    }
+    return item;
   },
 
   async updateStatus(id, estado, statusOptions, actor = 'sistema') {

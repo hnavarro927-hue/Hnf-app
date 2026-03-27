@@ -885,6 +885,142 @@ select option {
   margin-bottom: 4px;
 }
 
+.ot-list__mode {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+}
+
+.ot-list__mode--manual {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.ot-list__mode--automatic {
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.ot-tech-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ot-tech-pick__other {
+  width: 100%;
+}
+
+.ot-op-detail {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(4, 12, 28, 0.4);
+}
+
+.ot-op-detail__head {
+  margin-bottom: 10px;
+}
+
+.ot-op-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ot-op-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ot-op-badge--neutral {
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ot-op-badge--mode-manual {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.ot-op-badge--mode-automatic {
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.ot-op-detail__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 14px;
+  margin-bottom: 4px;
+}
+
+.ot-op-detail__kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.ot-op-detail__kv span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ot-op-detail__controls {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ot-op-detail__ctrl-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ot-op-detail__select {
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 14px;
+  max-width: 100%;
+}
+
+.ot-op-detail__other {
+  min-height: 42px;
+  flex: 1;
+  min-width: 140px;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
 .status-badge {
   font-size: 12px;
   font-weight: 700;

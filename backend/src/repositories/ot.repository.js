@@ -41,11 +41,26 @@ const computeOtEconomics = (item) => {
   return { ...item, costoMateriales: cm, costoManoObra: mo, costoTraslado: tr, costoOtros: ot, costoTotal, montoCobrado, utilidad };
 };
 
+const normalizeOperationMode = (v) => (v === 'automatic' ? 'automatic' : 'manual');
+
+const deriveResponsable = (item) => {
+  const t = String(item?.tecnicoAsignado || '').trim();
+  if (item?.responsableActual != null && String(item.responsableActual).trim()) {
+    return String(item.responsableActual).trim();
+  }
+  if (t && t !== 'Por asignar') return t;
+  return null;
+};
+
 const ensureDefaults = (item) => {
   const now = new Date().toISOString();
   const creado = item.creadoEn || item.createdAt || null;
   const base = {
     ...item,
+    operationMode: normalizeOperationMode(item.operationMode),
+    origenPedido: String(item.origenPedido ?? '').trim(),
+    asignadoPor: item.asignadoPor != null && String(item.asignadoPor).trim() ? String(item.asignadoPor).trim() : null,
+    responsableActual: deriveResponsable(item),
     pdfName: item.pdfName ?? null,
     pdfUrl: item.pdfUrl ?? null,
     creadoEn: item.creadoEn ?? null,
@@ -110,19 +125,78 @@ export const otRepository = {
   async create(data, actor = 'sistema') {
     const items = await loadStore();
     const now = new Date().toISOString();
+    const requestedId = data.id != null ? String(data.id).trim() : '';
+    const id = requestedId || nextId(items);
+    if (items.some((x) => x.id === id)) {
+      return { error: 'DUPLICATE_ID', id };
+    }
+
+    const { id: _dropId, ...rest } = data;
+    const mode = normalizeOperationMode(rest.operationMode);
     const item = ensureDefaults({
-      id: nextId(items),
-      ...data,
-      creadoEn: data.creadoEn || now,
-      createdAt: data.createdAt || data.creadoEn || now,
+      id,
+      ...rest,
+      operationMode: mode,
+      creadoEn: rest.creadoEn || now,
+      createdAt: rest.createdAt || rest.creadoEn || now,
       updatedAt: now,
-      creadoPor: data.creadoPor || actor,
+      creadoPor: actor,
       actualizadoPor: actor,
-      historial: appendHistorial({}, 'alta', `OT creada · ${data.estado || 'pendiente'}`, actor),
+      historial: appendHistorial(
+        {},
+        'alta',
+        `OT creada · ${rest.estado || 'pendiente'} · modo ${mode}`,
+        actor
+      ),
     });
     const next = [...items, item];
     await saveStore(next);
     return item;
+  },
+
+  async patchOperational(id, patch, actor = 'sistema') {
+    const items = await loadStore();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    let updated = { ...ensureDefaults(items[index]) };
+    const p = patch || {};
+
+    if ('operationMode' in p) {
+      const m = normalizeOperationMode(p.operationMode);
+      if (m !== updated.operationMode) {
+        updated.operationMode = m;
+        updated = touch(updated, 'operacion', `Modo operación → ${m}`, actor);
+      }
+    }
+
+    if ('tecnicoAsignado' in p) {
+      const t = String(p.tecnicoAsignado ?? '').trim() || 'Por asignar';
+      updated.tecnicoAsignado = t;
+      updated.asignadoPor = actor;
+      if ('responsableActual' in p && p.responsableActual != null) {
+        const r = String(p.responsableActual).trim();
+        updated.responsableActual = r || null;
+      } else {
+        updated.responsableActual = t === 'Por asignar' ? null : t;
+      }
+      updated = touch(updated, 'asignacion', `Técnico asignado → ${t}`, actor);
+    } else if ('responsableActual' in p) {
+      const r = String(p.responsableActual ?? '').trim();
+      updated.responsableActual = r || null;
+      updated = touch(updated, 'responsable', `Responsable actual → ${r || '—'}`, actor);
+    }
+
+    if ('origenPedido' in p) {
+      updated.origenPedido = String(p.origenPedido ?? '').trim();
+      updated = touch(updated, 'origen', 'Origen del pedido actualizado', actor);
+    }
+
+    updated = ensureDefaults(updated);
+    const next = [...items];
+    next[index] = updated;
+    await saveStore(next);
+    return updated;
   },
 
   async updateStatus(id, estado, actor = 'sistema') {

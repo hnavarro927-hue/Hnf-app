@@ -24,6 +24,14 @@ export const otModel = {
     'updatedAt',
     'creadoPor',
     'actualizadoPor',
+    /** manual | automatic — control operativo (Jarvis puede sugerir / ejecutar en automático) */
+    'operationMode',
+    /** Origen del pedido: whatsapp, correo, llamada, manual, jarvis, etc. */
+    'origenPedido',
+    /** Quien asignó el técnico actual (Romina, Gery, Jarvis, sistema) */
+    'asignadoPor',
+    /** Responsable operativo actual (suele coincidir con técnico en terreno) */
+    'responsableActual',
     'historial',
     'costoMateriales',
     'costoManoObra',
@@ -40,6 +48,7 @@ export const otModel = {
     'fotografiasDespues',
   ],
   statusOptions: ['pendiente', 'en proceso', 'terminado'],
+  operationModes: ['manual', 'automatic'],
   serviceTypes: ['clima', 'flota'],
   equipoEstadoOptions: ['operativo', 'mantenimiento', 'falla'],
   maxEquipos: 12,

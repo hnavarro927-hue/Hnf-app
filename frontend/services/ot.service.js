@@ -11,4 +11,6 @@ export const otService = {
   patchVisit: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/visit`, payload),
   patchEconomics: (id, payload) =>
     httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/economics`, payload),
+  patchOperational: (id, payload) =>
+    httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/operacion`, payload),
 };
