@@ -7,6 +7,7 @@ import { buildExecutiveCommandModel } from '../domain/hnf-executive-command.js';
 import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
 import { whatsappMessagesForOt } from '../domain/control-operativo-tiempo-real.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
+import { createJarvisAssistantPanel } from './jarvis-assistant-panel.js';
 
 let __hnfJarvisPrimaryActionFn = null;
 if (typeof window !== 'undefined' && !window.__hnfJarvisPrimaryActionWired) {
@@ -663,6 +664,11 @@ export function createHnfJarvisPremiumCommand({
 
   jarvisIa.append(iaTop, insights, iaFocus, iaRisk, btnRevisar);
 
+  const assistantPanel = createJarvisAssistantPanel({
+    data: raw,
+    controlCards: Array.isArray(adn.cards) ? adn.cards : [],
+  });
+
   /* —— Operación en Vivo —— */
   const otLive = document.createElement('section');
   otLive.className = 'hnf-jarvis-premium__ot-live';
@@ -1004,7 +1010,7 @@ export function createHnfJarvisPremiumCommand({
     emitPremium(JARVIS_PREMIUM_EVENTS.INTEL_TOGGLE, { open: intel.open });
   });
 
-  main.append(jarvisIa, otLive, modules, intel);
+  main.append(jarvisIa, assistantPanel, otLive, modules, intel);
   shell.append(hero, kpiRow, main);
   root.append(scene, shell);
 
