@@ -730,6 +730,9 @@ const state = {
   isSavingVisitText: false,
   isSavingOtEconomics: false,
   isPatchingOtOperational: false,
+  /** Alta OT desde módulo Ingreso (no cambia OT seleccionada en Clima). */
+  isSubmittingIngresoOt: false,
+  ingresoFeedback: null,
   /** Resultado económico persistido en servidor (válido) para la OT seleccionada en Clima */
   otEconomicsSaved: false,
   /** Navegación desde Intelligence Engine (se aplica tras cargar datos). */
@@ -990,6 +993,40 @@ const createActions = () => ({
       state.isSubmittingOT = false;
       render();
     }
+  },
+
+  /**
+   * Crea OT desde Ingreso sin mover la selección de Clima.
+   * @returns {Promise<{ ok: true, ot: object } | { ok: false, error: string }>}
+   */
+  createOtFromIngreso: async (payload) => {
+    state.isSubmittingIngresoOt = true;
+    state.ingresoFeedback = null;
+    render();
+    try {
+      const response = await otService.create(payload);
+      state.ingresoFeedback = {
+        type: 'success',
+        message: `Listo: OT ${response.data.id} creada en el servidor. Aparece abajo en tu lista del día; en Clima podés cargar equipos y evidencias.`,
+      };
+      await loadViewData();
+      state.isSubmittingIngresoOt = false;
+      render();
+      return { ok: true, ot: response.data };
+    } catch (error) {
+      const msg =
+        error.message ||
+        'No se pudo crear la OT. Revisá que dirección, comuna, contacto, teléfono, tipo, subtipo y fecha estén completos, y que el servidor responda.';
+      state.ingresoFeedback = { type: 'error', message: msg };
+      state.isSubmittingIngresoOt = false;
+      render();
+      return { ok: false, error: msg };
+    }
+  },
+
+  clearIngresoFeedback: () => {
+    state.ingresoFeedback = null;
+    render();
   },
 
   patchOtOperational: async (id, body) => {
@@ -1512,6 +1549,8 @@ const render = () => {
         isSavingVisitText: state.isSavingVisitText,
         isSavingOtEconomics: state.isSavingOtEconomics,
         isPatchingOtOperational: state.isPatchingOtOperational,
+        isSubmittingIngresoOt: state.isSubmittingIngresoOt,
+        ingresoFeedback: state.ingresoFeedback,
         otEconomicsSaved: state.otEconomicsSaved,
         selectedOTId: state.selectedOTId,
         selectedFlotaId: state.selectedFlotaId,

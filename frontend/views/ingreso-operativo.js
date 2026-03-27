@@ -5,12 +5,17 @@ import {
   syncWhatsappFeedToIngresosOperativos,
   patchIngresoOperativo,
   INGRESO_PRIORIDADES,
+  normalizePrioridadFromUi,
 } from '../domain/ingreso-operativo-storage.js';
 import {
   classifyWhatsappOperative,
   mapWhatsappEstadoToIngreso,
 } from '../domain/whatsapp-operational-ingest.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import {
+  HNF_OT_OPERATION_MODES,
+  HNF_OT_TECNICOS_PRESETS,
+} from '../constants/hnf-ot-operation.js';
 
 const CASO_LABEL = {
   ot: 'OT',
@@ -28,27 +33,200 @@ const ORIGEN_LABEL = {
   manual: 'Manual',
 };
 
-const PRIO_LABEL = { baja: 'Prioridad baja', media: 'Prioridad media', alta: 'Prioridad alta' };
+const PRIO_LABEL = {
+  baja: 'Prioridad baja',
+  media: 'Prioridad normal',
+  alta: 'Prioridad urgente',
+};
+
+const SUBTIPO_BY_TIPO = {
+  clima: [
+    { value: 'Mantención preventiva', label: 'Mantención preventiva' },
+    { value: 'Mantención correctiva', label: 'Mantención correctiva' },
+    { value: 'Emergencia', label: 'Emergencia' },
+    { value: 'Visita técnica', label: 'Visita técnica' },
+  ],
+  flota: [
+    { value: 'Traslado', label: 'Traslado' },
+    { value: 'Revisión técnica', label: 'Revisión técnica' },
+    { value: 'Mantención', label: 'Mantención' },
+    { value: 'Emergencia', label: 'Emergencia' },
+    { value: 'Asistencia puntual', label: 'Asistencia puntual' },
+  ],
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const defaultFechaSolicitud = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+const defaultHoraSolicitud = () => {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+
+const collectClientesNombres = (data) => {
+  const set = new Set();
+  const rawClients = data?.clients?.data ?? data?.clients;
+  if (Array.isArray(rawClients)) {
+    for (const c of rawClients) {
+      const n = String(c?.nombre || c?.name || c?.cliente || '').trim();
+      if (n) set.add(n);
+    }
+  }
+  for (const o of data?.planOts || []) {
+    const n = String(o?.cliente || '').trim();
+    if (n) set.add(n);
+  }
+  const ots = data?.ots?.data ?? [];
+  if (Array.isArray(ots)) {
+    for (const o of ots) {
+      const n = String(o?.cliente || '').trim();
+      if (n) set.add(n);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+};
+
+const resolveTecnicoIngreso = (form) => {
+  const preset = form.elements.tecnicoPreset?.value;
+  const otro = form.elements.tecnicoOtro?.value?.trim() || '';
+  if (preset === '__otro__') return otro || 'Por asignar';
+  return preset || 'Por asignar';
+};
+
+const buildOtPayloadFromIngresoForm = (form) => {
+  const cliente = form.elements.cliente?.value?.trim() || '';
+  const contacto = form.elements.contacto?.value?.trim() || '';
+  const telefono = form.elements.telefono?.value?.trim() || '';
+  const direccion = form.elements.direccion?.value?.trim() || '';
+  const comuna = form.elements.comuna?.value?.trim() || '';
+  const emailCorreo = form.elements.emailCorreo?.value?.trim() || '';
+  const regionZona = form.elements.regionZona?.value?.trim() || '';
+  const tipo = form.elements.tipo?.value || 'clima';
+  const subtipo = form.elements.subtipo?.value?.trim() || '';
+  const origen = form.elements.origen?.value || 'manual';
+  const fechaSolicitud = form.elements.fechaSolicitud?.value || '';
+  const horaSolicitud = form.elements.horaSolicitud?.value || '';
+  const descripcion = form.elements.descripcion?.value?.trim() || '';
+  const observaciones = form.elements.observaciones?.value?.trim() || '';
+  const prioridadUi = form.elements.prioridad?.value || 'normal';
+  const fechaVisita = form.elements.fechaVisita?.value?.trim() || '';
+  const horaVisita = form.elements.horaVisita?.value?.trim() || '';
+  const operationMode = form.elements.operationMode?.value || 'manual';
+  const otManualId = form.elements.otManualId?.value?.trim() || '';
+  const tecnicoAsignado = resolveTecnicoIngreso(form);
+
+  const prioridadLine =
+    prioridadUi === 'urgente' ? 'Prioridad: urgente (operación)' : 'Prioridad: normal';
+  const metaLines = [
+    `[Ingreso HNF · origen: ${origen} · registro solicitud ${fechaSolicitud} ${horaSolicitud || ''}]`,
+    prioridadLine,
+    emailCorreo && `Correo cliente: ${emailCorreo}`,
+    regionZona && `Región / zona: ${regionZona}`,
+    fechaVisita && `Preferencia de visita: ${fechaVisita}${horaVisita ? ` ${horaVisita}` : ''}`,
+  ].filter(Boolean);
+
+  const observacionesOt = [descripcion, observaciones, metaLines.join('\n')].filter(Boolean).join('\n\n');
+
+  return {
+    payload: {
+      ...(otManualId ? { id: otManualId } : {}),
+      cliente,
+      direccion,
+      comuna,
+      contactoTerreno: contacto,
+      telefonoContacto: telefono,
+      tipoServicio: tipo,
+      subtipoServicio: subtipo,
+      operationMode: operationMode === 'automatic' ? 'automatic' : 'manual',
+      origenPedido: origen,
+      fecha: fechaSolicitud,
+      hora: horaSolicitud || '09:00',
+      observaciones: observacionesOt,
+      resumenTrabajo: '',
+      recomendaciones: '',
+      tecnicoAsignado,
+      equipos: [],
+    },
+    snapshot: {
+      cliente,
+      contacto,
+      telefono,
+      direccion,
+      comuna,
+      emailCorreo,
+      regionZona,
+      tipo,
+      subtipo,
+      origen,
+      fechaSolicitud,
+      horaSolicitud,
+      descripcion,
+      observaciones,
+      prioridad: normalizePrioridadFromUi(prioridadUi === 'urgente' ? 'urgente' : 'normal'),
+      fechaVisita,
+      horaVisita,
+      operationMode: operationMode === 'automatic' ? 'automatic' : 'manual',
+      tecnicoAsignadoOt: tecnicoAsignado,
+    },
+  };
+};
 
 /**
- * Capa 1 — Ingreso de datos (Romina / Gery).
- * WhatsApp alimenta ingestas automáticas; acá se validan y completan datos.
+ * Punto de ingesta principal (Romina / Gery): guía clara + alta de OT en servidor.
  */
-export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) => {
+export const ingresoOperativoView = ({
+  data,
+  reloadApp,
+  navigateToView,
+  actions,
+  ingresoFeedback,
+  isSubmittingIngresoOt,
+  integrationStatus,
+} = {}) => {
   const root = document.createElement('section');
   root.className = 'hnf-cap-ingreso hnf-op-view hnf-op-view--ingreso';
 
   const head = document.createElement('header');
   head.className = 'hnf-cap-ingreso__head';
   head.innerHTML = `
-    <h1 class="hnf-cap-ingreso__title">Ingreso operativo</h1>
+    <h1 class="hnf-cap-ingreso__title">Ingreso · punto de entrada operativo</h1>
     <p class="muted hnf-cap-ingreso__lead">
-      Registrá pedidos que entran por <strong>WhatsApp</strong>, <strong>correo</strong>, <strong>llamada</strong> o <strong>manual</strong>.
-      Las ingestas de WhatsApp aparecen abajo para validar; el formulario manual sirve cuando el cliente no escribió al bot o querés cargar todo de cero.
+      Acá registrás <strong>lo que entró</strong> (WhatsApp, correo, llamada o manual) y <strong>se crea la orden de trabajo (OT)</strong> en el sistema.
+      Eso alimenta <strong>Jarvis</strong>, <strong>Clima</strong> y <strong>Flota</strong> según el tipo que elijas. Abajo seguís viendo las ingestas de WhatsApp del día para validar.
     </p>
   `;
 
   const flowStrip = createHnfOperationalFlowStrip(0);
+
+  const globalFb = document.createElement('div');
+  globalFb.className = 'hnf-ingreso-global-feedback';
+  globalFb.setAttribute('role', 'status');
+  globalFb.hidden = true;
+
+  const syncGlobalFeedback = () => {
+    globalFb.replaceChildren();
+    if (!ingresoFeedback?.message) {
+      globalFb.hidden = true;
+      return;
+    }
+    globalFb.hidden = false;
+    globalFb.className = `hnf-ingreso-global-feedback form-feedback form-feedback--${ingresoFeedback.type || 'neutral'}`;
+    const text = document.createElement('p');
+    text.className = 'hnf-ingreso-global-feedback__text';
+    text.textContent = ingresoFeedback.message;
+    globalFb.append(text);
+    if (ingresoFeedback.type === 'success' || ingresoFeedback.type === 'error') {
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'secondary-button hnf-ingreso-global-feedback__close';
+      close.textContent = 'Cerrar aviso';
+      close.addEventListener('click', () => actions?.clearIngresoFeedback?.());
+      globalFb.append(close);
+    }
+  };
+  syncGlobalFeedback();
 
   const waSyncNote = document.createElement('p');
   waSyncNote.className = 'hnf-cap-ingreso__sync muted small';
@@ -56,11 +234,23 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
   waSyncNote.textContent = '';
 
   const formCard = document.createElement('div');
-  formCard.className = 'hnf-cap-ingreso__form-card';
-  const formLegend = document.createElement('h2');
-  formLegend.className = 'hnf-cap-ingreso__form-legend';
-  formLegend.textContent = 'Registrar un pedido (paso a paso)';
-  formCard.append(formLegend);
+  formCard.className = 'hnf-cap-ingreso__form-card hnf-ingreso-intake';
+
+  const formIntro = document.createElement('div');
+  formIntro.className = 'hnf-ingreso-intake__intro';
+  formIntro.innerHTML = `
+    <h2 class="hnf-ingreso-intake__intro-title">Nueva solicitud → OT en el servidor</h2>
+    <p class="muted small hnf-ingreso-intake__intro-text">
+      <strong>Qué hacés acá:</strong> contás quién pidió el servicio, desde dónde llegó, qué necesita y cómo operarlo (modo / técnico).<br/>
+      <strong>Por qué importa:</strong> la OT queda con trazabilidad para el equipo y para Jarvis.<br/>
+      <strong>Después de guardar:</strong> la OT existe en <strong>Clima</strong> (ejecución técnica); podés abrirla desde el aviso o desde el listado del día abajo.
+    </p>
+  `;
+  formCard.append(formIntro);
+
+  const form = document.createElement('form');
+  form.className = 'hnf-ingreso-intake-form';
+  form.setAttribute('novalidate', 'true');
 
   const mkField = (name, label, type = 'text', extra = {}) => {
     const w = document.createElement('label');
@@ -91,6 +281,7 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
     }
     el.className = 'hnf-cap-ingreso__input';
     if (extra.placeholder) el.placeholder = extra.placeholder;
+    if (extra.required) el.required = true;
     w.append(lb, el);
     if (extra.hint) {
       const h = document.createElement('span');
@@ -101,110 +292,372 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
     return w;
   };
 
-  const mkGroup = (legend, className = '') => {
-    const fs = document.createElement('div');
-    fs.className = `hnf-cap-ingreso__group ${className}`.trim();
-    const lg = document.createElement('div');
-    lg.className = 'hnf-cap-ingreso__group-legend';
-    lg.textContent = legend;
-    fs.append(lg);
-    return fs;
+  const mkSection = (title, introHtml, className = '') => {
+    const sec = document.createElement('section');
+    sec.className = `hnf-ingreso-section ${className}`.trim();
+    const hd = document.createElement('div');
+    hd.className = 'hnf-ingreso-section__header';
+    const ht = document.createElement('h3');
+    ht.className = 'hnf-ingreso-section__title';
+    ht.textContent = title;
+    const intro = document.createElement('p');
+    intro.className = 'hnf-ingreso-section__intro muted small';
+    intro.innerHTML = introHtml;
+    hd.append(ht, intro);
+    const body = document.createElement('div');
+    body.className = 'hnf-ingreso-section__body hnf-cap-ingreso__grid';
+    sec.append(hd, body);
+    return { sec, body };
   };
 
-  const grid = document.createElement('div');
-  grid.className = 'hnf-cap-ingreso__grid hnf-cap-ingreso__grid--stacked';
+  const nombresClientes = collectClientesNombres(data);
 
-  const gCliente = mkGroup('Cliente y contacto');
-  gCliente.append(
-    mkField('cliente', 'Cliente *', 'text', {
-      placeholder: 'Ej. Distribuidora Norte S.A.',
-      hint: 'Nombre comercial o razón social tal como lo reconoce operación.',
+  /* —— A · Origen —— */
+  const secA = mkSection(
+    'A · Origen de la solicitud',
+    'Indicá <strong>cuándo</strong> te llegó el pedido y <strong>por qué canal</strong>. Así Jarvis y la operación entienden el contexto.'
+  );
+  const origenSel = document.createElement('select');
+  origenSel.name = 'origen';
+  origenSel.className = 'hnf-cap-ingreso__input';
+  origenSel.required = true;
+  [
+    { value: 'whatsapp', label: 'WhatsApp' },
+    { value: 'correo', label: 'Correo electrónico' },
+    { value: 'llamada', label: 'Llamada telefónica' },
+    { value: 'manual', label: 'Manual / mostrador / otro' },
+  ].forEach((o) => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    origenSel.append(opt);
+  });
+  const wOrigen = document.createElement('label');
+  wOrigen.className = 'hnf-cap-ingreso__field';
+  wOrigen.innerHTML = '<span class="hnf-cap-ingreso__label">Origen *</span>';
+  const hintOrigen = document.createElement('span');
+  hintOrigen.className = 'hnf-cap-ingreso__hint muted small';
+  hintOrigen.textContent =
+    'Seleccioná desde dónde llegó esta solicitud (no es el tipo de servicio; eso va más abajo).';
+  wOrigen.append(origenSel, hintOrigen);
+
+  const fechaSol = document.createElement('input');
+  fechaSol.type = 'date';
+  fechaSol.name = 'fechaSolicitud';
+  fechaSol.className = 'hnf-cap-ingreso__input';
+  fechaSol.required = true;
+  fechaSol.value = defaultFechaSolicitud();
+  const wFecha = document.createElement('label');
+  wFecha.className = 'hnf-cap-ingreso__field';
+  wFecha.innerHTML = '<span class="hnf-cap-ingreso__label">Fecha de la solicitud *</span>';
+  const hF = document.createElement('span');
+  hF.className = 'hnf-cap-ingreso__hint muted small';
+  hF.textContent = 'Día en que el cliente te contactó o dejaste constancia del pedido.';
+  wFecha.append(fechaSol, hF);
+
+  const horaSol = document.createElement('input');
+  horaSol.type = 'time';
+  horaSol.name = 'horaSolicitud';
+  horaSol.className = 'hnf-cap-ingreso__input';
+  horaSol.value = defaultHoraSolicitud();
+  const wHora = document.createElement('label');
+  wHora.className = 'hnf-cap-ingreso__field';
+  wHora.innerHTML = '<span class="hnf-cap-ingreso__label">Hora de la solicitud</span>';
+  const hH = document.createElement('span');
+  hH.className = 'hnf-cap-ingreso__hint muted small';
+  hH.textContent = 'Referencia operativa; podés ajustar si no la tenés exacta.';
+  wHora.append(horaSol, hH);
+
+  secA.body.append(wOrigen, wFecha, wHora);
+
+  /* —— B · Cliente —— */
+  const secB = mkSection(
+    'B · Cliente y contacto',
+    'Datos que van a la OT. Si ya está en el sistema, elegilo en la lista y se rellena el nombre. Contacto, teléfono, dirección y comuna van siempre visibles; correo y región son opcionales abajo.'
+  );
+
+  const presetSel = document.createElement('select');
+  presetSel.name = 'clientePreset';
+  presetSel.className = 'hnf-cap-ingreso__input';
+  const optEmpty = document.createElement('option');
+  optEmpty.value = '';
+  optEmpty.textContent = '— Escribir nombre a mano abajo —';
+  presetSel.append(optEmpty);
+  for (const n of nombresClientes) {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    presetSel.append(opt);
+  }
+  const optNew = document.createElement('option');
+  optNew.value = '__nuevo__';
+  optNew.textContent = '✚ Cliente nuevo (mostrar ficha rápida)';
+  presetSel.append(optNew);
+
+  const wPreset = document.createElement('label');
+  wPreset.className = 'hnf-cap-ingreso__field';
+  wPreset.innerHTML = '<span class="hnf-cap-ingreso__label">Cliente existente (opcional)</span>';
+  const hPr = document.createElement('span');
+  hPr.className = 'hnf-cap-ingreso__hint muted small';
+  hPr.textContent = 'Lista armada con clientes y OT recientes. Si no está, usá la ficha nueva.';
+  wPreset.append(presetSel, hPr);
+
+  const clienteInp = document.createElement('input');
+  clienteInp.type = 'text';
+  clienteInp.name = 'cliente';
+  clienteInp.className = 'hnf-cap-ingreso__input';
+  clienteInp.required = true;
+  clienteInp.placeholder = 'Ej. Puma Chile · Bodega Maipú';
+  const wCliente = document.createElement('label');
+  wCliente.className = 'hnf-cap-ingreso__field';
+  wCliente.innerHTML = '<span class="hnf-cap-ingreso__label">Nombre cliente / empresa *</span>';
+  const hCl = document.createElement('span');
+  hCl.className = 'hnf-cap-ingreso__hint muted small';
+  hCl.textContent = 'Tal como lo reconoce operación (facturación / visitas).';
+  wCliente.append(clienteInp, hCl);
+
+  const coreContactGrid = document.createElement('div');
+  coreContactGrid.className = 'hnf-cap-ingreso__grid';
+  coreContactGrid.append(
+    mkField('contacto', 'Contacto en terreno *', 'text', {
+      placeholder: 'Ej. María González — jefa de tienda',
+      hint: 'Quien recibe al técnico o coordina la visita / flota.',
+      required: true,
     }),
-    mkField('contacto', 'Persona de contacto', 'text', {
-      placeholder: 'Ej. Juan Pérez — mantención',
-      hint: 'Quién coordina visita o entrega del vehículo.',
+    mkField('telefono', 'Teléfono *', 'tel', {
+      placeholder: 'Ej. +56 9 8765 4321',
+      hint: 'Obligatorio para crear la OT en el servidor.',
+      required: true,
     }),
-    mkField('telefono', 'Teléfono', 'tel', {
-      placeholder: 'Ej. +56 9 1234 5678',
-      hint: 'Incluí código de área o celular.',
+    mkField('direccion', 'Dirección / lugar *', 'text', {
+      placeholder: 'Ej. Av. Los Pajaritos 1234, local 12',
+      hint: 'Sitio de la visita o punto de retiro.',
+      required: true,
+    }),
+    mkField('comuna', 'Comuna o ciudad *', 'text', {
+      placeholder: 'Ej. Maipú',
+      hint: 'Va tal cual a la OT.',
+      required: true,
     })
   );
 
-  const gUbic = mkGroup('Ubicación (si aplica)');
-  gUbic.append(
-    mkField('direccion', 'Dirección / lugar', 'text', {
-      placeholder: 'Ej. Av. Principal 1234, bodega 2',
-      hint: 'Para Clima: sitio de la OT. Para Flota: retiro o base.',
+  const quickDetails = document.createElement('details');
+  quickDetails.className = 'hnf-ingreso-quick-client';
+  quickDetails.innerHTML =
+    '<summary class="hnf-ingreso-quick-client__summary">Correo y región (opcional)</summary>';
+  const quickGrid = document.createElement('div');
+  quickGrid.className = 'hnf-cap-ingreso__grid hnf-ingreso-quick-client__grid';
+  quickGrid.append(
+    mkField('emailCorreo', 'Correo del cliente', 'email', {
+      placeholder: 'Ej. operaciones@cliente.cl',
+      hint: 'Se anexa al texto de la OT para que el equipo lo tenga a mano.',
     }),
-    mkField('comuna', 'Comuna / ciudad', 'text', {
-      placeholder: 'Ej. Santiago, Providencia',
+    mkField('regionZona', 'Región / zona', 'text', {
+      placeholder: 'Ej. RM · zona sur',
+      hint: 'Opcional; útil para rutas y priorización.',
     })
   );
+  quickDetails.append(quickGrid);
 
-  const gCaso = mkGroup('Clasificación del pedido');
-  gCaso.append(
-    mkField('tipo', 'Tipo *', 'select', {
-      options: [
-        { value: 'clima', label: 'Clima (HVAC)' },
-        { value: 'flota', label: 'Flota' },
-      ],
-      hint: 'Define si el trabajo va al módulo técnico Clima o logístico Flota.',
-    }),
-    mkField('subtipo', 'Subtipo', 'text', {
-      placeholder: 'Ej. mantención preventiva · traslado refrigerado',
-      hint: 'Detalle corto: tipo de servicio o categoría interna.',
-    }),
-    mkField('origen', 'Origen del contacto *', 'select', {
-      options: [
-        { value: 'whatsapp', label: 'WhatsApp' },
-        { value: 'correo', label: 'Correo' },
-        { value: 'llamada', label: 'Llamada' },
-        { value: 'manual', label: 'Manual / otro canal' },
-      ],
-      hint: 'Por dónde entró el pedido al equipo.',
-    }),
-    mkField('prioridad', 'Prioridad', 'select', {
-      options: [
-        { value: 'baja', label: 'Baja' },
-        { value: 'media', label: 'Media' },
-        { value: 'alta', label: 'Alta' },
-      ],
-      hint: 'Alta = riesgo operativo o cliente crítico; media es el estándar.',
-    })
+  presetSel.addEventListener('change', () => {
+    const v = presetSel.value;
+    if (v && v !== '__nuevo__') {
+      clienteInp.value = v;
+    } else if (v === '__nuevo__') {
+      quickDetails.open = true;
+      clienteInp.focus();
+    }
+  });
+
+  secB.body.append(wPreset, wCliente, coreContactGrid, quickDetails);
+
+  /* —— C · Tipo —— */
+  const secC = mkSection(
+    'C · Tipo de servicio',
+    '<strong>Clima</strong> (Romina, mantenciones, visitas HVAC) vs <strong>Flota</strong> (Gery, traslados, asistencias). El subtipo cambia según lo que elijas.'
   );
+  const tipoSel = document.createElement('select');
+  tipoSel.name = 'tipo';
+  tipoSel.className = 'hnf-cap-ingreso__input';
+  tipoSel.required = true;
+  [
+    { value: 'clima', label: 'Clima (HVAC)' },
+    { value: 'flota', label: 'Flota' },
+  ].forEach((o) => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    tipoSel.append(opt);
+  });
+  const wTipo = document.createElement('label');
+  wTipo.className = 'hnf-cap-ingreso__field';
+  wTipo.innerHTML = '<span class="hnf-cap-ingreso__label">Tipo *</span>';
+  wTipo.append(tipoSel);
 
-  const gVisita = mkGroup('Ventana deseada (opcional)');
-  gVisita.append(
-    mkField('fechaVisita', 'Fecha preferida', 'date', {
-      hint: 'Si el cliente pidió día concreto; podés dejar vacío.',
-    }),
-    mkField('horaVisita', 'Hora preferida', 'time', {
-      hint: 'Franja aproximada; Planificación / agenda afinan después.',
-    })
+  const subtipoSel = document.createElement('select');
+  subtipoSel.name = 'subtipo';
+  subtipoSel.className = 'hnf-cap-ingreso__input';
+  subtipoSel.required = true;
+  const fillSubtipo = (tipo) => {
+    subtipoSel.replaceChildren();
+    const opts = SUBTIPO_BY_TIPO[tipo] || SUBTIPO_BY_TIPO.clima;
+    for (const o of opts) {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      subtipoSel.append(opt);
+    }
+  };
+  fillSubtipo('clima');
+  tipoSel.addEventListener('change', () => fillSubtipo(tipoSel.value));
+  const wSub = document.createElement('label');
+  wSub.className = 'hnf-cap-ingreso__field';
+  wSub.innerHTML = '<span class="hnf-cap-ingreso__label">Subtipo *</span>';
+  const hSub = document.createElement('span');
+  hSub.className = 'hnf-cap-ingreso__hint muted small';
+  hSub.textContent = 'Elegí el tipo de trabajo; si no calza, usá el más cercano y detallá en descripción.';
+  wSub.append(subtipoSel, hSub);
+
+  secC.body.append(wTipo, wSub);
+
+  /* —— D · Detalle —— */
+  const secD = mkSection(
+    'D · Detalle del pedido',
+    'Contá el problema o el encargo con frases simples. Cuanto más claro, menos vueltas con el cliente y más rápido en terreno.'
   );
-
-  const gDesc = mkGroup('Descripción del pedido');
-  gDesc.classList.add('hnf-cap-ingreso__group--full');
-  gDesc.append(
-    mkField('descripcion', 'Qué necesita el cliente', 'textarea', {
+  secD.body.classList.add('hnf-cap-ingreso__group--full');
+  secD.body.append(
+    mkField('descripcion', 'Descripción del pedido *', 'textarea', {
       rows: 4,
       placeholder:
-        'Ej. «Falla en cámara 2, no enfría» · «Traslado de 3 pallets Maipú → Quilicura, camión con frío»',
-      hint: 'Texto libre: síntomas, alcance, restricciones. Cuanto más claro, menos idas y vueltas en Bandeja y ejecución.',
+        'Ej: Emergencia cliente Puma por falla de aire en sucursal Maipú · cámara 2 no enfría desde ayer.',
+      hint: 'Qué pasó, qué pidió el cliente, dónde, con qué urgencia percibida.',
+      required: true,
+    }),
+    mkField('prioridad', 'Prioridad operativa', 'select', {
+      options: [
+        { value: 'normal', label: 'Normal' },
+        { value: 'urgente', label: 'Urgente' },
+      ],
+      hint: 'Urgente = atención prioritaria hoy; queda marcado en la OT.',
+    }),
+    mkField('observaciones', 'Observaciones internas (opcional)', 'textarea', {
+      rows: 2,
+      placeholder: 'Ej. Coordinar acceso con conserje · pedir llave bodega B',
+      hint: 'Notas para el equipo; no necesitan ir al cliente.',
     })
   );
+  const visitRow = document.createElement('div');
+  visitRow.className = 'hnf-cap-ingreso__grid';
+  visitRow.style.marginTop = '8px';
+  visitRow.append(
+    mkField('fechaVisita', 'Preferencia fecha visita (opcional)', 'date', {
+      hint: 'Si el cliente pidió un día; planificación puede ajustar.',
+    }),
+    mkField('horaVisita', 'Preferencia hora (opcional)', 'time', {
+      hint: 'Franja aproximada.',
+    })
+  );
+  secD.body.append(visitRow);
 
-  grid.append(gCliente, gUbic, gCaso, gVisita, gDesc);
+  /* —— E · Control —— */
+  const secE = mkSection(
+    'E · Control operativo',
+    'Definí si la asignación la hace el equipo (<strong>manual</strong>) o si querés que el sistema proponga técnico (<strong>automático</strong> / Jarvis) cuando no elegís uno. El número de OT manual es solo para continuidad con tu libreta.'
+  );
+  const modeSel = document.createElement('select');
+  modeSel.name = 'operationMode';
+  modeSel.className = 'hnf-cap-ingreso__input';
+  HNF_OT_OPERATION_MODES.forEach((o) => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    modeSel.append(opt);
+  });
+  const wMode = document.createElement('label');
+  wMode.className = 'hnf-cap-ingreso__field';
+  wMode.innerHTML = '<span class="hnf-cap-ingreso__label">Modo operación</span>';
+  const hM = document.createElement('span');
+  hM.className = 'hnf-cap-ingreso__hint muted small';
+  hM.textContent =
+    'Manual: vos elegís técnico. Automático: si dejás «Por asignar», el servidor puede asignar (reglas Jarvis); siempre podés corregir en Clima.';
+  wMode.append(modeSel, hM);
 
+  const otMan = document.createElement('input');
+  otMan.type = 'text';
+  otMan.name = 'otManualId';
+  otMan.className = 'hnf-cap-ingreso__input';
+  otMan.placeholder = 'Ej. OT-042 (solo si necesitás ese número)';
+  otMan.autocomplete = 'off';
+  const wOt = document.createElement('label');
+  wOt.className = 'hnf-cap-ingreso__field';
+  wOt.innerHTML = '<span class="hnf-cap-ingreso__label">Número OT manual (opcional)</span>';
+  const hOt = document.createElement('span');
+  hOt.className = 'hnf-cap-ingreso__hint muted small';
+  hOt.textContent =
+    'Usar solo si deseas mantener la continuidad operativa actual con tu numeración. Si lo dejás vacío, el sistema asigna el siguiente OT-###.';
+  wOt.append(otMan, hOt);
+
+  const techWrap = document.createElement('div');
+  techWrap.className = 'ot-tech-pick';
+  const techSel = document.createElement('select');
+  techSel.name = 'tecnicoPreset';
+  techSel.className = 'hnf-cap-ingreso__input';
+  HNF_OT_TECNICOS_PRESETS.forEach((o) => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    techSel.append(opt);
+  });
+  const otroT = document.createElement('option');
+  otroT.value = '__otro__';
+  otroT.textContent = 'Otro (nombre libre)';
+  techSel.append(otroT);
+  const techOther = document.createElement('input');
+  techOther.type = 'text';
+  techOther.name = 'tecnicoOtro';
+  techOther.className = 'ot-tech-pick__other hnf-cap-ingreso__input';
+  techOther.placeholder = 'Nombre del técnico';
+  techOther.hidden = true;
+  techSel.addEventListener('change', () => {
+    techOther.hidden = techSel.value !== '__otro__';
+    if (!techOther.hidden) techOther.focus();
+  });
+  techWrap.append(techSel, techOther);
+  const wTech = document.createElement('label');
+  wTech.className = 'hnf-cap-ingreso__field';
+  wTech.innerHTML = '<span class="hnf-cap-ingreso__label">Técnico asignado</span>';
+  const hT = document.createElement('span');
+  hT.className = 'hnf-cap-ingreso__hint muted small';
+  hT.textContent =
+    'En modo automático, si dejás «Por asignar», Jarvis puede asignar al crear la OT; si elegís nombre, queda registrado como decisión humana.';
+  wTech.append(techWrap, hT);
+
+  secE.body.append(wMode, wOt, wTech);
+
+  form.append(secA.sec, secB.sec, secC.sec, secD.sec, secE.sec);
+
+  const footer = document.createElement('div');
+  footer.className = 'hnf-ingreso-intake__footer';
   const submit = document.createElement('button');
-  submit.type = 'button';
-  submit.className = 'primary-button hnf-cap-ingreso__submit';
-  submit.textContent = 'Crear ingreso';
+  submit.type = 'submit';
+  submit.className = 'primary-button hnf-cap-ingreso__submit hnf-ingreso-intake__submit';
+  submit.textContent = 'Crear OT y registrar en el día';
+
+  const offlineNote = document.createElement('p');
+  offlineNote.className = 'muted small hnf-ingreso-intake__offline';
+  offlineNote.hidden = integrationStatus !== 'sin conexión';
+  offlineNote.textContent =
+    'Sin conexión al servidor: no se puede crear la OT ahora. Revisá la red y reintentá; el resto del listado local sigue disponible.';
 
   const feedback = document.createElement('p');
-  feedback.className = 'hnf-cap-ingreso__feedback muted';
-  feedback.setAttribute('role', 'status');
+  feedback.className = 'hnf-cap-ingreso__feedback';
+  feedback.setAttribute('role', 'alert');
   feedback.hidden = true;
+
+  footer.append(submit, feedback, offlineNote);
+  form.append(footer);
+  formCard.append(form);
 
   const listHost = document.createElement('div');
   listHost.className = 'hnf-cap-ingreso__list';
@@ -222,7 +675,7 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
     listHost.replaceChildren();
     const h2 = document.createElement('h2');
     h2.className = 'hnf-cap-ingreso__list-title';
-    h2.textContent = 'Ingresos de hoy (WhatsApp + manual)';
+    h2.textContent = 'Registros de hoy (WhatsApp + altas desde Ingreso)';
     listHost.append(h2);
 
     const items = listIngresosOperativosDelDia();
@@ -230,7 +683,7 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
       const p = document.createElement('p');
       p.className = 'muted';
       p.textContent =
-        'Sin ingresos hoy. Cuando lleguen mensajes al feed WhatsApp, aparecerán aquí como tarjetas para validar.';
+        'Todavía no hay registros hoy. Cuando lleguen mensajes al WhatsApp o crees OT desde este formulario, aparecerán acá.';
       listHost.append(p);
       return;
     }
@@ -250,6 +703,13 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
       meta.className = 'muted small';
       meta.textContent = `${it.tipo} · ${ORIGEN_LABEL[it.origen] || it.origen}`;
       top.append(badge, meta);
+
+      if (it.otIdRelacionado) {
+        const otPill = document.createElement('span');
+        otPill.className = 'hnf-cap-ingreso__pill hnf-cap-ingreso__pill--ot';
+        otPill.textContent = it.otIdRelacionado;
+        top.append(otPill);
+      }
 
       if (isWa) {
         const pills = document.createElement('div');
@@ -286,10 +746,17 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
       main.append(nm, dir, ct);
 
       const extras = [];
+      if (it.fechaSolicitud || it.horaSolicitud) {
+        extras.push(`Solicitud: ${[it.fechaSolicitud, it.horaSolicitud].filter(Boolean).join(' · ')}`);
+      }
       if (it.subtipo) extras.push(`Subtipo: ${it.subtipo}`);
       if (it.prioridad && it.prioridad !== 'media') extras.push(PRIO_LABEL[it.prioridad] || it.prioridad);
+      if (it.operationMode === 'automatic') extras.push('Modo: automático');
+      if (it.tecnicoAsignadoOt && it.tecnicoAsignadoOt !== 'Por asignar') {
+        extras.push(`Téc.: ${it.tecnicoAsignadoOt}`);
+      }
       if (it.fechaVisita || it.horaVisita) {
-        extras.push(`Ventana: ${[it.fechaVisita, it.horaVisita].filter(Boolean).join(' · ')}`);
+        extras.push(`Preferencia visita: ${[it.fechaVisita, it.horaVisita].filter(Boolean).join(' · ')}`);
       }
       if (extras.length) {
         const ex = document.createElement('p');
@@ -319,8 +786,8 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
         main.append(ac);
       }
 
-      const actions = document.createElement('div');
-      actions.className = 'hnf-cap-ingreso__row-actions';
+      const rowActions = document.createElement('div');
+      rowActions.className = 'hnf-cap-ingreso__row-actions';
       const mkEst = (lab, est) => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -333,19 +800,19 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
         });
         return b;
       };
-      actions.append(
+      rowActions.append(
         mkEst('Pendiente', 'pendiente'),
         mkEst('En proceso', 'en_proceso'),
         mkEst('Completo', 'completo')
       );
 
-      if (isWa && it.otIdRelacionado && typeof navigateToView === 'function') {
+      if (it.otIdRelacionado && typeof navigateToView === 'function') {
         const otBtn = document.createElement('button');
         otBtn.type = 'button';
         otBtn.className = 'secondary-button hnf-cap-ingreso__mini';
-        otBtn.textContent = `Abrir OT ${it.otIdRelacionado}`;
+        otBtn.textContent = `Abrir en Clima · ${it.otIdRelacionado}`;
         otBtn.addEventListener('click', () => navigateToView('clima', { otId: it.otIdRelacionado }));
-        actions.append(otBtn);
+        rowActions.append(otBtn);
       }
 
       if (isWa) {
@@ -443,54 +910,95 @@ export const ingresoOperativoView = ({ data, reloadApp, navigateToView } = {}) =
         main.append(valBox);
       }
 
-      card.append(top, main, actions);
+      card.append(top, main, rowActions);
       listHost.append(card);
     }
   };
 
-  submit.addEventListener('click', () => {
+  const resetFormPartial = () => {
+    form.reset();
+    fechaSol.value = defaultFechaSolicitud();
+    horaSol.value = defaultHoraSolicitud();
+    presetSel.value = '';
+    tipoSel.value = 'clima';
+    fillSubtipo('clima');
+    techSel.value = 'Por asignar';
+    techOther.value = '';
+    techOther.hidden = true;
+    modeSel.value = 'manual';
+    quickDetails.open = false;
+  };
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
     feedback.hidden = true;
-    const cliente = grid.querySelector('[name=cliente]')?.value?.trim();
-    if (!cliente) {
+    feedback.className = 'hnf-cap-ingreso__feedback';
+
+    if (integrationStatus === 'sin conexión') {
       feedback.hidden = false;
-      feedback.textContent = 'Completá al menos el cliente.';
+      feedback.classList.add('form-feedback--error');
+      feedback.textContent =
+        'Sin conexión: no se puede crear la OT. Revisá la red y probá de nuevo.';
       return;
     }
+
+    if (typeof actions?.createOtFromIngreso !== 'function') {
+      feedback.hidden = false;
+      feedback.classList.add('form-feedback--error');
+      feedback.textContent = 'Acción de servidor no disponible. Actualizá la página.';
+      return;
+    }
+
+    const { payload, snapshot } = buildOtPayloadFromIngresoForm(form);
+
+    const errs = [];
+    if (!payload.cliente) errs.push('Nombre de cliente / empresa.');
+    if (!payload.contactoTerreno) errs.push('Contacto en terreno.');
+    if (!payload.telefonoContacto) errs.push('Teléfono.');
+    if (!payload.direccion) errs.push('Dirección.');
+    if (!payload.comuna) errs.push('Comuna o ciudad.');
+    if (!payload.subtipoServicio) errs.push('Subtipo de servicio.');
+    if (!payload.fecha) errs.push('Fecha de la solicitud.');
+    if (!snapshot.descripcion || snapshot.descripcion.length < 8) {
+      errs.push('Descripción del pedido (al menos una frase clara, ej. 8 caracteres o más).');
+    }
+
+    if (errs.length) {
+      feedback.hidden = false;
+      feedback.classList.add('form-feedback--error');
+      feedback.textContent = `Falta o revisá: ${errs.join(' · ')}`;
+      return;
+    }
+
+    const result = await actions.createOtFromIngreso(payload);
+    if (!result?.ok) {
+      feedback.hidden = false;
+      feedback.classList.add('form-feedback--error');
+      feedback.textContent =
+        result?.error ||
+        'No se pudo crear la OT. Si el mensaje menciona un número duplicado, probá otro Nº OT manual o dejá el campo vacío.';
+      return;
+    }
+
     appendIngresoOperativo({
-      cliente,
-      direccion: grid.querySelector('[name=direccion]')?.value,
-      comuna: grid.querySelector('[name=comuna]')?.value,
-      contacto: grid.querySelector('[name=contacto]')?.value,
-      telefono: grid.querySelector('[name=telefono]')?.value,
-      tipo: grid.querySelector('[name=tipo]')?.value,
-      origen: grid.querySelector('[name=origen]')?.value,
-      subtipo: grid.querySelector('[name=subtipo]')?.value,
-      descripcion: grid.querySelector('[name=descripcion]')?.value,
-      prioridad: grid.querySelector('[name=prioridad]')?.value,
-      fechaVisita: grid.querySelector('[name=fechaVisita]')?.value,
-      horaVisita: grid.querySelector('[name=horaVisita]')?.value,
+      ...snapshot,
+      estado: 'completo',
+      otIdRelacionado: result.ot?.id || null,
+      validadoPorUsuario: true,
     });
-    grid.querySelectorAll('input:not([type=date]):not([type=time]), textarea').forEach((i) => {
-      i.value = '';
-    });
-    const fd = grid.querySelector('[name=fechaVisita]');
-    const tm = grid.querySelector('[name=horaVisita]');
-    if (fd) fd.value = '';
-    if (tm) tm.value = '';
-    const tipoEl = grid.querySelector('[name=tipo]');
-    const origenEl = grid.querySelector('[name=origen]');
-    const prioEl = grid.querySelector('[name=prioridad]');
-    if (tipoEl) tipoEl.value = 'clima';
-    if (origenEl) origenEl.value = 'manual';
-    if (prioEl) prioEl.value = 'media';
-    feedback.hidden = false;
-    feedback.textContent = 'Ingreso creado.';
+
+    feedback.hidden = true;
+    resetFormPartial();
     renderList();
-    if (typeof reloadApp === 'function') reloadApp();
   });
 
-  formCard.append(grid, submit, feedback);
-  root.append(head, flowStrip, waSyncNote, formCard, listHost);
+  const syncSubmitState = () => {
+    submit.disabled = Boolean(isSubmittingIngresoOt) || integrationStatus === 'sin conexión';
+    submit.textContent = isSubmittingIngresoOt ? 'Creando OT en servidor…' : 'Crear OT y registrar en el día';
+  };
+  syncSubmitState();
+
+  root.append(head, flowStrip, globalFb, waSyncNote, formCard, listHost);
   renderList();
 
   return root;

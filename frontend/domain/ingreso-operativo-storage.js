@@ -33,6 +33,13 @@ export const INGRESO_PRIORIDADES = ['baja', 'media', 'alta'];
 /** manual | whatsapp_ingesta */
 export const INGRESO_SOURCE_KINDS = ['manual', 'whatsapp_ingesta'];
 
+export function normalizePrioridadFromUi(p) {
+  if (p === 'urgente' || p === 'alta') return 'alta';
+  if (p === 'normal') return 'media';
+  if (INGRESO_PRIORIDADES.includes(p)) return p;
+  return 'media';
+}
+
 export function loadIngresosOperativosRaw() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -227,7 +234,7 @@ export function patchIngresoOperativo(id, partial) {
     ...('telefono' in p ? { telefono: String(p.telefono || '').trim() } : {}),
     ...('subtipo' in p ? { subtipo: String(p.subtipo || '').trim() } : {}),
     ...('descripcion' in p ? { descripcion: String(p.descripcion || '').trim() } : {}),
-    ...('prioridad' in p && INGRESO_PRIORIDADES.includes(p.prioridad) ? { prioridad: p.prioridad } : {}),
+    ...('prioridad' in p ? { prioridad: normalizePrioridadFromUi(p.prioridad) } : {}),
     ...('fechaVisita' in p ? { fechaVisita: String(p.fechaVisita || '').trim() } : {}),
     ...('horaVisita' in p ? { horaVisita: String(p.horaVisita || '').trim() } : {}),
     ...('observaciones' in p ? { observaciones: String(p.observaciones || '').trim() } : {}),
