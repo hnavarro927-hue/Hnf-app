@@ -44,6 +44,21 @@ function mapJarvisMode(mode) {
   return 'Observación';
 }
 
+/** Nombres estables para la siguiente fase (alertas, priorización OT, acciones sugeridas). */
+export const JARVIS_PREMIUM_EVENTS = {
+  ALERT_NAV: 'hnf-jarvis-premium-alert-nav',
+  MODULE_NAV: 'hnf-jarvis-premium-module-nav',
+  EXECUTE: 'hnf-jarvis-premium-execute',
+  SYNC: 'hnf-jarvis-premium-sync',
+  MODE_CHANGE: 'hnf-jarvis-premium-mode-change',
+  INTEL_TOGGLE: 'hnf-jarvis-premium-intel-toggle',
+};
+
+function emitPremium(name, detail) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(name, { detail: detail ?? {} }));
+}
+
 /**
  * @param {object} opts
  * @param {object} opts.data
@@ -96,6 +111,14 @@ export function createHnfJarvisPremiumCommand({
   const alertDetail = truncate(firstAlert?.detalle || exec.principalProblema || adn.principalProblema, 140);
 
   const runExec = () => {
+    const cards = Array.isArray(adn.cards) ? adn.cards : [];
+    emitPremium(JARVIS_PREMIUM_EVENTS.EXECUTE, {
+      ctaLabel: ctaFromAccion(nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion),
+      traffic: adn.traffic,
+      bottleneck: adn.bottleneck ?? null,
+      otCriticas: cards.filter((c) => c.global === 'rojo').length,
+      eventosActivos: Array.isArray(adn.eventosUnificados) ? adn.eventosUnificados.length : 0,
+    });
     ejecutarPropuestaGlobal(adn.eventosUnificados, { intelNavigate, navigateToView });
   };
   __hnfJarvisPrimaryActionFn = runExec;
@@ -169,6 +192,7 @@ export function createHnfJarvisPremiumCommand({
     b.addEventListener('click', () => {
       setMode(x.key);
       syncModes();
+      emitPremium(JARVIS_PREMIUM_EVENTS.MODE_CHANGE, { mode: x.key });
     });
     chips.append(b);
   }
@@ -197,6 +221,7 @@ export function createHnfJarvisPremiumCommand({
     ver.className = 'hnf-jarvis-premium__alert-link';
     ver.textContent = 'Ver';
     ver.addEventListener('click', () => {
+      emitPremium(JARVIS_PREMIUM_EVENTS.ALERT_NAV, { alert: firstAlert, source: 'header' });
       if (typeof intelNavigate === 'function') intelNavigate(firstAlert.nav);
       else navigateToView?.(firstAlert.nav.view);
     });
@@ -245,6 +270,7 @@ export function createHnfJarvisPremiumCommand({
   presSync.className = 'hnf-jarvis-premium__presence-sync';
   presSync.textContent = 'Sincronizar datos';
   presSync.addEventListener('click', async () => {
+    emitPremium(JARVIS_PREMIUM_EVENTS.SYNC, { source: 'presence' });
     presSync.disabled = true;
     try {
       if (typeof reloadApp === 'function') await reloadApp();
@@ -285,7 +311,15 @@ export function createHnfJarvisPremiumCommand({
     const panel = document.createElement('button');
     panel.type = 'button';
     panel.className = 'hnf-jarvis-premium__panel';
-    panel.addEventListener('click', () => navigateToView?.(def.view));
+    panel.addEventListener('click', () => {
+      emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, {
+        key,
+        view: def.view,
+        label: def.label,
+        badge: def.badge,
+      });
+      navigateToView?.(def.view);
+    });
 
     const pEyebrow = document.createElement('span');
     pEyebrow.className = 'hnf-jarvis-premium__panel-eyebrow';
@@ -337,6 +371,7 @@ export function createHnfJarvisPremiumCommand({
         b.className = 'hnf-jarvis-premium__intel-btn';
         b.textContent = 'Abrir';
         b.addEventListener('click', () => {
+          emitPremium(JARVIS_PREMIUM_EVENTS.ALERT_NAV, { alert: a, source: 'intel-list' });
           if (typeof intelNavigate === 'function') intelNavigate(a.nav);
           else navigateToView?.(a.nav.view);
         });
@@ -357,15 +392,25 @@ export function createHnfJarvisPremiumCommand({
     b.type = 'button';
     b.className = 'hnf-jarvis-premium__intel-quick-btn';
     b.textContent = q.t;
-    b.addEventListener('click', () => navigateToView?.(q.v));
+    b.addEventListener('click', () => {
+      emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, { view: q.v, source: 'intel-quick', label: q.t });
+      navigateToView?.(q.v);
+    });
     quick.append(b);
   }
   intelBody.append(quick);
   intel.append(intelSum, intelBody);
+  intel.addEventListener('toggle', () => {
+    emitPremium(JARVIS_PREMIUM_EVENTS.INTEL_TOGGLE, { open: intel.open });
+  });
 
   main.append(presence, modules, intel);
   shell.append(execHeader, main);
   root.append(atm, shell);
+
+  if (typeof window !== 'undefined') {
+    window.HNFJarvisPremium = { EVENTS: JARVIS_PREMIUM_EVENTS };
+  }
 
   return root;
 }
