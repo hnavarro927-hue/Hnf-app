@@ -82,7 +82,7 @@ export function buildDocumentKnowledgeStub() {
     layer: KNOWLEDGE_LAYER.DOCUMENTS,
     available: false,
     note:
-      'Capa documental lista para conectar (manuales, contratos, instrucciones de servicio). Por ahora no se consulta en red.',
+      'Capa documental: manuales, contratos, procedimientos. La ingesta asistida en Jarvis (CSV/TXT) clasifica y prepara datos; la indexación RAG queda para una fase siguiente.',
     version: 0,
   };
 }

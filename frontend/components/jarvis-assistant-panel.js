@@ -1,8 +1,19 @@
 /**
- * Panel UI del copiloto operativo Jarvis (datos + acción + mejora).
+ * Panel UI del copiloto Jarvis + ingesta con revisión y confirmación (sin guardado automático).
  */
 
 import { processJarvisCopilotQuery } from '../domain/jarvis-assistant-engine.js';
+import { runJarvisIngestionPipeline } from '../domain/jarvis-ingestion-engine.js';
+import {
+  applyGuidedAnswer,
+  buildGuidedSummary,
+  getGuidedPrompt,
+  guidedSessionMissingRequired,
+  parseGuidedIngestIntent,
+  startGuidedSession,
+} from '../domain/jarvis-guided-ingestion.js';
+import { saveGuidedClient, saveGuidedDirectory } from '../domain/jarvis-ingestion-execute.js';
+import { mountIngestionReviewBar } from './jarvis-assistant-ingestion-ui.js';
 
 function appendSimpleAssistantBubble(log, text) {
   const wrap = document.createElement('div');
@@ -61,8 +72,15 @@ function appendStructuredAssistantBubble(log, result) {
  * @param {object} opts
  * @param {object} opts.data
  * @param {object[]} [opts.controlCards]
+ * @param {object} [opts.ingestionHooks] postCargaMasiva, postExtendedClient, postInternalDirectory, createOt
+ * @param {() => void|Promise<void>} [opts.onAfterIngestionSave]
  */
-export function createJarvisAssistantPanel({ data, controlCards = [] } = {}) {
+export function createJarvisAssistantPanel({
+  data,
+  controlCards = [],
+  ingestionHooks = null,
+  onAfterIngestionSave,
+} = {}) {
   const section = document.createElement('section');
   section.className = 'hnf-jarvis-assistant hnf-jarvis-copilot-surface';
   section.setAttribute('aria-label', 'Asistente Jarvis');
@@ -75,14 +93,49 @@ export function createJarvisAssistantPanel({ data, controlCards = [] } = {}) {
   const sub = document.createElement('p');
   sub.className = 'hnf-jarvis-assistant__sub';
   sub.textContent =
-    'Copiloto operativo: lee OT y clientes cargados, detecta huecos de proceso y sugiere el siguiente paso. Atajos: resumen · urgentes · sin asignar · pendientes';
+    'Copiloto operativo e ingesta: subí CSV/TXT, revisá el resumen y guardá solo cuando confirmes. Chat: resumen · urgentes · sin asignar · pendientes. Ingesta guiada: «Ingresa conductor …», «Alta cliente …».';
   head.append(title, sub);
+
+  const uploadRow = document.createElement('div');
+  uploadRow.className = 'hnf-jarvis-assistant__upload-row';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.className = 'hnf-jarvis-assistant__file';
+  fileInput.accept = '.csv,.txt,.md,text/plain,text/csv';
+  fileInput.setAttribute('aria-label', 'Archivo para ingesta Jarvis');
+  fileInput.id = `jarvis-ingest-${Math.random().toString(36).slice(2, 9)}`;
+  const fileLbl = document.createElement('label');
+  fileLbl.className = 'hnf-jarvis-assistant__file-lbl';
+  fileLbl.setAttribute('for', fileInput.id);
+  fileLbl.textContent = 'Subir planilla o documento (CSV / TXT)';
+
+  uploadRow.append(fileLbl, fileInput);
 
   const log = document.createElement('div');
   log.className = 'hnf-jarvis-assistant__log';
   log.setAttribute('role', 'log');
   log.setAttribute('aria-live', 'polite');
   log.setAttribute('aria-relevant', 'additions');
+
+  const reviewMount = mountIngestionReviewBar({
+    log,
+    hooks: ingestionHooks,
+    pipelineResult: null,
+    onAfterSave: () => onAfterIngestionSave?.(),
+    onNotify: (msg) => appendSimpleAssistantBubble(log, msg),
+  });
+
+  const guidedBar = document.createElement('div');
+  guidedBar.className = 'hnf-jarvis-ingestion-review hnf-jarvis-ingestion-review--guided';
+  guidedBar.hidden = true;
+  const guidedTitle = document.createElement('h3');
+  guidedTitle.className = 'hnf-jarvis-ingestion-review__title';
+  guidedTitle.textContent = 'Resumen · confirmación para guardar';
+  const guidedPre = document.createElement('pre');
+  guidedPre.className = 'hnf-jarvis-ingestion-review__pre';
+  const guidedActions = document.createElement('div');
+  guidedActions.className = 'hnf-jarvis-ingestion-review__actions';
+  guidedBar.append(guidedTitle, guidedPre, guidedActions);
 
   const form = document.createElement('form');
   form.className = 'hnf-jarvis-assistant__form';
@@ -95,7 +148,7 @@ export function createJarvisAssistantPanel({ data, controlCards = [] } = {}) {
   input.setAttribute('autocomplete', 'off');
   input.setAttribute(
     'placeholder',
-    'Ej.: resumen · urgentes · sin asignar · pendientes'
+    'Chat o ingesta guiada · CSV con el botón de arriba'
   );
   input.setAttribute('aria-label', 'Mensaje al copiloto');
 
@@ -111,15 +164,96 @@ export function createJarvisAssistantPanel({ data, controlCards = [] } = {}) {
     controlCards: Array.isArray(controlCards) ? controlCards : [],
   });
 
+  let guidedSession = null;
+  let guidedAwaitConfirm = false;
+
+  function clearGuidedUi() {
+    guidedAwaitConfirm = false;
+    guidedSession = null;
+    guidedBar.hidden = true;
+    guidedPre.textContent = '';
+    guidedActions.replaceChildren();
+  }
+
+  function renderGuidedConfirm() {
+    if (!guidedSession) return;
+    guidedPre.textContent = `${buildGuidedSummary(guidedSession)}\n\n¿Deseás guardarlo en el sistema?`;
+    guidedActions.replaceChildren();
+    const bGuardar = document.createElement('button');
+    bGuardar.type = 'button';
+    bGuardar.className = 'primary-button hnf-jarvis-ingestion-review__btn';
+    bGuardar.textContent = 'Guardar';
+    bGuardar.addEventListener('click', async () => {
+      if (!ingestionHooks) {
+        appendSimpleAssistantBubble(log, 'No hay conexión a servicios de guardado en este contexto.');
+        clearGuidedUi();
+        return;
+      }
+      const miss = guidedSessionMissingRequired(guidedSession);
+      if (miss.length) {
+        appendSimpleAssistantBubble(
+          log,
+          `Faltan datos obligatorios: ${miss.join(', ')}. Usá «Editar» y completá por chat.`
+        );
+        return;
+      }
+      try {
+        if (guidedSession.kind === 'cliente') await saveGuidedClient(guidedSession, ingestionHooks);
+        else await saveGuidedDirectory(guidedSession, ingestionHooks);
+        appendSimpleAssistantBubble(log, 'Listo: registro guardado en HNF (cliente extendido o directorio interno).');
+        await onAfterIngestionSave?.();
+      } catch (e) {
+        appendSimpleAssistantBubble(log, `No se pudo guardar: ${e?.message || e}`);
+      }
+      clearGuidedUi();
+    });
+    const bEditar = document.createElement('button');
+    bEditar.type = 'button';
+    bEditar.className = 'secondary-button hnf-jarvis-ingestion-review__btn';
+    bEditar.textContent = 'Editar';
+    bEditar.addEventListener('click', () => {
+      clearGuidedUi();
+      appendSimpleAssistantBubble(
+        log,
+        'Ingesta guiada reiniciada. Volvé a escribir «Ingresa conductor …» o «Alta cliente …» para cargar desde cero.'
+      );
+    });
+    const bCancelar = document.createElement('button');
+    bCancelar.type = 'button';
+    bCancelar.className = 'secondary-button hnf-jarvis-ingestion-review__btn';
+    bCancelar.textContent = 'Cancelar';
+    bCancelar.addEventListener('click', () => {
+      clearGuidedUi();
+      appendSimpleAssistantBubble(log, 'Ingesta guiada cancelada; no se guardó nada.');
+    });
+    guidedActions.append(bGuardar, bEditar, bCancelar);
+    guidedBar.hidden = false;
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files?.[0];
+    fileInput.value = '';
+    if (!f) return;
+    const text = await f.text();
+    const pipeline = runJarvisIngestionPipeline({
+      text,
+      fileName: f.name,
+      data: ctx().data,
+    });
+    appendSimpleAssistantBubble(log, `Archivo «${f.name}» analizado (sin guardar). Revisá el panel de acciones.`);
+    reviewMount.setPipelineResult(pipeline);
+  });
+
   appendSimpleAssistantBubble(
     log,
-    'Listo. Pedí «resumen» para el panorama operativo. También podés consultar urgentes, casos sin técnico o pendientes de informe y evidencia. Las respuestas combinan datos en vivo con sugerencias de proceso.'
+    'Listo. Podés subir CSV/TXT para clasificar y revisar antes de guardar, usar el chat operativo (resumen, urgentes, etc.) o iniciar ingesta guiada por texto. Nada se guarda en servidor hasta que confirmes con los botones correspondientes.'
   );
 
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const raw = input.value.trim();
     if (!raw) return;
+
     const userWrap = document.createElement('div');
     userWrap.className = 'hnf-jarvis-assistant__msg hnf-jarvis-assistant__msg--user';
     const uMeta = document.createElement('span');
@@ -133,10 +267,42 @@ export function createJarvisAssistantPanel({ data, controlCards = [] } = {}) {
     log.scrollTop = log.scrollHeight;
     input.value = '';
 
+    if (guidedSession && !guidedAwaitConfirm) {
+      applyGuidedAnswer(guidedSession, raw);
+      if (guidedSession.done) {
+        guidedAwaitConfirm = true;
+        renderGuidedConfirm();
+      } else {
+        const q = getGuidedPrompt(guidedSession);
+        if (q) appendSimpleAssistantBubble(log, q);
+      }
+      return;
+    }
+
+    if (guidedSession && guidedAwaitConfirm) {
+      appendSimpleAssistantBubble(
+        log,
+        'Usá los botones Guardar, Editar o Cancelar del panel de confirmación.'
+      );
+      return;
+    }
+
+    const guidedIntent = parseGuidedIngestIntent(raw);
+    if (guidedIntent) {
+      guidedSession = startGuidedSession(guidedIntent);
+      guidedAwaitConfirm = false;
+      const q = getGuidedPrompt(guidedSession);
+      appendSimpleAssistantBubble(
+        log,
+        `Ingesta guiada iniciada para «${guidedIntent.name}». ${q || 'Completá los datos.'}`
+      );
+      return;
+    }
+
     const result = processJarvisCopilotQuery(raw, ctx());
     appendStructuredAssistantBubble(log, result);
   });
 
-  section.append(head, log, form);
+  section.append(head, uploadRow, reviewMount.el, guidedBar, log, form);
   return section;
 }

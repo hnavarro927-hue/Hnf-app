@@ -7,6 +7,8 @@ import { buildExecutiveCommandModel } from '../domain/hnf-executive-command.js';
 import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
 import { whatsappMessagesForOt } from '../domain/control-operativo-tiempo-real.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
+import { hnfOperativoIntegradoService } from '../services/hnf-operativo-integrado.service.js';
+import { otService } from '../services/ot.service.js';
 import { createJarvisAssistantPanel } from './jarvis-assistant-panel.js';
 
 let __hnfJarvisPrimaryActionFn = null;
@@ -667,6 +669,15 @@ export function createHnfJarvisPremiumCommand({
   const assistantPanel = createJarvisAssistantPanel({
     data: raw,
     controlCards: Array.isArray(adn.cards) ? adn.cards : [],
+    ingestionHooks: {
+      postCargaMasiva: (body) => hnfOperativoIntegradoService.postCargaMasiva(body),
+      postExtendedClient: (body) => hnfOperativoIntegradoService.postExtendedClient(body),
+      postInternalDirectory: (body) => hnfOperativoIntegradoService.postInternalDirectory(body),
+      createOt: (payload) => otService.create(payload),
+    },
+    onAfterIngestionSave: async () => {
+      if (typeof reloadApp === 'function') await reloadApp();
+    },
   });
 
   /* —— Operación en Vivo —— */
