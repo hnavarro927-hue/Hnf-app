@@ -1,11 +1,16 @@
 /**
- * Asistente Jarvis — capa de reglas sobre datos OT ya cargados en el cliente.
- * Extensible: más adelante se puede enrutar aquí OpenAI, RAG, etc. sin cambiar la UI.
+ * Asistente Jarvis — copiloto operativo: datos en vivo + capa de inteligencia + reglas.
+ * Extensible: OpenAI / RAG / documentos vía jarvis-copilot-knowledge + consultas async.
  */
 
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
+import { buildCopilotIntelligence } from './jarvis-copilot-intelligence.js';
+import {
+  buildJarvisKnowledgeBundle,
+  JARVIS_KNOWLEDGE_ARCH_VERSION,
+} from './jarvis-copilot-knowledge.js';
 
-export const JARVIS_ASSISTANT_ENGINE_VERSION = '2026-03-27';
+export const JARVIS_ASSISTANT_ENGINE_VERSION = '2026-03-27-copilot';
 
 const CLOSED = new Set(['terminado', 'cerrado', 'cancelado']);
 
@@ -17,15 +22,6 @@ function planOtsFromData(data) {
 function isOtAbierta(ot) {
   const st = String(ot?.estado || '').trim().toLowerCase();
   return Boolean(st) && !CLOSED.has(st);
-}
-
-function cardByOtId(cards, otId) {
-  const id = String(otId || '').trim();
-  if (!id) return null;
-  for (const c of Array.isArray(cards) ? cards : []) {
-    if (String(c?.otId || '').trim() === id) return c;
-  }
-  return null;
 }
 
 function tecnicoSinAsignar(ot) {
@@ -40,8 +36,11 @@ function sinInformePdf(ot) {
 }
 
 function otUrgenteHeuristic(ot, cards) {
-  const ctrl = cardByOtId(cards, ot?.id);
-  if (ctrl?.global === 'rojo') return true;
+  const id = String(ot?.id || '').trim();
+  if (!id) return false;
+  for (const c of Array.isArray(cards) ? cards : []) {
+    if (String(c?.otId || '').trim() === id && c?.global === 'rojo') return true;
+  }
   const blob = `${ot?.observaciones || ''} ${ot?.resumenTrabajo || ''}`.toLowerCase();
   if (/\burgent|urgencia|crític|critico|prioridad\s*:\s*urgente|prioridad\s*alta\b/.test(blob)) {
     return true;
@@ -92,12 +91,20 @@ function topClientesHint(ots, max = 2) {
   return sorted.slice(0, max).map(([name]) => name);
 }
 
+function formatLegacyBody(r) {
+  const parts = [];
+  if (r.datos) parts.push(r.datos);
+  if (r.accionSugerida) parts.push(`Acción sugerida: ${r.accionSugerida}`);
+  if (r.mejoraSugerida) parts.push(`Mejora sugerida: ${r.mejoraSugerida}`);
+  return parts.join('\n\n').trim();
+}
+
 /**
+ * Respuesta estructurada del copiloto (datos + acción + mejora).
  * @param {string} userText
- * @param {{ data?: object, controlCards?: object[] }} ctx
- * @returns {{ intent: string, body: string }}
+ * @param {{ data?: object, controlCards?: object[], includeKnowledgeBundle?: boolean }} ctx
  */
-export function processJarvisAssistantQuery(userText, ctx = {}) {
+export function processJarvisCopilotQuery(userText, ctx = {}) {
   const data = ctx.data && typeof ctx.data === 'object' ? ctx.data : {};
   const cards = Array.isArray(ctx.controlCards) ? ctx.controlCards : [];
   const todas = planOtsFromData(data);
@@ -106,10 +113,25 @@ export function processJarvisAssistantQuery(userText, ctx = {}) {
   const q = normalizeQuery(userText);
 
   if (!q) {
-    return {
+    const intel = buildCopilotIntelligence({
       intent: 'empty',
-      body: 'Escribí una consulta. Atajos: «resumen», «urgentes», «sin asignar», «pendientes».',
+      abiertas,
+      cards,
+      focusOts: [],
+    });
+    const out = {
+      intent: 'empty',
+      datos: 'Escribí una consulta operativa. Atajos: «resumen», «urgentes», «sin asignar», «pendientes».',
+      accionSugerida: null,
+      mejoraSugerida: intel.mejoraSugerida,
+      knowledge: {
+        archVersion: JARVIS_KNOWLEDGE_ARCH_VERSION,
+        layersConsulted: intel.layersUsed,
+        documentLayerReady: false,
+      },
     };
+    if (ctx.includeKnowledgeBundle) out.knowledgeBundle = buildJarvisKnowledgeBundle(data, cards);
+    return out;
   }
 
   const resumen =
@@ -131,78 +153,117 @@ export function processJarvisAssistantQuery(userText, ctx = {}) {
     q.includes('informe pendiente') ||
     q.includes('sin reporte');
 
+  let intent = 'help';
+  let datos = '';
+  let focusOts = [];
+
   if (resumen) {
+    intent = 'resumen';
     const nAb = abiertas.length;
     const urg = abiertas.filter((o) => otUrgenteHeuristic(o, cards));
     const sinInf = abiertas.filter(otSinInformeOperativo);
     const sinTec = abiertas.filter(tecnicoSinAsignar);
     const hintUrg = topClientesHint(urg);
     const lineHint =
-      hintUrg.length && urg.length
-        ? ` Priorizá ${hintUrg.join(' · ')}.`
-        : '';
-    const body = [
-      `Resumen OT abiertas: ${nAb}.`,
-      `Urgentes (señal / texto): ${urg.length}.`,
-      `Sin informe completo o evidencia: ${sinInf.length}.`,
-      `Sin técnico asignado: ${sinTec.length}.`,
+      hintUrg.length && urg.length ? `Priorizá ${hintUrg.join(' · ')}.` : '';
+    datos = [
+      `${nAb} OT abiertas; ${urg.length} urgentes (señal o texto); ${sinInf.length} con informe o evidencia pendiente; ${sinTec.length} sin técnico.`,
       nAb === 0
-        ? 'No hay OT abiertas en el corte cargado; sincronizá o abrí Clima.'
-        : lineHint.trim(),
+        ? 'Sin OT abiertas en el corte cargado: sincronizá o abrí Clima para traer datos.'
+        : lineHint,
     ]
       .filter(Boolean)
-      .join(' ');
-    return { intent: 'resumen', body: body.replace(/\s+/g, ' ').trim() };
-  }
-
-  if (urgentesKw) {
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    focusOts = [...urg, ...sinTec].slice(0, 3);
+  } else if (urgentesKw) {
+    intent = 'urgentes';
     const list = abiertas.filter((o) => otUrgenteHeuristic(o, cards));
+    focusOts = list.slice(0, 5);
     if (!list.length) {
-      return {
-        intent: 'urgentes',
-        body: 'No marqué OT abiertas como urgentes en este corte (ni rojas en panel ni texto). Revisá Clima si necesitás forzar prioridad.',
-      };
+      datos =
+        'No marqué OT abiertas como urgentes (ni rojas en panel ni texto). Revisá Clima si necesitás subir prioridad o etiquetar emergencia.';
+    } else {
+      const hint = topClientesHint(list);
+      datos = [
+        `${list.length} OT urgentes.${hint.length ? ` Clientes destacados: ${hint.join(' · ')}.` : ''}`,
+        ...listar(list),
+      ].join('\n');
     }
-    const hint = topClientesHint(list);
-    const head = `Tenés ${list.length} OT urgentes.${hint.length ? ` Priorizá ${hint.join(' · ')}.` : ''}`;
-    return { intent: 'urgentes', body: [head, ...listar(list)].join('\n') };
-  }
-
-  if (sinAsignarKw) {
+  } else if (sinAsignarKw) {
+    intent = 'sin_asignar';
     const list = abiertas.filter(tecnicoSinAsignar);
+    focusOts = list.slice(0, 5);
     if (!list.length) {
-      return {
-        intent: 'sin_asignar',
-        body: 'Todas las OT abiertas tienen técnico asignado en el dato actual.',
-      };
+      datos = 'Todas las OT abiertas tienen técnico asignado en el corte actual.';
+    } else {
+      const hint = topClientesHint(list);
+      datos = [
+        `${list.length} OT sin técnico.${hint.length ? ` Ejemplos de cliente: ${hint.join(' · ')}.` : ''}`,
+        ...listar(list),
+      ].join('\n');
     }
-    const hint = topClientesHint(list);
-    const head = `${list.length} OT sin técnico.${hint.length ? ` Ej.: ${hint.join(' · ')}.` : ''}`;
-    return { intent: 'sin_asignar', body: [head, ...listar(list)].join('\n') };
-  }
-
-  if (pendientesKw) {
+  } else if (pendientesKw) {
+    intent = 'pendientes';
     const list = abiertas.filter(otSinInformeOperativo);
+    focusOts = list.slice(0, 5);
     if (!list.length) {
-      return {
-        intent: 'pendientes',
-        body: 'No hay OT abiertas con informe/evidencia pendiente según el corte cargado.',
-      };
+      datos =
+        'Datos: no hay OT abiertas con informe o evidencia pendiente según lo cargado en esta sesión.';
+    } else {
+      datos = [
+        `${list.length} OT con informe o evidencia pendiente (PDF, fotos o resumen).`,
+        ...listar(list),
+      ].join('\n');
     }
-    const head = `${list.length} OT con informe o evidencia pendiente (sin PDF o faltan fotos/resumen).`;
-    return { intent: 'pendientes', body: [head, ...listar(list)].join('\n') };
+  } else {
+    intent = 'help';
+    datos =
+      'No reconozco ese pedido. Probá «resumen», «urgentes», «sin asignar» o «pendientes». Uso solo OT y clientes ya cargados en el navegador (sin llamada extra al servidor).';
   }
 
-  return {
-    intent: 'help',
-    body: 'No reconozco el comando. Probá: «resumen», «urgentes», «sin asignar», «pendientes». Los datos son las OT ya cargadas en esta sesión (sin llamar al servidor de nuevo).',
+  const intel = buildCopilotIntelligence({ intent, abiertas, cards, focusOts });
+  let datosFinal = datos;
+  if (intel.riesgoTexto) {
+    datosFinal = `${intel.riesgoTexto}\n\n${datos}`;
+  }
+
+  const out = {
+    intent,
+    datos: datosFinal,
+    accionSugerida: intel.accionSugerida,
+    mejoraSugerida: intel.mejoraSugerida,
+    knowledge: {
+      archVersion: JARVIS_KNOWLEDGE_ARCH_VERSION,
+      layersConsulted: intel.layersUsed,
+      documentLayerReady: false,
+    },
   };
+  if (ctx.includeKnowledgeBundle) out.knowledgeBundle = buildJarvisKnowledgeBundle(data, cards);
+  return out;
 }
 
 /**
- * Hook futuro: reemplazar o combinar con modelo externo.
- * @returns {Promise<{ intent: string, body: string }>}
+ * @returns {Promise<ReturnType<typeof processJarvisCopilotQuery>>}
+ */
+export async function processJarvisCopilotQueryAsync(userText, ctx) {
+  return processJarvisCopilotQuery(userText, ctx);
+}
+
+/**
+ * Compatible con integraciones que esperan { intent, body }.
+ * @returns {ReturnType<typeof processJarvisCopilotQuery> & { body: string }}
+ */
+export function processJarvisAssistantQuery(userText, ctx = {}) {
+  const r = processJarvisCopilotQuery(userText, ctx);
+  return { ...r, body: formatLegacyBody(r) };
+}
+
+/**
+ * @deprecated Usar processJarvisCopilotQueryAsync
  */
 export async function processJarvisAssistantQueryAsync(userText, ctx) {
-  return processJarvisAssistantQuery(userText, ctx);
+  const r = await processJarvisCopilotQueryAsync(userText, ctx);
+  return { ...r, body: formatLegacyBody(r) };
 }

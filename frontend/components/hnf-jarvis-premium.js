@@ -582,7 +582,7 @@ export function createHnfJarvisPremiumCommand({
   main.className = 'hnf-jarvis-premium__main';
 
   const jarvisIa = document.createElement('section');
-  jarvisIa.className = 'hnf-jarvis-premium__jarvis-ia';
+  jarvisIa.className = 'hnf-jarvis-premium__jarvis-ia hnf-jarvis-copilot-surface';
   jarvisIa.setAttribute('aria-label', 'Jarvis IA · sugerencias operativas');
 
   const iaTop = document.createElement('div');

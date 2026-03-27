@@ -17564,6 +17564,50 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
   transform: translateY(-1px);
 }
 
+/* Jarvis copiloto — halo azul/ámbar discreto (sin caricaturas ni movimiento agresivo) */
+@keyframes hnf-jarvis-copilot-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.58;
+    transform: scale(1.005);
+  }
+}
+
+.hnf-jarvis-copilot-surface {
+  position: relative;
+  z-index: 0;
+}
+
+.hnf-jarvis-copilot-surface::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    122deg,
+    rgba(56, 189, 248, 0.14),
+    rgba(251, 191, 36, 0.09) 42%,
+    rgba(56, 189, 248, 0.08)
+  );
+  opacity: 0.5;
+  filter: blur(16px);
+  animation: hnf-jarvis-copilot-breathe 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hnf-jarvis-copilot-surface::before {
+    animation: none;
+    opacity: 0.46;
+    transform: none;
+  }
+}
+
 /* Asistente Jarvis — chat local sobre OT en memoria */
 .hnf-jarvis-assistant {
   border-radius: 16px;
@@ -17600,7 +17644,7 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 }
 
 .hnf-jarvis-assistant__log {
-  max-height: 220px;
+  max-height: 280px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -17649,6 +17693,65 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 .hnf-jarvis-assistant__msg--user .hnf-jarvis-assistant__msg-body {
   background: rgba(14, 165, 233, 0.14);
   border-color: rgba(56, 189, 248, 0.28);
+}
+
+.hnf-jarvis-assistant__msg--assistant .hnf-jarvis-assistant__copilot-stack {
+  max-width: 100%;
+  width: 100%;
+}
+
+.hnf-jarvis-assistant__copilot-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hnf-jarvis-assistant__copilot-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid rgba(148, 163, 184, 0.35);
+}
+
+.hnf-jarvis-assistant__copilot-block--datos {
+  border-left-color: rgba(148, 163, 184, 0.45);
+}
+
+.hnf-jarvis-assistant__copilot-block--accion {
+  border-left-color: rgba(251, 191, 36, 0.55);
+}
+
+.hnf-jarvis-assistant__copilot-block--mejora {
+  border-left-color: rgba(56, 189, 248, 0.55);
+}
+
+.hnf-jarvis-assistant__copilot-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(186, 199, 216, 0.88);
+}
+
+.hnf-jarvis-assistant__copilot-block--accion .hnf-jarvis-assistant__copilot-label {
+  color: rgba(253, 224, 171, 0.92);
+}
+
+.hnf-jarvis-assistant__copilot-block--mejora .hnf-jarvis-assistant__copilot-label {
+  color: rgba(186, 230, 253, 0.92);
+}
+
+.hnf-jarvis-assistant__copilot-text {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #e2e8f0;
 }
 
 .hnf-jarvis-assistant__form {

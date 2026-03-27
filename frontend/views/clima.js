@@ -1531,7 +1531,7 @@ export const climaView = ({
     econHint.className = 'muted ot-economics-modern__hint';
     econHint.textContent = ro
       ? 'Valores guardados al cerrar la visita. Solo lectura.'
-      : 'Los indicadores grandes se calculan al instante al escribir. Guardá para grabar en el servidor. Para usar «Cerrar OT» necesitás monto cobrado y costo total (suma de costos) mayores que cero.';
+      : 'Los indicadores grandes se calculan al instante al escribir. Guardá los cambios en el servidor con el botón Guardar. Para usar «Cerrar OT» necesitás monto cobrado y costo total (suma de costos) mayores que cero.';
     const econSavedRow = document.createElement('p');
     econSavedRow.className =
       ro || otEconomicsSaved

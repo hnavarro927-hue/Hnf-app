@@ -64,7 +64,8 @@ export const jarvisIntakeHubView = ({
   if (integrationStatus === 'sin conexión') {
     const off = document.createElement('div');
     off.className = 'integration-banner integration-banner--offline';
-    off.textContent = 'Sin conexión al servidor: no se puede leer ni grabar el feed Outlook simulado.';
+    off.textContent =
+      'Sin conexión al servidor: no se puede leer ni guardar el estado del feed Outlook simulado.';
     root.append(off);
     return root;
   }
