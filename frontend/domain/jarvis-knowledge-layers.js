@@ -60,5 +60,11 @@ export const JARVIS_KNOWLEDGE_PROVIDER_ARCH = {
     { id: 'hnf_process_rules', layers: [KNOWLEDGE_LAYER_ID.BUSINESS], source: 'jarvis-copilot-knowledge' },
     { id: 'upload_ingest', layers: [KNOWLEDGE_LAYER_ID.TABULAR, KNOWLEDGE_LAYER_ID.DOCUMENTS], source: 'jarvis-ingestion-engine' },
     { id: 'documents_rag', layers: [KNOWLEDGE_LAYER_ID.DOCUMENTS], source: 'future_connector', available: false },
+    {
+      id: 'hnf_intelligence_base_v1',
+      layers: [KNOWLEDGE_LAYER_ID.STRUCTURED, KNOWLEDGE_LAYER_ID.BUSINESS],
+      source: 'domain/hnf-intelligence-base-v1',
+      available: true,
+    },
   ],
 };

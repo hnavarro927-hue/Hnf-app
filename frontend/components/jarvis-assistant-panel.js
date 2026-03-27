@@ -246,7 +246,7 @@ export function createJarvisAssistantPanel({
 
   appendSimpleAssistantBubble(
     log,
-    'Listo. Podés subir CSV/TXT para clasificar y revisar antes de guardar, usar el chat operativo (resumen, urgentes, etc.) o iniciar ingesta guiada por texto. Nada se guarda en servidor hasta que confirmes con los botones correspondientes.'
+    'Listo. Base de inteligencia HNF v1: preguntá por permisos/aprobaciones Clima, flujo OT, demoras o «reglas operativas». Podés subir CSV/TXT (revisión previa), usar resumen/urgentes/pendientes o ingesta guiada. Nada se guarda sin confirmación explícita.'
   );
 
   form.addEventListener('submit', (ev) => {

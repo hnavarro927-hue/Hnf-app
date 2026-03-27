@@ -9,6 +9,11 @@ import {
   buildJarvisKnowledgeBundle,
   JARVIS_KNOWLEDGE_ARCH_VERSION,
 } from './jarvis-copilot-knowledge.js';
+import {
+  queryHnfIntelligenceBaseV1,
+  buildHnfIntelligenceBaseV1Snapshot,
+  HNF_INTELLIGENCE_BASE_VERSION,
+} from './hnf-intelligence-base-v1/index.js';
 
 export const JARVIS_ASSISTANT_ENGINE_VERSION = '2026-03-27-copilot';
 
@@ -112,6 +117,26 @@ export function processJarvisCopilotQuery(userText, ctx = {}) {
 
   const q = normalizeQuery(userText);
 
+  if (q) {
+    const ib = queryHnfIntelligenceBaseV1(userText, data, cards);
+    if (ib) {
+      const out = {
+        intent: ib.intent,
+        datos: ib.datos,
+        accionSugerida: ib.accionSugerida,
+        mejoraSugerida: ib.mejoraSugerida,
+        knowledge: {
+          archVersion: JARVIS_KNOWLEDGE_ARCH_VERSION,
+          layersConsulted: ['structured', 'process', 'hnf_intelligence_base_v1'],
+          documentLayerReady: false,
+          intelligenceBaseVersion: HNF_INTELLIGENCE_BASE_VERSION,
+        },
+      };
+      if (ctx.includeKnowledgeBundle) out.knowledgeBundle = buildJarvisKnowledgeBundle(data, cards);
+      return out;
+    }
+  }
+
   if (!q) {
     const intel = buildCopilotIntelligence({
       intent: 'empty',
@@ -121,7 +146,8 @@ export function processJarvisCopilotQuery(userText, ctx = {}) {
     });
     const out = {
       intent: 'empty',
-      datos: 'Escribí una consulta operativa. Atajos: «resumen», «urgentes», «sin asignar», «pendientes».',
+      datos:
+        'Escribí una consulta operativa. Atajos: «resumen», «urgentes», «sin asignar», «pendientes», «aprobaciones» / «permisos Clima», «flujo OT», «demoras».',
       accionSugerida: null,
       mejoraSugerida: intel.mejoraSugerida,
       knowledge: {
@@ -209,8 +235,7 @@ export function processJarvisCopilotQuery(userText, ctx = {}) {
     const list = abiertas.filter(otSinInformeOperativo);
     focusOts = list.slice(0, 5);
     if (!list.length) {
-      datos =
-        'Datos: no hay OT abiertas con informe o evidencia pendiente según lo cargado en esta sesión.';
+      datos = 'No hay OT abiertas con informe o evidencia pendiente según lo cargado en esta sesión.';
     } else {
       datos = [
         `${list.length} OT con informe o evidencia pendiente (PDF, fotos o resumen).`,
@@ -220,10 +245,17 @@ export function processJarvisCopilotQuery(userText, ctx = {}) {
   } else {
     intent = 'help';
     datos =
-      'No reconozco ese pedido. Probá «resumen», «urgentes», «sin asignar» o «pendientes». Uso solo OT y clientes ya cargados en el navegador (sin llamada extra al servidor).';
+      'No reconozco ese pedido. Probá «resumen», «urgentes», «sin asignar», «pendientes», o preguntas HNF: «¿qué permisos pendientes?», «flujo OT», «demoras», «reglas operativas». Datos desde la sesión cargada.';
   }
 
   const intel = buildCopilotIntelligence({ intent, abiertas, cards, focusOts });
+  if (intent === 'resumen') {
+    const ibSnap = buildHnfIntelligenceBaseV1Snapshot(data, cards);
+    const extra = ibSnap.recommendations[0]?.mejoraSugerida;
+    if (extra) {
+      intel.mejoraSugerida = intel.mejoraSugerida ? `${intel.mejoraSugerida} ${extra}` : extra;
+    }
+  }
   let datosFinal = datos;
   if (intel.riesgoTexto) {
     datosFinal = `${intel.riesgoTexto}\n\n${datos}`;
