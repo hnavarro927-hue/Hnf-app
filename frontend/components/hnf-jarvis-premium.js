@@ -1,12 +1,10 @@
 /**
- * Jarvis HQ — layout premium ejecutivo (solo presentación).
- * Reemplazo visual completo: grid alineado, sin órbita ni núcleo circular.
+ * Jarvis HQ — centro de operaciones HNF (solo presentación).
  */
 
 import { buildHnfAdnSnapshot } from '../domain/hnf-adn.js';
 import { buildExecutiveCommandModel } from '../domain/hnf-executive-command.js';
 import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
-import { getControlState, setMode } from '../domain/jarvis-control-center.js';
 
 let __hnfJarvisPrimaryActionFn = null;
 if (typeof window !== 'undefined' && !window.__hnfJarvisPrimaryActionWired) {
@@ -29,28 +27,28 @@ function ctaFromAccion(s) {
   return u || 'Ejecutar siguiente paso';
 }
 
+function countOtAbiertas(viewData) {
+  const ots = viewData?.planOts ?? viewData?.ots?.data ?? [];
+  if (!Array.isArray(ots)) return 0;
+  return ots.filter((o) => {
+    const st = String(o?.estado || '').toLowerCase();
+    return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+  }).length;
+}
+
 function mapEstadoGlobal(estado) {
   const e = String(estado || '').toLowerCase();
-  if (e === 'critico') return { label: 'Crítico', tone: 'crit' };
-  if (e === 'tension') return { label: 'Tensión operativa', tone: 'warn' };
-  return { label: 'Estable', tone: 'ok' };
+  if (e === 'critico') return { tone: 'crit' };
+  if (e === 'tension') return { tone: 'warn' };
+  return { tone: 'ok' };
 }
 
-function mapJarvisMode(mode) {
-  const m = String(mode || 'observe');
-  if (m === 'autonomic_safe') return 'Automático (seguro)';
-  if (m === 'assist') return 'Asistido';
-  if (m === 'off') return 'Manual';
-  return 'Observación';
-}
-
-/** Nombres estables para la siguiente fase (alertas, priorización OT, acciones sugeridas). */
+/** Nombres estables para extensiones (alertas, priorización OT, acciones sugeridas). */
 export const JARVIS_PREMIUM_EVENTS = {
   ALERT_NAV: 'hnf-jarvis-premium-alert-nav',
   MODULE_NAV: 'hnf-jarvis-premium-module-nav',
   EXECUTE: 'hnf-jarvis-premium-execute',
   SYNC: 'hnf-jarvis-premium-sync',
-  MODE_CHANGE: 'hnf-jarvis-premium-mode-change',
   INTEL_TOGGLE: 'hnf-jarvis-premium-intel-toggle',
 };
 
@@ -96,7 +94,10 @@ export function createHnfJarvisPremiumCommand({
 
   const nucleo = adn.jarvisLiveOrbit?.nucleo || {};
   const o = adn.orbits || {};
-  const ctrl = getControlState();
+  const traffic = adn.traffic || { bloqueos: 0, pendientes: 0, ok: 0, totalOt: 0 };
+  const alertas = adn.alertas || {};
+  const centro = adn.jarvisCentroResumen || exec.centro || {};
+
   const estado = mapEstadoGlobal(alienDecision?.estadoGlobal);
   const level = Number(liveCmdModel?.level) || 0;
   if (level >= 2) estado.tone = 'crit';
@@ -106,9 +107,10 @@ export function createHnfJarvisPremiumCommand({
   const analyzing = Boolean(pulseSnap()?.running);
 
   const alerts = Array.isArray(exec.alertasEjecutivas) ? exec.alertasEjecutivas : [];
-  const firstAlert = alerts[0];
-  const alertTitle = firstAlert?.titulo || 'Sin alerta prioritaria';
-  const alertDetail = truncate(firstAlert?.detalle || exec.principalProblema || adn.principalProblema, 140);
+
+  const otAbiertas = countOtAbiertas(raw);
+  const colaValidacion = Number(centro.requiereValidacion) || 0;
+  const sinRespuestaCliente = Number(alertas.noEnviadasCliente) || 0;
 
   const runExec = () => {
     const cards = Array.isArray(adn.cards) ? adn.cards : [];
@@ -126,7 +128,7 @@ export function createHnfJarvisPremiumCommand({
   const root = document.createElement('section');
   root.className = 'hnf-jarvis-premium';
   root.id = 'hnf-mando-principal-v2';
-  root.setAttribute('aria-label', 'Centro de comando Jarvis');
+  root.setAttribute('aria-label', 'Centro de operaciones Jarvis');
   root.dataset.presenceTone = estado.tone;
   if (analyzing) root.dataset.pulseActive = '1';
 
@@ -140,172 +142,176 @@ export function createHnfJarvisPremiumCommand({
   const shell = document.createElement('div');
   shell.className = 'hnf-jarvis-premium__shell';
 
-  /* —— Encabezado ejecutivo —— */
-  const execHeader = document.createElement('header');
-  execHeader.className = 'hnf-jarvis-premium__exec';
+  /* —— KPI superior: Crítico / En proceso / Operación —— */
+  const kpiRow = document.createElement('div');
+  kpiRow.className = 'hnf-jarvis-premium__kpi-row';
+  kpiRow.setAttribute('aria-label', 'Resumen operativo del día');
 
-  const mkCell = (eyebrow, extraClass = '') => {
-    const cell = document.createElement('div');
-    cell.className = `hnf-jarvis-premium__exec-cell ${extraClass}`.trim();
-    return cell;
+  const nCrit = Number(traffic.bloqueos) || 0;
+  const nProc = Number(traffic.pendientes) || 0;
+  const nOk = Number(traffic.ok) || 0;
+
+  const mkKpi = (variant, title, value, hint) => {
+    const card = document.createElement('div');
+    card.className = `hnf-jarvis-premium__kpi hnf-jarvis-premium__kpi--${variant}`;
+    const t = document.createElement('span');
+    t.className = 'hnf-jarvis-premium__kpi-title';
+    t.textContent = title;
+    const v = document.createElement('span');
+    v.className = 'hnf-jarvis-premium__kpi-value';
+    v.textContent = String(value);
+    const h = document.createElement('span');
+    h.className = 'hnf-jarvis-premium__kpi-hint';
+    h.textContent = hint;
+    card.append(t, v, h);
+    return card;
   };
 
-  const cellEstado = mkCell('', 'hnf-jarvis-premium__exec-cell--estado');
-  const labE = document.createElement('span');
-  labE.className = 'hnf-jarvis-premium__exec-eyebrow';
-  labE.textContent = 'Estado general';
-  const rowE = document.createElement('div');
-  rowE.className = 'hnf-jarvis-premium__exec-row';
-  const dot = document.createElement('span');
-  dot.className = `hnf-jarvis-premium__pulse-dot hnf-jarvis-premium__pulse-dot--${analyzing ? 'scan' : estado.tone}`;
-  dot.title = analyzing ? 'Ciclo de análisis activo' : 'Señal operativa';
-  const valE = document.createElement('strong');
-  valE.className = 'hnf-jarvis-premium__exec-value';
-  valE.textContent = estado.label;
-  rowE.append(dot, valE);
-  cellEstado.append(labE, rowE);
-
-  const cellModo = mkCell();
-  const labM = document.createElement('span');
-  labM.className = 'hnf-jarvis-premium__exec-eyebrow';
-  labM.textContent = 'Modo Jarvis';
-  const chips = document.createElement('div');
-  chips.className = 'hnf-jarvis-premium__mode-chips';
-  const modeMap = [
-    { key: 'autonomic_safe', label: 'Auto' },
-    { key: 'assist', label: 'Asistido' },
-    { key: 'observe', label: 'Manual' },
-  ];
-  const syncModes = () => {
-    const { jarvisMode } = getControlState();
-    const eff = jarvisMode === 'off' ? 'observe' : jarvisMode;
-    chips.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('hnf-jarvis-premium__mode-chip--on', b.dataset.mode === eff);
-    });
-  };
-  for (const x of modeMap) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'hnf-jarvis-premium__mode-chip';
-    b.dataset.mode = x.key;
-    b.textContent = x.label;
-    b.addEventListener('click', () => {
-      setMode(x.key);
-      syncModes();
-      emitPremium(JARVIS_PREMIUM_EVENTS.MODE_CHANGE, { mode: x.key });
-    });
-    chips.append(b);
-  }
-  syncModes();
-  const modHint = document.createElement('span');
-  modHint.className = 'hnf-jarvis-premium__exec-hint';
-  modHint.textContent = mapJarvisMode(ctrl.jarvisMode);
-  cellModo.append(labM, chips, modHint);
-
-  const cellAlert = mkCell('', 'hnf-jarvis-premium__exec-cell--alert');
-  const labA = document.createElement('span');
-  labA.className = 'hnf-jarvis-premium__exec-eyebrow';
-  labA.textContent = 'Alerta principal';
-  const titA = document.createElement('strong');
-  titA.className = 'hnf-jarvis-premium__alert-title';
-  titA.textContent = alertTitle;
-  const detA = document.createElement('p');
-  detA.className = 'hnf-jarvis-premium__alert-detail';
-  detA.textContent = alertDetail;
-  const alertRow = document.createElement('div');
-  alertRow.className = 'hnf-jarvis-premium__alert-row';
-  alertRow.append(titA);
-  if (firstAlert?.nav?.view) {
-    const ver = document.createElement('button');
-    ver.type = 'button';
-    ver.className = 'hnf-jarvis-premium__alert-link';
-    ver.textContent = 'Ver';
-    ver.addEventListener('click', () => {
-      emitPremium(JARVIS_PREMIUM_EVENTS.ALERT_NAV, { alert: firstAlert, source: 'header' });
-      if (typeof intelNavigate === 'function') intelNavigate(firstAlert.nav);
-      else navigateToView?.(firstAlert.nav.view);
-    });
-    alertRow.append(ver);
-  }
-  cellAlert.append(labA, alertRow, detA);
-
-  const cellNext = mkCell('', 'hnf-jarvis-premium__exec-cell--next');
-  const labN = document.createElement('span');
-  labN.className = 'hnf-jarvis-premium__exec-eyebrow';
-  labN.textContent = 'Siguiente paso';
-  const nextLine = document.createElement('p');
-  nextLine.className = 'hnf-jarvis-premium__next-line';
-  nextLine.textContent = truncate(
-    liveCmdModel?.liveBrief || nucleo.problemaPrincipal || exec.recomendacion || adn.recomendacion,
-    120
+  kpiRow.append(
+    mkKpi(
+      'crit',
+      'Crítico hoy',
+      nCrit,
+      nCrit ? 'OT con señal crítica' : 'Sin OT críticas en panel'
+    ),
+    mkKpi(
+      'proc',
+      'En proceso',
+      nProc,
+      nProc ? 'Requieren atención' : 'Sin cola ámbar'
+    ),
+    mkKpi(
+      'ok',
+      'Operación',
+      nOk,
+      traffic.totalOt ? 'OT en ritmo (verde)' : 'Sin OT cargadas en corte'
+    )
   );
-  const btnExec = document.createElement('button');
-  btnExec.type = 'button';
-  btnExec.id = 'hnf-ejecutar-propuesta-mando';
-  btnExec.className = 'hnf-jarvis-premium__exec-cta';
-  btnExec.textContent = ctaFromAccion(nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion);
-  btnExec.addEventListener('click', runExec);
-  cellNext.append(labN, nextLine, btnExec);
 
-  execHeader.append(cellEstado, cellModo, cellAlert, cellNext);
-
-  /* —— Cuerpo: presencia + módulos —— */
+  /* —— Jarvis IA —— */
   const main = document.createElement('div');
   main.className = 'hnf-jarvis-premium__main';
 
-  const presence = document.createElement('div');
-  presence.className = 'hnf-jarvis-premium__presence';
-  presence.setAttribute('aria-label', 'Presencia operativa Jarvis');
+  const jarvisIa = document.createElement('section');
+  jarvisIa.className = 'hnf-jarvis-premium__jarvis-ia';
+  jarvisIa.setAttribute('aria-label', 'Jarvis IA · sugerencias operativas');
 
-  const presInner = document.createElement('div');
-  presInner.className = 'hnf-jarvis-premium__presence-inner';
+  const iaTop = document.createElement('div');
+  iaTop.className = 'hnf-jarvis-premium__jarvis-ia-top';
+  const iaTitles = document.createElement('div');
+  const iaH = document.createElement('h2');
+  iaH.className = 'hnf-jarvis-premium__jarvis-ia-title';
+  iaH.textContent = 'Jarvis IA';
+  const iaSub = document.createElement('p');
+  iaSub.className = 'hnf-jarvis-premium__jarvis-ia-sub';
+  iaSub.textContent = 'Sugerencias accionables según tus datos actuales';
+  iaTitles.append(iaH, iaSub);
 
-  const presTop = document.createElement('div');
-  presTop.className = 'hnf-jarvis-premium__presence-top';
-  const brand = document.createElement('span');
-  brand.className = 'hnf-jarvis-premium__presence-brand';
-  brand.textContent = 'JARVIS';
-  const presSync = document.createElement('button');
-  presSync.type = 'button';
-  presSync.className = 'hnf-jarvis-premium__presence-sync';
-  presSync.textContent = 'Sincronizar datos';
-  presSync.addEventListener('click', async () => {
-    emitPremium(JARVIS_PREMIUM_EVENTS.SYNC, { source: 'presence' });
-    presSync.disabled = true;
+  const iaSync = document.createElement('button');
+  iaSync.type = 'button';
+  iaSync.className = 'hnf-jarvis-premium__jarvis-ia-sync';
+  iaSync.textContent = 'Sincronizar';
+  iaSync.addEventListener('click', async () => {
+    emitPremium(JARVIS_PREMIUM_EVENTS.SYNC, { source: 'jarvis-ia' });
+    iaSync.disabled = true;
     try {
       if (typeof reloadApp === 'function') await reloadApp();
     } finally {
-      presSync.disabled = false;
+      iaSync.disabled = false;
     }
   });
-  presTop.append(brand, presSync);
+  iaTop.append(iaTitles, iaSync);
 
-  const focus = document.createElement('p');
-  focus.className = 'hnf-jarvis-premium__presence-focus';
-  focus.textContent = truncate(nucleo.problemaPrincipal || adn.principalProblema || 'Operación en curso.', 160);
+  const insights = document.createElement('ul');
+  insights.className = 'hnf-jarvis-premium__jarvis-ia-insights';
+  const insightRows = [
+    {
+      n: otAbiertas,
+      line: `${otAbiertas} OT sin cerrar`,
+      empty: 'Sin OT abiertas en el corte actual',
+    },
+    {
+      n: colaValidacion,
+      line: `${colaValidacion} ítem(es) en cola de validación / clasificación`,
+      empty: 'Cola de validación al día',
+    },
+    {
+      n: sinRespuestaCliente,
+      line: `${sinRespuestaCliente} caso(s) sin informe enviado al cliente`,
+      empty: 'Sin pendientes de envío a cliente (control tiempo)',
+    },
+  ];
+  for (const row of insightRows) {
+    const li = document.createElement('li');
+    li.className = 'hnf-jarvis-premium__jarvis-ia-li';
+    const strong = document.createElement('strong');
+    strong.textContent = row.n > 0 ? row.line : row.empty;
+    li.append(strong);
+    insights.append(li);
+  }
 
-  const metric = document.createElement('p');
-  metric.className = 'hnf-jarvis-premium__presence-metric';
-  const riskFmt =
+  const iaFocus = document.createElement('p');
+  iaFocus.className = 'hnf-jarvis-premium__jarvis-ia-focus';
+  iaFocus.textContent = truncate(
+    nucleo.problemaPrincipal || adn.principalProblema || 'Operación supervisada. Revisá OT y solicitudes según prioridad.',
+    140
+  );
+
+  const iaRisk = document.createElement('p');
+  iaRisk.className = 'hnf-jarvis-premium__jarvis-ia-risk';
+  iaRisk.textContent =
     nucleo.dineroRiesgoFmt ||
-    (adn.dineroEnRiesgo ? `Riesgo estimado ~$${Math.round(adn.dineroEnRiesgo).toLocaleString('es-CL')}` : 'Sin monto crítico en este corte');
-  metric.textContent = riskFmt;
+    (adn.dineroEnRiesgo
+      ? `Exposición estimada ~$${Math.round(adn.dineroEnRiesgo).toLocaleString('es-CL')}`
+      : 'Sin monto destacado en riesgo en este corte');
 
-  presInner.append(presTop, focus, metric);
-  presence.append(presInner);
+  const btnRevisar = document.createElement('button');
+  btnRevisar.type = 'button';
+  btnRevisar.id = 'hnf-ejecutar-propuesta-mando';
+  btnRevisar.className = 'hnf-jarvis-premium__jarvis-ia-cta';
+  btnRevisar.textContent = 'Revisar ahora';
+  btnRevisar.setAttribute('aria-label', ctaFromAccion(nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion));
+  btnRevisar.addEventListener('click', runExec);
+
+  jarvisIa.append(iaTop, insights, iaFocus, iaRisk, btnRevisar);
 
   const modules = document.createElement('div');
   modules.className = 'hnf-jarvis-premium__modules';
 
   const defaults = {
-    planificacion: { label: 'Planificación', view: 'planificacion', hint: 'Calendario operativo' },
-    clima: { label: 'Clima', view: 'clima', hint: 'OT y tiempos' },
-    flota: { label: 'Flota', view: 'flota', hint: 'Solicitudes y movilidad' },
-    comercial: { label: 'Comercial', view: 'oportunidades', hint: 'Pipeline' },
-    control: { label: 'Control', view: 'control-gerencial', hint: 'Gerencia y eventos' },
+    clima: {
+      label: 'Clima operativo',
+      view: 'clima',
+      hint: 'OT · tiempos · evidencias',
+      action: 'Revisar OT',
+    },
+    flota: {
+      label: 'Flota',
+      view: 'flota',
+      hint: 'Solicitudes y desplazamientos',
+      action: 'Ver solicitudes',
+    },
+    control: {
+      label: 'Control',
+      view: 'control-gerencial',
+      hint: 'Eventos y seguimiento gerencial',
+      action: 'Ver operaciones',
+    },
+    planificacion: {
+      label: 'Planificación',
+      view: 'planificacion',
+      hint: 'Calendario operativo',
+      action: 'Ver calendario',
+    },
+    comercial: {
+      label: 'Comercial',
+      view: 'oportunidades',
+      hint: 'Pipeline y oportunidades',
+      action: 'Completar ahora',
+    },
   };
 
-  const order = ['planificacion', 'clima', 'flota', 'comercial', 'control'];
+  const order = ['clima', 'flota', 'control', 'planificacion', 'comercial'];
   for (const key of order) {
     const def = { ...defaults[key], ...(o[key] || {}) };
     const panel = document.createElement('button');
@@ -335,8 +341,8 @@ export function createHnfJarvisPremiumCommand({
     pSig.textContent = badge;
 
     const pGo = document.createElement('span');
-    pGo.className = 'hnf-jarvis-premium__panel-go';
-    pGo.textContent = 'Entrar';
+    pGo.className = 'hnf-jarvis-premium__panel-action';
+    pGo.textContent = def.action || 'Abrir';
 
     panel.append(pEyebrow, pTitle, pSig, pGo);
     modules.append(panel);
@@ -346,13 +352,13 @@ export function createHnfJarvisPremiumCommand({
   intel.className = 'hnf-jarvis-premium__intel';
   const intelSum = document.createElement('summary');
   intelSum.className = 'hnf-jarvis-premium__intel-sum';
-  intelSum.textContent = 'Intel ampliado · alertas y accesos';
+  intelSum.textContent = 'Detalle ejecutivo · alertas y accesos';
   const intelBody = document.createElement('div');
   intelBody.className = 'hnf-jarvis-premium__intel-body';
   if (!alerts.length) {
     const p = document.createElement('p');
     p.className = 'hnf-jarvis-premium__intel-empty';
-    p.textContent = 'No hay más alertas en cola ejecutiva.';
+    p.textContent = 'No hay alertas adicionales en cola ejecutiva.';
     intelBody.append(p);
   } else {
     const ul = document.createElement('ul');
@@ -369,7 +375,7 @@ export function createHnfJarvisPremiumCommand({
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'hnf-jarvis-premium__intel-btn';
-        b.textContent = 'Abrir';
+        b.textContent = 'Abrir vista';
         b.addEventListener('click', () => {
           emitPremium(JARVIS_PREMIUM_EVENTS.ALERT_NAV, { alert: a, source: 'intel-list' });
           if (typeof intelNavigate === 'function') intelNavigate(a.nav);
@@ -384,8 +390,8 @@ export function createHnfJarvisPremiumCommand({
   const quick = document.createElement('div');
   quick.className = 'hnf-jarvis-premium__intel-quick';
   for (const q of [
-    { t: 'Ingesta', v: 'bandeja-canal' },
-    { t: 'Documentos', v: 'documentos-tecnicos' },
+    { t: 'Ingestar correo', v: 'bandeja-canal' },
+    { t: 'Documentos técnicos', v: 'documentos-tecnicos' },
     { t: 'HNF Core', v: 'hnf-core' },
   ]) {
     const b = document.createElement('button');
@@ -404,8 +410,8 @@ export function createHnfJarvisPremiumCommand({
     emitPremium(JARVIS_PREMIUM_EVENTS.INTEL_TOGGLE, { open: intel.open });
   });
 
-  main.append(presence, modules, intel);
-  shell.append(execHeader, main);
+  main.append(jarvisIa, modules, intel);
+  shell.append(kpiRow, main);
   root.append(atm, shell);
 
   if (typeof window !== 'undefined') {
