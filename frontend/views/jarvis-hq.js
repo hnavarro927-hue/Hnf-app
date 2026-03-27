@@ -69,6 +69,7 @@ import { createHnfEnvironmentContinuityPanel } from '../components/hnf-environme
 import { createJarvisOperativoNucleus } from '../components/jarvis-operativo-nucleus.js';
 import { createHnfMandoPrincipalV2 } from '../components/hnf-mando-principal-v2.js';
 import { createHnfExecutiveMandoStrip } from '../components/hnf-jarvis-mando-ejecutivo.js';
+import { createHnfJarvisCommandImmersive } from '../components/hnf-jarvis-command-immersive.js';
 import { buildExecutiveCommandModel } from '../domain/hnf-executive-command.js';
 import {
   appendLiveIntakeEntry,
@@ -1055,6 +1056,24 @@ export const jarvisHqView = ({
   });
   if (liveCmdModel.level >= 2) root.classList.add('jarvis-hq--command-critical');
   else if (liveCmdModel.level >= 1) root.classList.add('jarvis-hq--command-pressure');
+
+  if (jarvisStructuralClean && integrationStatus !== 'sin conexión') {
+    root.classList.add('jarvis-hq--immersive-shell');
+    root.append(
+      createHnfJarvisCommandImmersive({
+        data: data || {},
+        liveCmdModel,
+        alienDecision,
+        unified: result,
+        lastDataRefreshAt,
+        intelNavigate,
+        navigateToView,
+        reloadApp: refresh,
+        getPulseState: pulseSnap,
+      })
+    );
+    return root;
+  }
 
   const mandoPrincipalV2 = createHnfMandoPrincipalV2({
     data: data || {},
