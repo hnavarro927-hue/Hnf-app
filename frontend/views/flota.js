@@ -913,20 +913,19 @@ export const flotaView = ({
         })()
       : null;
 
-  section.append(
-    header,
-    flowStrip,
-    ...(offlineBanner ? [offlineBanner] : []),
-    cards,
-    resumenTitle,
-    resumenWrap,
-    solTitle,
-    form,
-    filtTitle,
-    filtRow,
-    ...(intelStrip ? [intelStrip] : []),
-    overview
-  );
+  const heroBand = document.createElement('div');
+  heroBand.className = 'hnf-flota__hero';
+  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), cards);
+
+  const opsBand = document.createElement('div');
+  opsBand.className = 'hnf-flota__ops';
+  opsBand.append(resumenTitle, resumenWrap, solTitle, form);
+
+  const deskBand = document.createElement('div');
+  deskBand.className = 'hnf-flota__desk';
+  deskBand.append(filtTitle, filtRow, ...(intelStrip ? [intelStrip] : []), overview);
+
+  section.append(heroBand, opsBand, deskBand);
   renderResumen();
 
   return section;

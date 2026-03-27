@@ -1790,7 +1790,19 @@ export const climaView = ({
         })()
       : null;
 
-  section.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), climaToolbar, cards, formCard, overview);
+  const heroBand = document.createElement('div');
+  heroBand.className = 'hnf-clima__hero';
+  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), climaToolbar);
+
+  const statsBand = document.createElement('div');
+  statsBand.className = 'hnf-clima__stats';
+  statsBand.append(cards);
+
+  const workBand = document.createElement('div');
+  workBand.className = 'hnf-clima__body';
+  workBand.append(formCard, overview);
+
+  section.append(heroBand, statsBand, workBand);
 
   return section;
 };
