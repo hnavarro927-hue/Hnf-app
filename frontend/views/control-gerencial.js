@@ -1,6 +1,7 @@
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from '../domain/evento-operativo.js';
 import { listIngresosOperativosDelDia } from '../domain/ingreso-operativo-storage.js';
 import { otCanClose } from '../utils/ot-evidence.js';
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -10,7 +11,7 @@ const fmtMoney = (n) =>
  */
 export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {}) => {
   const root = document.createElement('section');
-  root.className = 'hnf-cap-control';
+  root.className = 'hnf-cap-control hnf-op-view hnf-op-view--control';
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
   const list = Array.isArray(raw) ? raw : [];
@@ -48,7 +49,7 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {
   root.innerHTML = `
     <header class="hnf-cap-control__head">
       <h1 class="hnf-cap-control__title">Control gerencial</h1>
-      <p class="muted">Vista resumen del negocio. El detalle está en Jarvis, Ingreso, Clima y Flota.</p>
+      <p class="muted">Vista <strong>ejecutiva y estratégica</strong>: visibilidad del negocio, cuellos de botella y alertas. El detalle operativo está en Jarvis, Ingreso, Clima y Flota.</p>
     </header>
     <div class="hnf-cap-control__kpis">
       <div class="hnf-cap-control__kpi hnf-cap-control__kpi--${agg.estado_general === 'critico' ? 'bad' : agg.estado_general === 'atencion' ? 'warn' : 'ok'}">
@@ -95,6 +96,9 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {
       </div>
     </div>
   `;
+
+  const headEl = root.querySelector('.hnf-cap-control__head');
+  if (headEl) headEl.after(createHnfOperationalFlowStrip(4));
 
   const ul = root.querySelector('#hnf-control-resp');
   const sorted = [...byResp.entries()].sort((a, b) => b[1] - a[1]);

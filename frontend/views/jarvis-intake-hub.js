@@ -9,6 +9,7 @@ import {
   rememberOutlookIntakeEvent,
 } from '../domain/jarvis-memory.js';
 import { outlookIntakeService } from '../services/outlook-intake.service.js';
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 
 const fmtAt = (iso) => {
   if (!iso) return '—';
@@ -33,16 +34,17 @@ export const jarvisIntakeHubView = ({
   lastDataRefreshAt,
 } = {}) => {
   const root = document.createElement('section');
-  root.className = 'jarvis-intake';
+  root.className = 'jarvis-intake hnf-op-view hnf-op-view--bandeja';
 
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML = `
     <h2>Bandeja · correo e histórico</h2>
     <p class="jarvis-intake__read-only-badge" role="status">Solo lectura · sin envío automático</p>
-    <p class="muted">Recepción y clasificación de mensajes para el equipo. Sin respuestas automáticas ni envío desde esta pantalla. Las señales priorizan trabajo de Hernán y Lyn.</p>
+    <p class="muted">Cola de <strong>revisión y validación</strong> antes de ejecutar: correo e histórico clasificados para el equipo. Sin respuestas automáticas ni envío desde esta pantalla. Las señales priorizan trabajo de Hernán y Lyn.</p>
   `;
-  root.append(header);
+  const flowStrip = createHnfOperationalFlowStrip(1);
+  root.append(header, flowStrip);
 
   const toolbar = document.createElement('div');
   toolbar.className = 'module-toolbar';

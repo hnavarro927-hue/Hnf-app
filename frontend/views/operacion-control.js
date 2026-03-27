@@ -4,6 +4,7 @@ import {
 } from '../domain/hnf-intelligence-engine.js';
 import * as hnfFlowControl from '../domain/hnf-flow-control.js';
 import { createHnfAutopilotPanel } from '../components/hnf-autopilot-panel.js';
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 
 const semaforoLabel = (s) => {
   if (s === 'critico') return { text: 'Rojo · acción inmediata', className: 'flow-ctrl__signal flow-ctrl__signal--red' };
@@ -49,20 +50,21 @@ export const operacionControlView = ({
   intelNavigate,
 } = {}) => {
   const root = document.createElement('section');
-  root.className = 'flow-ctrl';
+  root.className = 'flow-ctrl hnf-op-view hnf-op-view--control';
 
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML = `
     <h2>Control de operación</h2>
-    <p class="muted">Capa directiva HNF Flow Control: no es un tablero de datos, es la cola de lo que tenés que hacer. Ruta conceptual <code>/operacion-control</code>. Actualizá para recalcular eventos y riesgos desde ERP + WhatsApp.</p>
+    <p class="muted">Capa directiva HNF Flow Control: cola de lo que tenés que hacer (no solo tablero). Actualizá para recalcular eventos y riesgos desde ERP + WhatsApp.</p>
   `;
+  const flowStrip = createHnfOperationalFlowStrip(4);
 
   if (integrationStatus === 'sin conexión') {
     const off = document.createElement('div');
     off.className = 'integration-banner integration-banner--offline';
     off.textContent = 'Sin conexión: no se puede calcular el estado operacional.';
-    root.append(header, off);
+    root.append(header, flowStrip, off);
     return root;
   }
 
@@ -239,7 +241,7 @@ export const operacionControlView = ({
     <button type="button" class="flow-ctrl__link" id="flow-ctrl-goto-flota">Flota</button></p>
   `;
 
-  root.append(header, toolbar, hero, autopilotPanel, grid, foot);
+  root.append(header, flowStrip, toolbar, hero, autopilotPanel, grid, foot);
 
   if (typeof intelNavigate === 'function') {
     foot.querySelector('#flow-ctrl-goto-wa')?.addEventListener('click', () => intelNavigate({ view: 'whatsapp' }));

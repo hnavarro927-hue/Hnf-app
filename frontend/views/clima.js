@@ -4,6 +4,7 @@ import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
 import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 
 const MAX_EQUIPOS = 12;
 const EQ_ESTADOS = ['operativo', 'mantenimiento', 'falla'];
@@ -700,12 +701,14 @@ export const climaView = ({
   intelGuidance,
 } = {}) => {
   const section = document.createElement('section');
-  section.className = 'ot-workspace';
+  section.className = 'ot-workspace hnf-op-view hnf-op-view--clima';
 
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Clima · ejecución OT</h2><p class="muted">Orden en pantalla: <strong>A</strong> completar ahora · <strong>B</strong> datos automáticos · <strong>C</strong> evidencia visita · <strong>D</strong> cierre. Flujo sistema: ingreso → Jarvis → OT → validación → cierre.</p>';
+    '<h2>Clima · ejecución OT</h2><p class="muted">Módulo técnico <strong class="hnf-accent-clima">HVAC</strong>: precisión de campo. Orden en pantalla: <strong>A</strong> completar ahora · <strong>B</strong> datos automáticos · <strong>C</strong> evidencia visita · <strong>D</strong> cierre. Flujo: ingreso → Bandeja → asignación → <strong>ejecución acá</strong> → informe → cierre.</p>';
+
+  const flowStrip = createHnfOperationalFlowStrip(3);
 
   if (feedback?.message) {
     const notice = document.createElement('div');
@@ -1538,7 +1541,7 @@ export const climaView = ({
         })()
       : null;
 
-  section.append(header, ...(offlineBanner ? [offlineBanner] : []), climaToolbar, cards, formCard, overview);
+  section.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), climaToolbar, cards, formCard, overview);
 
   return section;
 };

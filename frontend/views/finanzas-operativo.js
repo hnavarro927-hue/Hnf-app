@@ -2,6 +2,8 @@
  * Finanzas — panel ejecutivo (caja, riesgo, flujo) desde snapshot operativo unificado.
  */
 
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+
 const fmtMoney = (n) => {
   const x = Math.round(Number(n) || 0);
   return x.toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -15,7 +17,7 @@ const roundMoney = (v) => {
 
 export const finanzasOperativoView = ({ data, navigateToView, reloadApp } = {}) => {
   const root = document.createElement('div');
-  root.className = 'hnf-mod-finanzas';
+  root.className = 'hnf-mod-finanzas hnf-op-view hnf-op-view--finanzas';
 
   const adn = data?.hnfAdn || {};
   const ots = data?.planOts || data?.ots?.data || [];
@@ -92,6 +94,6 @@ export const finanzasOperativoView = ({ data, navigateToView, reloadApp } = {}) 
   sync.addEventListener('click', () => reloadApp?.());
   tool.append(sync);
 
-  root.append(head, grid, foot, tool);
+  root.append(head, flowStrip, grid, foot, tool);
   return root;
 };

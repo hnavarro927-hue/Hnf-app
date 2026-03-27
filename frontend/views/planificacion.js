@@ -1,6 +1,7 @@
 import { generateClienteCalendarioPdfBlob } from '../services/pdf.service.js';
 import { planificacionService } from '../services/planificacion.service.js';
 import { buildPlanOperativoCalendarSection } from './plan-operativo-calendar.js';
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const toYmd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -75,7 +76,7 @@ export const planificacionView = ({
   intelNavigate,
 } = {}) => {
   const section = document.createElement('section');
-  section.className = 'planificacion-module';
+  section.className = 'planificacion-module hnf-op-view hnf-op-view--planificacion';
 
   const clientes = data?.planClientes || [];
   const tiendas = data?.planTiendas || [];
@@ -124,7 +125,9 @@ export const planificacionView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Planificación · climatización</h2><p class="muted"><strong>Uso diario:</strong> registrá <strong>cliente</strong> y <strong>tienda</strong> (dirección, comuna, ventana <strong>AM/PM</strong>, ruta). Luego <strong>mantenciones</strong>: fecha, horario, <strong>técnico</strong>, tipo y <strong>estado</strong> (pendiente → programado → realizado). El padrón general de clientes también vive en Administración. Si otra persona editó, tocá <strong>Actualizar datos</strong>.</p>';
+    '<h2>Planificación · climatización</h2><p class="muted">Vista <strong>ordenada y predictiva</strong>: calendario, rutas y carga futura. <strong>Uso diario:</strong> registrá <strong>cliente</strong> y <strong>tienda</strong> (dirección, comuna, ventana <strong>AM/PM</strong>, ruta). Luego <strong>mantenciones</strong>: fecha, horario, <strong>técnico</strong>, tipo y <strong>estado</strong> (pendiente → programado → realizado). Si otra persona editó, tocá <strong>Actualizar datos</strong>.</p>';
+
+  const flowStrip = createHnfOperationalFlowStrip(2);
 
   const tabBar = document.createElement('div');
   tabBar.className = 'plan-tabs';
@@ -817,7 +820,7 @@ export const planificacionView = ({
   toolHint.textContent = 'Hace lo mismo que entrar de nuevo al módulo: trae la última versión guardada.';
   toolBar.append(reloadBtn, toolHint);
 
-  section.append(header, feedback, tabBar, toolBar, body);
+  section.append(header, flowStrip, feedback, tabBar, toolBar, body);
   renderBody();
 
   return section;

@@ -28,7 +28,8 @@ function isSameLocalDay(iso, ymd) {
 
 export const INGRESO_ESTADOS = ['pendiente', 'en_proceso', 'completo'];
 export const INGRESO_TIPOS = ['clima', 'flota'];
-export const INGRESO_ORIGENES = ['whatsapp', 'manual'];
+export const INGRESO_ORIGENES = ['whatsapp', 'correo', 'llamada', 'manual'];
+export const INGRESO_PRIORIDADES = ['baja', 'media', 'alta'];
 /** manual | whatsapp_ingesta */
 export const INGRESO_SOURCE_KINDS = ['manual', 'whatsapp_ingesta'];
 
@@ -72,6 +73,11 @@ function normalizeIngresoItem(base) {
     origen: INGRESO_ORIGENES.includes(base.origen) ? base.origen : 'manual',
     estado: INGRESO_ESTADOS.includes(base.estado) ? base.estado : 'pendiente',
     sourceKind: INGRESO_SOURCE_KINDS.includes(base.sourceKind) ? base.sourceKind : 'manual',
+    subtipo: String(base.subtipo || '').trim(),
+    descripcion: String(base.descripcion || '').trim(),
+    prioridad: INGRESO_PRIORIDADES.includes(base.prioridad) ? base.prioridad : 'media',
+    fechaVisita: String(base.fechaVisita || '').trim(),
+    horaVisita: String(base.horaVisita || '').trim(),
   };
 }
 
@@ -97,6 +103,11 @@ export function appendIngresoOperativo(row) {
     urgencia: row.urgencia || null,
     otIdRelacionado: row.otIdRelacionado || null,
     validadoPorUsuario: Boolean(row.validadoPorUsuario),
+    subtipo: row.subtipo,
+    descripcion: row.descripcion,
+    prioridad: row.prioridad,
+    fechaVisita: row.fechaVisita,
+    horaVisita: row.horaVisita,
   });
   const prev = loadIngresosOperativosRaw();
   saveAll([item, ...prev]);
@@ -194,6 +205,11 @@ export function patchIngresoOperativo(id, partial) {
     ...('comuna' in p ? { comuna: String(p.comuna || '').trim() } : {}),
     ...('contacto' in p ? { contacto: String(p.contacto || '').trim() } : {}),
     ...('telefono' in p ? { telefono: String(p.telefono || '').trim() } : {}),
+    ...('subtipo' in p ? { subtipo: String(p.subtipo || '').trim() } : {}),
+    ...('descripcion' in p ? { descripcion: String(p.descripcion || '').trim() } : {}),
+    ...('prioridad' in p && INGRESO_PRIORIDADES.includes(p.prioridad) ? { prioridad: p.prioridad } : {}),
+    ...('fechaVisita' in p ? { fechaVisita: String(p.fechaVisita || '').trim() } : {}),
+    ...('horaVisita' in p ? { horaVisita: String(p.horaVisita || '').trim() } : {}),
     ...('estado' in p && INGRESO_ESTADOS.includes(p.estado) ? { estado: p.estado } : {}),
     ...('validadoPorUsuario' in p ? { validadoPorUsuario: Boolean(p.validadoPorUsuario) } : {}),
     updatedAt: new Date().toISOString(),

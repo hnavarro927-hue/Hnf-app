@@ -15445,6 +15445,12 @@ body.hnf-view--control-operativo #app {
   gap: 14px 18px;
   margin-bottom: 18px;
 }
+.hnf-cap-ingreso__grid--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
 .hnf-cap-ingreso__label {
   display: block;
   font-size: 0.78rem;
@@ -16437,6 +16443,328 @@ body.hnf-view--control-operativo #app {
 .content--view-finanzas,
 .content--view-equipo {
   background: #05080d;
+}
+
+/* ——— HNF operational command (shell + contenido alineados a estándar Jarvis) ——— */
+body.hnf-op-command .shell {
+  gap: 26px 28px;
+}
+
+body.hnf-op-command .sidebar {
+  background: rgba(4, 10, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+}
+
+body.hnf-op-command .nav button.nav-item {
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+body.hnf-op-command .nav button.nav-item.active {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.09);
+}
+
+body.hnf-op-command .content {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(
+    165deg,
+    rgba(14, 20, 34, 0.97) 0%,
+    rgba(8, 12, 22, 0.98) 52%,
+    rgba(4, 8, 16, 1) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 28px 56px rgba(0, 0, 0, 0.5);
+}
+
+body.hnf-op-command .content::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  opacity: 0.95;
+  background:
+    radial-gradient(ellipse 70% 45% at 8% 0%, rgba(56, 189, 248, 0.09), transparent 55%),
+    radial-gradient(ellipse 55% 40% at 96% 8%, rgba(34, 197, 94, 0.07), transparent 52%);
+}
+
+body.hnf-op-command .content > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.hnf-op-theme--clima .content::before {
+  background:
+    radial-gradient(ellipse 75% 50% at 12% 0%, rgba(56, 189, 248, 0.16), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 30%, rgba(14, 165, 233, 0.06), transparent 50%);
+}
+
+body.hnf-op-theme--flota .content::before {
+  background:
+    radial-gradient(ellipse 75% 50% at 10% 0%, rgba(34, 197, 94, 0.14), transparent 58%),
+    radial-gradient(ellipse 50% 38% at 92% 25%, rgba(52, 211, 153, 0.07), transparent 52%);
+}
+
+body.hnf-op-theme--comercial .content::before {
+  background:
+    radial-gradient(ellipse 65% 45% at 20% 0%, rgba(167, 139, 250, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 15%, rgba(56, 189, 248, 0.05), transparent 50%);
+}
+
+body.hnf-op-theme--planificacion .content::before {
+  background:
+    radial-gradient(ellipse 70% 42% at 15% 0%, rgba(96, 165, 250, 0.11), transparent 56%),
+    radial-gradient(ellipse 45% 36% at 85% 20%, rgba(251, 191, 36, 0.06), transparent 50%);
+}
+
+body.hnf-op-theme--control .content::before {
+  background:
+    radial-gradient(ellipse 68% 48% at 18% 0%, rgba(248, 250, 252, 0.08), transparent 58%),
+    radial-gradient(ellipse 50% 40% at 95% 18%, rgba(251, 191, 36, 0.07), transparent 52%);
+}
+
+body.hnf-op-theme--finanzas .content::before {
+  background:
+    radial-gradient(ellipse 60% 40% at 25% 0%, rgba(253, 230, 138, 0.08), transparent 55%),
+    radial-gradient(ellipse 55% 38% at 80% 12%, rgba(148, 163, 184, 0.06), transparent 50%);
+}
+
+body.hnf-op-theme--bandeja .content::before {
+  background:
+    radial-gradient(ellipse 70% 44% at 10% 0%, rgba(251, 191, 36, 0.1), transparent 56%),
+    radial-gradient(ellipse 48% 36% at 92% 20%, rgba(56, 189, 248, 0.06), transparent 50%);
+}
+
+body.hnf-op-theme--ingreso .content::before {
+  background:
+    radial-gradient(ellipse 72% 46% at 12% 0%, rgba(251, 191, 36, 0.11), transparent 58%),
+    radial-gradient(ellipse 52% 38% at 88% 22%, rgba(34, 197, 94, 0.05), transparent 52%);
+}
+
+body.hnf-op-command .module-header {
+  background: rgba(6, 12, 26, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1rem 1.15rem 1.05rem;
+  margin-bottom: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+body.hnf-op-command .module-header h2 {
+  margin-top: 0;
+}
+
+body.hnf-op-command .hnf-cap-control__head {
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 12, 26, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  margin-bottom: 14px;
+}
+
+body.hnf-op-command .hnf-cap-control__kpi {
+  background: rgba(6, 12, 24, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body.hnf-op-command .hnf-mod-finanzas__head {
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 12, 26, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  margin-bottom: 14px;
+}
+
+body.hnf-op-command .hnf-cap-ingreso__head {
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 12, 26, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  margin-bottom: 14px;
+}
+
+body.hnf-op-command .tarjeta,
+body.hnf-op-command .plan-card,
+body.hnf-op-command .jarvis-intake__panel,
+body.hnf-op-command .jarvis-intake__hero {
+  background: rgba(6, 12, 24, 0.58) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+body.hnf-op-command .primary-button {
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.12);
+}
+
+body.hnf-op-command .secondary-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hnf-op-flow {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(4, 8, 18, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.hnf-op-flow__track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+}
+
+.hnf-op-flow__step {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hnf-op-flow__step--done {
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.hnf-op-flow__step--active {
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.12);
+}
+
+.hnf-op-flow__step--pending {
+  opacity: 0.55;
+}
+
+.hnf-op-flow__arr {
+  font-size: 0.65rem;
+  color: rgba(148, 163, 184, 0.45);
+  user-select: none;
+}
+
+.hnf-accent-clima {
+  color: #7dd3fc;
+  font-weight: 800;
+}
+
+.hnf-accent-flota {
+  color: #86efac;
+  font-weight: 800;
+}
+
+body.hnf-op-command .hnf-cap-ingreso__form-card,
+body.hnf-op-command .hnf-cap-ingreso__row {
+  background: rgba(6, 12, 24, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.hnf-cap-ingreso__group {
+  grid-column: 1 / -1;
+  padding: 14px 14px 12px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.hnf-cap-ingreso__group--full .hnf-cap-ingreso__field {
+  grid-column: 1 / -1;
+}
+
+.hnf-cap-ingreso__group-legend {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.hnf-cap-ingreso__group .hnf-cap-ingreso__field {
+  margin-bottom: 0;
+}
+
+.hnf-cap-ingreso__hint {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.35;
+}
+
+.hnf-cap-ingreso textarea.hnf-cap-ingreso__input {
+  min-height: 88px;
+  padding-top: 10px;
+  resize: vertical;
+}
+
+@media (min-width: 720px) {
+  .hnf-cap-ingreso__group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px 18px;
+    align-items: start;
+  }
+
+  .hnf-cap-ingreso__group--full {
+    grid-template-columns: 1fr;
+  }
+
+  .hnf-cap-ingreso__group > .hnf-cap-ingreso__group-legend {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 719px) {
+  .hnf-cap-ingreso__group .hnf-cap-ingreso__field + .hnf-cap-ingreso__field {
+    margin-top: 10px;
+  }
 }
 
 /* Jarvis: stub offline (sin premium) */

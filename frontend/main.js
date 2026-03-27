@@ -1418,6 +1418,56 @@ const render = () => {
           'hnf-view--jarvis-principal',
           state.activeView === 'jarvis'
         );
+
+        const opThemeClasses = [
+          'hnf-op-theme--ingreso',
+          'hnf-op-theme--bandeja',
+          'hnf-op-theme--clima',
+          'hnf-op-theme--flota',
+          'hnf-op-theme--planificacion',
+          'hnf-op-theme--comercial',
+          'hnf-op-theme--control',
+          'hnf-op-theme--finanzas',
+          'hnf-op-theme--neutral',
+        ];
+        opThemeClasses.forEach((c) => document.body.classList.remove(c));
+
+        const opCommandViews = new Set([
+          'ingreso-operativo',
+          'bandeja-canal',
+          'jarvis-intake',
+          'clima',
+          'flota',
+          'planificacion',
+          'oportunidades',
+          'control-gerencial',
+          'finanzas',
+          'operacion-control',
+          'equipo',
+          'whatsapp',
+          'hnf-core',
+          'documentos-tecnicos',
+          'technical-documents',
+          'panel-operativo-vivo',
+        ]);
+        const opThemeByView = {
+          'ingreso-operativo': 'ingreso',
+          'bandeja-canal': 'bandeja',
+          'jarvis-intake': 'bandeja',
+          clima: 'clima',
+          flota: 'flota',
+          planificacion: 'planificacion',
+          oportunidades: 'comercial',
+          'control-gerencial': 'control',
+          finanzas: 'finanzas',
+          'operacion-control': 'control',
+        };
+        const useOpShell = opCommandViews.has(state.activeView) && state.activeView !== 'jarvis';
+        document.body.classList.toggle('hnf-op-command', useOpShell);
+        if (useOpShell) {
+          const th = opThemeByView[state.activeView] || 'neutral';
+          document.body.classList.add(`hnf-op-theme--${th}`);
+        }
       }
 
       const viewProps = {

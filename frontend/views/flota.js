@@ -6,6 +6,7 @@ import {
 } from '../constants/flotaPipeline.js';
 import { buildFlotaOperationalBrief } from '../domain/operational-intelligence.js';
 import { flotaSolicitudService } from '../services/flota-solicitud.service.js';
+import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 
 const TIPO_SERVICIO_OPTS = [
   { value: 'traslado', label: 'Traslado' },
@@ -106,7 +107,7 @@ export const flotaView = ({
   intelGuidance,
 } = {}) => {
   const section = document.createElement('section');
-  section.className = 'flota-module';
+  section.className = 'flota-module hnf-op-view hnf-op-view--flota';
 
   const vehicles = data?.vehicles?.data || [];
   const expenses = data?.expenses?.data || [];
@@ -121,7 +122,9 @@ export const flotaView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Flota · solicitudes</h2><p class="muted"><strong>Seguimiento:</strong> tipo de servicio, <strong>origen / destino</strong>, conductor, vehículo y <strong>pipeline</strong> de estados. <strong>Guardar datos</strong> graba costos e ingresos en servidor; <strong>Siguiente estado</strong> solo avanza el circuito (validaciones en backend). Para <strong>cerrar</strong> el circuito: costos con total &gt; 0 y observación de cierre u observación general.</p>';
+    '<h2>Flota · solicitudes</h2><p class="muted">Módulo <strong class="hnf-accent-flota">logística móvil</strong>: rutas, vehículos y estados en campo. <strong>Seguimiento:</strong> tipo de servicio, <strong>origen / destino</strong>, conductor, vehículo y <strong>pipeline</strong>. <strong>Guardar datos</strong> graba costos e ingresos; <strong>Siguiente estado</strong> avanza el circuito (validaciones en backend). Para <strong>cerrar</strong>: costos con total &gt; 0 y observación de cierre u observación general.</p>';
+
+  const flowStrip = createHnfOperationalFlowStrip(3);
 
   if (flotaFeedback?.message) {
     const notice = document.createElement('div');
@@ -912,6 +915,7 @@ export const flotaView = ({
 
   section.append(
     header,
+    flowStrip,
     ...(offlineBanner ? [offlineBanner] : []),
     cards,
     resumenTitle,
