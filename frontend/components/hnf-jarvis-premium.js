@@ -5,6 +5,7 @@
 import { buildHnfAdnSnapshot } from '../domain/hnf-adn.js';
 import { buildExecutiveCommandModel } from '../domain/hnf-executive-command.js';
 import { ejecutarPropuestaGlobal } from '../domain/evento-operativo.js';
+import { whatsappMessagesForOt } from '../domain/control-operativo-tiempo-real.js';
 
 let __hnfJarvisPrimaryActionFn = null;
 if (typeof window !== 'undefined' && !window.__hnfJarvisPrimaryActionWired) {
@@ -43,6 +44,119 @@ function mapEstadoGlobal(estado) {
   return { tone: 'ok' };
 }
 
+function getPlanOtsList(raw) {
+  const ots = raw?.planOts ?? raw?.ots?.data ?? [];
+  return Array.isArray(ots) ? ots : [];
+}
+
+function isOtActiveForLive(o) {
+  const st = String(o?.estado || '').toLowerCase();
+  return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+}
+
+function outlookMessagesForOt(ot, messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  const oid = String(ot?.id || '').trim();
+  const cli = String(ot?.cliente || '')
+    .toLowerCase()
+    .trim();
+  return list.filter((m) => {
+    const linked = String(m?.linkedOtId || m?.otIdRelacionado || '').trim();
+    if (oid && linked === oid) return true;
+    const blob = `${m?.subject || ''} ${m?.bodyText || ''} ${m?.bodyHtml || ''}`.toLowerCase();
+    if (oid && blob.includes(oid.toLowerCase())) return true;
+    const hint = String(m?.clientHint || '')
+      .toLowerCase()
+      .trim();
+    if (cli && hint && (cli.includes(hint) || hint.includes(cli))) return true;
+    return false;
+  });
+}
+
+function formatClienteNombre(s) {
+  const t = String(s || '').trim();
+  if (!t) return '—';
+  return t
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+    .toUpperCase();
+}
+
+/**
+ * @param {object} ot
+ * @param {{ global?: string } | null} ctrlCard
+ */
+function resolveOtLiveStatus(ot, ctrlCard) {
+  if (ctrlCard?.global === 'rojo') {
+    return { key: 'urgente', label: 'URGENTE', bar: 'red', pct: 72 };
+  }
+  const st = String(ot?.estado || '').toLowerCase();
+  if (['terminado', 'cerrado'].includes(st)) {
+    return { key: 'terminada', label: 'TERMINADA', bar: 'green', pct: 100 };
+  }
+  if (['en proceso', 'proceso', 'visita', 'ejecucion', 'ejecución'].includes(st)) {
+    return { key: 'proceso', label: 'EN PROCESO', bar: 'yellow', pct: 58 };
+  }
+  if (['pendiente', 'nueva', 'abierta', 'asignada', 'programada'].includes(st)) {
+    return { key: 'nueva', label: 'NUEVA', bar: 'yellow', pct: 28 };
+  }
+  if (st) return { key: 'proceso', label: 'EN PROCESO', bar: 'yellow', pct: 45 };
+  return { key: 'nueva', label: 'NUEVA', bar: 'yellow', pct: 28 };
+}
+
+function statusSortRank(key) {
+  const o = { urgente: 0, proceso: 1, nueva: 2, terminada: 3 };
+  return o[key] ?? 9;
+}
+
+/** @param {object} raw @param {object[]} cards */
+function buildOtLiveRows(raw, cards) {
+  const all = getPlanOtsList(raw);
+  let active = all.filter(isOtActiveForLive);
+  let contextNote = '';
+  if (!active.length && all.length) {
+    active = all.filter((o) => !['cancelado'].includes(String(o?.estado || '').toLowerCase())).slice(0, 8);
+    contextNote = 'Sin OT abiertas en este corte: se muestran órdenes recientes para contexto operativo.';
+  }
+  const cardByOt = new Map();
+  for (const c of Array.isArray(cards) ? cards : []) {
+    if (c?.otId) cardByOt.set(String(c.otId), c);
+  }
+  const waMsgs = raw?.whatsappFeed?.messages ?? [];
+  const olMsgs = raw?.outlookFeed?.messages ?? [];
+
+  const rows = active.map((ot) => {
+    const id = String(ot?.id || '—');
+    const ctrl = cardByOt.get(id) || null;
+    const status = resolveOtLiveStatus(ot, ctrl);
+    const hasWa = whatsappMessagesForOt(ot, waMsgs).length > 0;
+    const hasOl = outlookMessagesForOt(ot, olMsgs).length > 0;
+    const title =
+      String(ot?.subtipoServicio || ot?.tipoServicio || '').trim() || 'Revisión técnica';
+    const desc = truncate(ot?.observaciones || ot?.resumenTrabajo || 'Sin descripción breve.', 120);
+    const tech = String(ot?.tecnicoAsignado || 'Sin asignar').trim();
+    return {
+      ot,
+      id,
+      cliente: formatClienteNombre(ot?.cliente),
+      status,
+      channels: { whatsapp: hasWa, email: hasOl },
+      title,
+      desc,
+      tech,
+    };
+  });
+
+  rows.sort((a, b) => {
+    const d = statusSortRank(a.status.key) - statusSortRank(b.status.key);
+    if (d !== 0) return d;
+    return String(a.id).localeCompare(String(b.id), 'es');
+  });
+
+  return { rows: rows.slice(0, 12), contextNote };
+}
+
 /** Nombres estables para extensiones (alertas, priorización OT, acciones sugeridas). */
 export const JARVIS_PREMIUM_EVENTS = {
   ALERT_NAV: 'hnf-jarvis-premium-alert-nav',
@@ -50,6 +164,7 @@ export const JARVIS_PREMIUM_EVENTS = {
   EXECUTE: 'hnf-jarvis-premium-execute',
   SYNC: 'hnf-jarvis-premium-sync',
   INTEL_TOGGLE: 'hnf-jarvis-premium-intel-toggle',
+  OT_LIVE_SELECT: 'hnf-jarvis-premium-ot-live-select',
 };
 
 function emitPremium(name, detail) {
@@ -291,6 +406,141 @@ export function createHnfJarvisPremiumCommand({
 
   jarvisIa.append(iaTop, insights, iaFocus, iaRisk, btnRevisar);
 
+  /* —— Operación en Vivo —— */
+  const otLive = document.createElement('section');
+  otLive.className = 'hnf-jarvis-premium__ot-live';
+  otLive.setAttribute('aria-label', 'Operación en vivo · OT activas');
+
+  const otLiveHead = document.createElement('div');
+  otLiveHead.className = 'hnf-jarvis-premium__ot-live-head';
+  const otLiveTitles = document.createElement('div');
+  const otLiveH = document.createElement('h2');
+  otLiveH.className = 'hnf-jarvis-premium__ot-live-title';
+  otLiveH.textContent = 'Operación en Vivo';
+  const otLiveSub = document.createElement('p');
+  otLiveSub.className = 'hnf-jarvis-premium__ot-live-sub';
+  otLiveSub.textContent = 'Panel de visibilidad operativa en tiempo casi real';
+  otLiveTitles.append(otLiveH, otLiveSub);
+  otLiveHead.append(otLiveTitles);
+
+  const { rows: otLiveRows, contextNote } = buildOtLiveRows(raw, adn.cards);
+  if (contextNote) {
+    const note = document.createElement('p');
+    note.className = 'hnf-jarvis-premium__ot-live-note';
+    note.textContent = contextNote;
+    otLive.append(otLiveHead, note);
+  } else {
+    otLive.append(otLiveHead);
+  }
+
+  const otGrid = document.createElement('div');
+  otGrid.className = 'hnf-jarvis-premium__ot-live-grid';
+
+  if (!otLiveRows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hnf-jarvis-premium__ot-live-empty';
+    empty.textContent =
+      'No hay órdenes de trabajo en el corte actual. Abrí Clima operativo para cargar o revisar OT.';
+    otGrid.append(empty);
+  } else {
+    for (const row of otLiveRows) {
+      const card = document.createElement('article');
+      card.className = 'hnf-jarvis-premium__ot-card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.dataset.otId = row.id;
+      card.setAttribute('aria-label', `OT ${row.id}, ${row.cliente}, ${row.status.label}`);
+
+      const openClima = () => {
+        emitPremium(JARVIS_PREMIUM_EVENTS.OT_LIVE_SELECT, { otId: row.id, source: 'operacion-vivo' });
+        if (typeof intelNavigate === 'function') {
+          intelNavigate({ view: 'clima', otId: row.id });
+        } else {
+          navigateToView?.('clima', { otId: row.id });
+        }
+      };
+      card.addEventListener('click', openClima);
+      card.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          openClima();
+        }
+      });
+
+      const top = document.createElement('div');
+      top.className = 'hnf-jarvis-premium__ot-card-top';
+      const otNum = document.createElement('span');
+      otNum.className = 'hnf-jarvis-premium__ot-card-id';
+      otNum.textContent = row.id;
+      const cli = document.createElement('span');
+      cli.className = 'hnf-jarvis-premium__ot-card-client';
+      cli.textContent = row.cliente;
+      top.append(otNum, cli);
+
+      const badges = document.createElement('div');
+      badges.className = 'hnf-jarvis-premium__ot-card-badges';
+      const stBadge = document.createElement('span');
+      stBadge.className = `hnf-jarvis-premium__ot-badge hnf-jarvis-premium__ot-badge--${row.status.key}`;
+      stBadge.textContent = row.status.label;
+      badges.append(stBadge);
+
+      const chRow = document.createElement('div');
+      chRow.className = 'hnf-jarvis-premium__ot-card-channels';
+      if (row.channels.whatsapp) {
+        const b = document.createElement('span');
+        b.className = 'hnf-jarvis-premium__ot-chan hnf-jarvis-premium__ot-chan--wa';
+        b.textContent = 'WhatsApp';
+        chRow.append(b);
+      }
+      if (row.channels.email) {
+        const b = document.createElement('span');
+        b.className = 'hnf-jarvis-premium__ot-chan hnf-jarvis-premium__ot-chan--mail';
+        b.textContent = 'Email';
+        chRow.append(b);
+      }
+      if (!chRow.childElementCount) {
+        const b = document.createElement('span');
+        b.className = 'hnf-jarvis-premium__ot-chan hnf-jarvis-premium__ot-chan--na';
+        b.textContent = 'Canal no vinculado';
+        chRow.append(b);
+      }
+      badges.append(chRow);
+
+      const jobTitle = document.createElement('h3');
+      jobTitle.className = 'hnf-jarvis-premium__ot-card-job';
+      jobTitle.textContent = row.title;
+
+      const jobDesc = document.createElement('p');
+      jobDesc.className = 'hnf-jarvis-premium__ot-card-desc';
+      jobDesc.textContent = row.desc;
+
+      const techLine = document.createElement('p');
+      techLine.className = 'hnf-jarvis-premium__ot-card-tech';
+      const techLbl = document.createElement('span');
+      techLbl.className = 'hnf-jarvis-premium__ot-card-tech-lbl';
+      techLbl.textContent = 'Técnico';
+      const techVal = document.createElement('strong');
+      techVal.textContent = row.tech;
+      techLine.append(techLbl, techVal);
+
+      const barWrap = document.createElement('div');
+      barWrap.className = 'hnf-jarvis-premium__ot-progress';
+      barWrap.setAttribute('aria-hidden', 'true');
+      const barTrack = document.createElement('div');
+      barTrack.className = 'hnf-jarvis-premium__ot-progress-track';
+      const barFill = document.createElement('div');
+      barFill.className = `hnf-jarvis-premium__ot-progress-fill hnf-jarvis-premium__ot-progress-fill--${row.status.bar}`;
+      barFill.style.width = `${row.status.pct}%`;
+      barTrack.append(barFill);
+      barWrap.append(barTrack);
+
+      card.append(top, badges, jobTitle, jobDesc, techLine, barWrap);
+      otGrid.append(card);
+    }
+  }
+
+  otLive.append(otGrid);
+
   const modules = document.createElement('div');
   modules.className = 'hnf-jarvis-premium__modules';
 
@@ -426,7 +676,7 @@ export function createHnfJarvisPremiumCommand({
     emitPremium(JARVIS_PREMIUM_EVENTS.INTEL_TOGGLE, { open: intel.open });
   });
 
-  main.append(jarvisIa, modules, intel);
+  main.append(jarvisIa, otLive, modules, intel);
   shell.append(kpiRow, main);
   root.append(atm, shell);
 
