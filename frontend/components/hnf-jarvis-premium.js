@@ -468,45 +468,32 @@ export function createHnfJarvisPremiumCommand({
   root.dataset.presenceTone = estado.tone;
   if (analyzing) root.dataset.pulseActive = '1';
 
-  const atm = document.createElement('div');
-  atm.className = 'hnf-jarvis-premium__atm';
-  atm.setAttribute('aria-hidden', 'true');
-  const atmGrad = document.createElement('div');
-  atmGrad.className = 'hnf-jarvis-premium__atm-grad';
-  atm.append(atmGrad);
+  /* Capas 1–3: imagen industrial + overlay oscuro + brillos Flota / núcleo / Clima */
+  const scene = document.createElement('div');
+  scene.className = 'hnf-jarvis-premium__scene';
+  scene.setAttribute('aria-hidden', 'true');
+  const bgImg = document.createElement('div');
+  bgImg.className = 'hnf-jarvis-premium__bg-img';
+  const bgOverlay = document.createElement('div');
+  bgOverlay.className = 'hnf-jarvis-premium__bg-overlay';
+  const bgGlows = document.createElement('div');
+  bgGlows.className = 'hnf-jarvis-premium__bg-glows';
+  const gFlota = document.createElement('div');
+  gFlota.className = 'hnf-jarvis-premium__bg-glow hnf-jarvis-premium__bg-glow--flota';
+  const gCore = document.createElement('div');
+  gCore.className = 'hnf-jarvis-premium__bg-glow hnf-jarvis-premium__bg-glow--core';
+  const gClima = document.createElement('div');
+  gClima.className = 'hnf-jarvis-premium__bg-glow hnf-jarvis-premium__bg-glow--clima';
+  bgGlows.append(gFlota, gCore, gClima);
+  scene.append(bgImg, bgOverlay, bgGlows);
 
   const shell = document.createElement('div');
   shell.className = 'hnf-jarvis-premium__shell';
 
-  /* —— Portada hero · atmósfera premium HNF (sin imagen literal) —— */
+  /* —— Barra de identidad (capa 4–5: vidrio + contenido) —— */
   const hero = document.createElement('header');
   hero.className = 'hnf-jarvis-premium__hero';
-  hero.setAttribute('aria-label', 'Portada · identidad operativa HNF');
-
-  const heroVeil = document.createElement('div');
-  heroVeil.className = 'hnf-jarvis-premium__hero-veil';
-  heroVeil.setAttribute('aria-hidden', 'true');
-
-  const heroSides = document.createElement('div');
-  heroSides.className = 'hnf-jarvis-premium__hero-sides';
-  heroSides.setAttribute('aria-hidden', 'true');
-  const heroFlota = document.createElement('div');
-  heroFlota.className = 'hnf-jarvis-premium__hero-side hnf-jarvis-premium__hero-side--flota';
-  const heroClima = document.createElement('div');
-  heroClima.className = 'hnf-jarvis-premium__hero-side hnf-jarvis-premium__hero-side--clima';
-  heroSides.append(heroFlota, heroClima);
-
-  const heroNode = document.createElement('div');
-  heroNode.className = 'hnf-jarvis-premium__hero-node';
-  heroNode.setAttribute('aria-hidden', 'true');
-  const heroGlow = document.createElement('div');
-  heroGlow.className = 'hnf-jarvis-premium__hero-node-glow';
-  const heroRing = document.createElement('div');
-  heroRing.className = 'hnf-jarvis-premium__hero-node-ring';
-  const heroCore = document.createElement('div');
-  heroCore.className = 'hnf-jarvis-premium__hero-node-core';
-  heroNode.append(heroGlow, heroRing, heroCore);
-
+  hero.setAttribute('aria-label', 'Centro de energía operativa HNF');
   const heroCopy = document.createElement('div');
   heroCopy.className = 'hnf-jarvis-premium__hero-copy';
   const heroTag = document.createElement('p');
@@ -525,7 +512,7 @@ export function createHnfJarvisPremiumCommand({
   chipClima.textContent = 'Clima · HVAC';
   heroChips.append(chipFlota, chipClima);
   heroCopy.append(heroTag, heroLine, heroChips);
-  hero.append(heroVeil, heroSides, heroNode, heroCopy);
+  hero.append(heroCopy);
 
   /* —— KPI superior: Crítico / En proceso / Operación —— */
   const kpiRow = document.createElement('div');
@@ -864,6 +851,9 @@ export function createHnfJarvisPremiumCommand({
       barTrack.className = 'hnf-jarvis-premium__ot-progress-track';
       const barFill = document.createElement('div');
       barFill.className = `hnf-jarvis-premium__ot-progress-fill hnf-jarvis-premium__ot-progress-fill--${row.status.bar}`;
+      if (row.status.key !== 'terminada') {
+        barFill.classList.add('hnf-jarvis-premium__ot-progress-fill--shimmer');
+      }
       if (row.status.key === 'proceso') {
         barFill.classList.add('hnf-jarvis-premium__ot-progress-fill--sweep');
       }
@@ -1016,7 +1006,7 @@ export function createHnfJarvisPremiumCommand({
 
   main.append(jarvisIa, otLive, modules, intel);
   shell.append(hero, kpiRow, main);
-  root.append(atm, shell);
+  root.append(scene, shell);
 
   if (typeof window !== 'undefined') {
     window.HNFJarvisPremium = { EVENTS: JARVIS_PREMIUM_EVENTS };
