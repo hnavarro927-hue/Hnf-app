@@ -919,7 +919,8 @@ export const jarvisHqView = ({
   navigateToView,
 } = {}) => {
   const root = document.createElement('section');
-  root.className = 'jarvis-hq jarvis-hq--command jarvis-hq--anunaki jarvis-hq--one-core';
+  root.className =
+    'jarvis-hq jarvis-hq--command jarvis-hq--anunaki jarvis-hq--one-core jarvis-hq--ai-env';
   if (isTabletMode()) root.classList.add('jarvis-hq--tablet');
 
   if (integrationStatus === 'sin conexión') {

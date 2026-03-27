@@ -38,11 +38,11 @@ function estadoGeneralLabel(m) {
 export function createHnfExecutiveMandoStrip({ model, intelNavigate, navigateToView } = {}) {
   const m = model && typeof model === 'object' ? model : {};
   const el = document.createElement('section');
-  el.className = 'hnf-exec-mando hnf-exec-mando--compact';
+  el.className = 'hnf-exec-mando hnf-exec-mando--compact hnf-exec-mando--ai-strip';
   el.setAttribute('aria-label', 'Estado del mando');
 
   const row = document.createElement('div');
-  row.className = 'hnf-exec-mando__compact-row';
+  row.className = 'hnf-exec-mando__compact-row hnf-exec-mando__compact-row--ai';
 
   const est = document.createElement('div');
   est.className = `hnf-exec-mando__compact-estado hnf-exec-mando__compact-estado--${estadoGeneralTone(m)}`;

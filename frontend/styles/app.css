@@ -17307,3 +17307,376 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis {
 .content--view-equipo {
   background: #05080d;
 }
+
+/* =============================================================================
+   HNF · AI Command Environment (#/jarvis)
+   Identidad visual: núcleo operativo, vidrio, cyan/hielo, red sutil. Sin lógica.
+   ============================================================================= */
+
+@keyframes hnf-ai-ambient-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes hnf-ai-grid-flow {
+  0% {
+    background-position: 0 0, 0 0, 0 0;
+  }
+  100% {
+    background-position: 56px 56px, 56px 56px, 120px 120px;
+  }
+}
+
+@keyframes hnf-ai-core-halo {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes hnf-ai-node-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(56, 189, 248, 0.12),
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 0 24px rgba(14, 165, 233, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(56, 189, 248, 0.22),
+      0 12px 40px rgba(0, 0, 0, 0.45),
+      0 0 36px rgba(34, 211, 238, 0.1);
+  }
+}
+
+/* —— Vista Jarvis: escena base (capas + rejilla + profundidad) —— */
+body.hnf-view--jarvis-principal .content.content--view-jarvis {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 20px;
+  background: #020617;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 28px 100px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -80px 120px rgba(14, 165, 233, 0.04);
+  padding: 18px clamp(18px, 3.2vw, 40px) 24px;
+}
+
+body.hnf-view--jarvis-principal .content.content--view-jarvis::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 95% 55% at 50% -5%, rgba(34, 211, 238, 0.11), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 85% 95%, rgba(59, 130, 246, 0.08), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 12% 88%, rgba(14, 165, 233, 0.06), transparent 45%),
+    linear-gradient(168deg, #020617 0%, #0c1929 38%, #030712 72%, #020617 100%);
+  animation: hnf-ai-ambient-pulse 14s ease-in-out infinite;
+}
+
+body.hnf-view--jarvis-principal .content.content--view-jarvis::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.03) 0%, transparent 0.8px);
+  background-size: 52px 52px, 52px 52px, 180px 180px;
+  background-position: 0 0, 0 0, 12px 20px;
+  mask-image: radial-gradient(ellipse 92% 85% at 50% 42%, #000 18%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 92% 85% at 50% 42%, #000 18%, transparent 72%);
+  animation: hnf-ai-grid-flow 100s linear infinite;
+}
+
+body.hnf-view--jarvis-principal .content.content--view-jarvis > * {
+  position: relative;
+  z-index: 1;
+}
+
+.jarvis-hq--ai-env {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* —— Shell (solo con vista Jarvis activa): vidrio + coherencia AI —— */
+body.hnf-view--jarvis-principal .shell {
+  gap: 28px 32px;
+  align-items: stretch;
+}
+
+body.hnf-view--jarvis-principal .sidebar {
+  background: linear-gradient(175deg, rgba(6, 12, 22, 0.88) 0%, rgba(2, 6, 14, 0.94) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 40px rgba(14, 165, 233, 0.04);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+body.hnf-view--jarvis-principal .shell-brand__mark {
+  border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: linear-gradient(145deg, rgba(8, 20, 36, 0.95) 0%, rgba(4, 12, 24, 0.98) 100%);
+  box-shadow:
+    0 0 24px rgba(34, 211, 238, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+body.hnf-view--jarvis-principal .shell-brand__name {
+  color: #f1f5f9;
+}
+
+body.hnf-view--jarvis-principal .shell-brand__product {
+  color: rgba(148, 200, 230, 0.85);
+  font-size: 11px;
+}
+
+body.hnf-view--jarvis-principal .shell-status {
+  background: rgba(4, 10, 20, 0.55);
+  border-color: rgba(56, 189, 248, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body.hnf-view--jarvis-principal .shell-api--compact {
+  color: rgba(148, 180, 210, 0.75);
+}
+
+body.hnf-view--jarvis-principal .nav-item--mando {
+  border-radius: 14px !important;
+  border-width: 1px !important;
+  border-color: rgba(56, 189, 248, 0.1) !important;
+  background: rgba(4, 10, 20, 0.55) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  min-height: 48px !important;
+  padding: 12px 14px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+body.hnf-view--jarvis-principal .nav-item--mando .nav-item__icon {
+  border-radius: 12px;
+  background: rgba(34, 211, 238, 0.06);
+  border-color: rgba(56, 189, 248, 0.14);
+}
+
+body.hnf-view--jarvis-principal .nav-item--mando:hover {
+  border-color: rgba(34, 211, 238, 0.35) !important;
+  background: rgba(8, 18, 32, 0.72) !important;
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.08);
+}
+
+body.hnf-view--jarvis-principal .nav-item--mando.active {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  background: linear-gradient(125deg, rgba(34, 211, 238, 0.1), rgba(59, 130, 246, 0.08)) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.2),
+    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 0 32px rgba(34, 211, 238, 0.1) !important;
+}
+
+body.hnf-view--jarvis-principal .shell-nav-toggle {
+  border-color: rgba(56, 189, 248, 0.22);
+  background: rgba(4, 12, 24, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+/* —— Franja estado AI (compacta, vidrio) —— */
+.hnf-exec-mando--ai-strip {
+  margin: 0 0 0.2rem;
+  padding: 0.4rem 0.75rem 0.45rem;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  background: linear-gradient(105deg, rgba(4, 12, 24, 0.65), rgba(8, 18, 32, 0.45));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-exec-mando__compact-row--ai {
+  gap: clamp(0.65rem, 2.2vw, 1.35rem);
+}
+
+/* —— Campo orbital: red radial + anillo datos —— */
+body.hnf-view--jarvis-principal #hnf-mando-principal-v2.hnf-command-deck {
+  max-width: min(96vw, 940px);
+}
+
+body.hnf-view--jarvis-principal .hnf-command-deck__orbit-field::before {
+  inset: 12%;
+  background:
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg 9deg,
+      rgba(56, 189, 248, 0.028) 9deg 10deg
+    ),
+    radial-gradient(circle at 50% 45%, rgba(34, 211, 238, 0.12) 0%, transparent 58%),
+    radial-gradient(circle at 50% 55%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
+  animation: hnf-ai-core-halo 10s ease-in-out infinite;
+}
+
+body.hnf-view--jarvis-principal .hnf-command-deck__orbit-field::after {
+  inset: 6%;
+  border-color: rgba(56, 189, 248, 0.18);
+  box-shadow:
+    0 0 80px rgba(34, 211, 238, 0.08),
+    inset 0 0 60px rgba(14, 165, 233, 0.05);
+}
+
+/* —— Núcleo AI Core —— */
+body.hnf-view--jarvis-principal .hnf-command-nucleus {
+  filter: drop-shadow(0 0 36px rgba(34, 211, 238, 0.22)) drop-shadow(0 0 72px rgba(255, 255, 255, 0.06));
+}
+
+body.hnf-view--jarvis-principal .hnf-command-nucleus__live-glow {
+  inset: 2%;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.12), transparent 42%),
+    radial-gradient(circle at 48% 48%, rgba(34, 211, 238, 0.22), transparent 52%),
+    radial-gradient(circle at 62% 70%, rgba(59, 130, 246, 0.12), transparent 48%);
+  animation: hnf-adn-breathe 6.5s ease-in-out infinite;
+}
+
+body.hnf-view--jarvis-principal .hnf-command-nucleus__radar-arc {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 0 40px rgba(34, 211, 238, 0.12),
+    inset 0 0 50px rgba(14, 165, 233, 0.06);
+}
+
+body.hnf-view--jarvis-principal .hnf-command-nucleus__radar-sweep--v3 {
+  background: conic-gradient(from 0deg, transparent 0deg 280deg, rgba(255, 255, 255, 0.06) 292deg 360deg);
+  opacity: 0.5;
+  animation-duration: 18s;
+}
+
+body.hnf-view--jarvis-principal .hnf-command-nucleus__core--live {
+  background: radial-gradient(ellipse at 50% 22%, rgba(30, 45, 68, 0.55), rgba(4, 10, 20, 0.88));
+  border-color: rgba(186, 230, 253, 0.35);
+  box-shadow:
+    0 0 50px rgba(34, 211, 238, 0.18),
+    0 0 100px rgba(59, 130, 246, 0.08),
+    0 24px 56px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -20px 40px rgba(14, 165, 233, 0.05);
+}
+
+body.hnf-view--jarvis-principal .hnf-command-nucleus__kick--live {
+  color: rgba(224, 242, 254, 0.95);
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.35);
+}
+
+body.hnf-view--jarvis-principal .hnf-live-ring--entrada {
+  filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.15));
+}
+
+/* —— Cápsulas orbitales (módulos conectados) —— */
+body.hnf-view--jarvis-principal .hnf-orbit-card {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  background: linear-gradient(155deg, rgba(8, 18, 32, 0.45), rgba(4, 10, 20, 0.78));
+  animation: hnf-ai-node-pulse 5s ease-in-out infinite;
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 42%);
+  opacity: 0.7;
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card--crit {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: linear-gradient(155deg, rgba(40, 12, 18, 0.5), rgba(6, 10, 18, 0.85));
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card--warn {
+  border-color: rgba(251, 191, 36, 0.4);
+  background: linear-gradient(155deg, rgba(36, 28, 8, 0.45), rgba(6, 10, 18, 0.82));
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card--ok {
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card:hover,
+body.hnf-view--jarvis-principal .hnf-orbit-card:focus-visible {
+  border-color: rgba(34, 211, 238, 0.35);
+  transform: scale(1.04);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.2),
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(34, 211, 238, 0.12);
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card__name {
+  color: rgba(186, 230, 253, 0.88);
+}
+
+body.hnf-view--jarvis-principal .hnf-orbit-card__go {
+  color: rgba(125, 211, 252, 0.95);
+  font-weight: 800;
+}
+
+/* —— Pie sync del mando —— */
+body.hnf-view--jarvis-principal .hnf-command-deck__sync {
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(4, 12, 24, 0.6);
+  color: #e0f2fe;
+  backdrop-filter: blur(8px);
+}
+
+/* —— Acordeón comando extendido (Jarvis): menos bloque pesado —— */
+body.hnf-view--jarvis-principal .jarvis-hq-secondary-deck {
+  border: 1px solid rgba(56, 189, 248, 0.1);
+  border-radius: 16px;
+  background: rgba(4, 10, 20, 0.35);
+  backdrop-filter: blur(12px);
+}
+
+body.hnf-view--jarvis-principal .jarvis-hq-secondary-deck__sum {
+  color: rgba(186, 230, 253, 0.9);
+}
+
+body.hnf-view--jarvis-principal .jarvis-hq--command {
+  gap: 10px;
+}
