@@ -17218,6 +17218,18 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 }
 
 /* Barra de identidad — vidrio sobre escena */
+@keyframes hnf-jarvis-hero-gradient-drift {
+  0% {
+    background-position: 0% 40%;
+  }
+  50% {
+    background-position: 100% 60%;
+  }
+  100% {
+    background-position: 0% 40%;
+  }
+}
+
 .hnf-jarvis-premium__hero {
   position: relative;
   overflow: hidden;
@@ -17231,6 +17243,24 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
   box-shadow:
     0 28px 72px rgba(0, 0, 0, 0.5),
     0 1px 0 rgba(255, 255, 255, 0.14) inset;
+}
+
+.hnf-jarvis-premium__hero::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.14;
+  background: linear-gradient(
+    118deg,
+    rgba(56, 189, 248, 0.22) 0%,
+    rgba(251, 191, 36, 0.14) 34%,
+    rgba(52, 211, 153, 0.18) 62%,
+    rgba(56, 189, 248, 0.16) 100%
+  );
+  background-size: 220% 220%;
+  animation: hnf-jarvis-hero-gradient-drift 28s ease-in-out infinite;
 }
 
 .hnf-jarvis-premium__hero-copy {
@@ -17304,6 +17334,13 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 
   .hnf-jarvis-premium__hero-line {
     font-size: 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hnf-jarvis-premium__hero::before {
+    animation: none;
+    background-position: 50% 50%;
   }
 }
 
@@ -17460,6 +17497,19 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.48),
     0 1px 0 rgba(255, 255, 255, 0.1) inset;
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.28s ease,
+    border-color 0.22s ease;
+}
+
+.hnf-jarvis-premium__jarvis-ia:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 32px 78px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 0 40px rgba(56, 189, 248, 0.07);
 }
 
 .hnf-jarvis-premium__jarvis-ia-top {
@@ -17890,6 +17940,19 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
     0 24px 64px rgba(0, 0, 0, 0.45),
     0 1px 0 rgba(255, 255, 255, 0.1) inset,
     0 0 40px rgba(56, 189, 248, 0.06);
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.28s ease,
+    border-color 0.22s ease;
+}
+
+.hnf-jarvis-premium__ot-live:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow:
+    0 32px 78px rgba(0, 0, 0, 0.52),
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 0 48px rgba(56, 189, 248, 0.1);
 }
 
 .hnf-jarvis-premium__ot-live-head {
@@ -17976,6 +18039,69 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 
 .hnf-jarvis-premium__ot-row:hover {
   background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+  z-index: 2;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+}
+
+@keyframes hnf-jarvis-ot-urgent-pulse-bg {
+  0%,
+  100% {
+    opacity: 0.38;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}
+
+@keyframes hnf-jarvis-ot-urgent-edge-bar {
+  0%,
+  100% {
+    opacity: 0.55;
+    filter: drop-shadow(0 0 5px rgba(248, 113, 113, 0.35));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 14px rgba(248, 113, 113, 0.65));
+  }
+}
+
+.hnf-jarvis-premium__ot-row--urgente {
+  box-shadow: inset 3px 0 0 rgba(248, 113, 113, 0.5);
+}
+
+.hnf-jarvis-premium__ot-row--urgente::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 95% 80% at 50% 0%, rgba(248, 113, 113, 0.2), transparent 58%);
+  animation: hnf-jarvis-ot-urgent-pulse-bg 2.75s ease-in-out infinite;
+}
+
+.hnf-jarvis-premium__ot-row--urgente::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8%;
+  bottom: 8%;
+  width: 3px;
+  border-radius: 2px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(254, 202, 202, 0.95) 0%,
+    rgba(248, 113, 113, 0.65) 45%,
+    rgba(185, 28, 28, 0.55) 100%
+  );
+  animation: hnf-jarvis-ot-urgent-edge-bar 2.6s ease-in-out infinite;
+}
+
+.hnf-jarvis-premium__ot-row--urgente > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hnf-jarvis-premium__ot-row:focus-visible {
@@ -18250,6 +18376,39 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
   }
 }
 
+@keyframes hnf-ot-progress-fill-breathe {
+  0%,
+  100% {
+    filter: brightness(0.93) saturate(0.96);
+    opacity: 0.9;
+  }
+  50% {
+    filter: brightness(1.07) saturate(1.04);
+    opacity: 1;
+  }
+}
+
+@keyframes hnf-ot-progress-fill-breathe-slow {
+  0%,
+  100% {
+    filter: brightness(0.96);
+    opacity: 0.94;
+  }
+  50% {
+    filter: brightness(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes hnf-jarvis-progress-track-sheen {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .hnf-jarvis-premium__ot-progress {
   margin-top: 0.35rem;
   padding-top: 0.2rem;
@@ -18264,8 +18423,27 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
   overflow: hidden;
 }
 
+.hnf-jarvis-premium__ot-progress-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 48%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: hnf-jarvis-progress-track-sheen 6.2s ease-in-out infinite;
+}
+
 .hnf-jarvis-premium__ot-progress-fill {
   position: relative;
+  z-index: 1;
   height: 100%;
   border-radius: 1px;
   width: 0;
@@ -18320,7 +18498,7 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 /* Barra: EN PROCESO */
 .hnf-jarvis-premium__ot-progress--proceso .hnf-jarvis-premium__ot-progress-fill {
   width: 66%;
-  animation: none;
+  animation: hnf-ot-progress-fill-breathe 4.1s ease-in-out infinite;
 }
 
 /* Barra: URGENTE — pulso + resplandor rojo/ámbar */
@@ -18336,7 +18514,7 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 /* Barra: TERMINADA — verde completo */
 .hnf-jarvis-premium__ot-progress--terminada .hnf-jarvis-premium__ot-progress-fill {
   width: 100% !important;
-  animation: none;
+  animation: hnf-ot-progress-fill-breathe-slow 5.5s ease-in-out infinite;
 }
 
 .hnf-jarvis-premium__ot-progress--terminada .hnf-jarvis-premium__ot-progress-fill::after {
@@ -18346,19 +18524,41 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
 /* Barra: NUEVA — segmento ámbar corto */
 .hnf-jarvis-premium__ot-progress--nueva .hnf-jarvis-premium__ot-progress-fill {
   width: 22%;
-  animation: none;
+  animation: hnf-ot-progress-fill-breathe 3.9s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hnf-jarvis-premium__ot-progress-fill--sweep::after,
   .hnf-jarvis-premium__ot-progress-fill--shimmer::before,
-  .hnf-jarvis-premium__ot-progress--urgente .hnf-jarvis-premium__ot-progress-fill {
+  .hnf-jarvis-premium__ot-progress--urgente .hnf-jarvis-premium__ot-progress-fill,
+  .hnf-jarvis-premium__ot-progress--nueva .hnf-jarvis-premium__ot-progress-fill,
+  .hnf-jarvis-premium__ot-progress--proceso .hnf-jarvis-premium__ot-progress-fill,
+  .hnf-jarvis-premium__ot-progress--terminada .hnf-jarvis-premium__ot-progress-fill {
     animation: none;
+  }
+
+  .hnf-jarvis-premium__ot-progress-track::after {
+    animation: none;
+    opacity: 0.35;
   }
 
   .hnf-jarvis-premium__ot-progress--urgente .hnf-jarvis-premium__ot-progress-fill {
     opacity: 1;
     box-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+  }
+
+  .hnf-jarvis-premium__ot-row--urgente::before,
+  .hnf-jarvis-premium__ot-row--urgente::after {
+    animation: none;
+  }
+
+  .hnf-jarvis-premium__ot-row--urgente::before {
+    opacity: 0.52;
+  }
+
+  .hnf-jarvis-premium__ot-row--urgente::after {
+    opacity: 0.88;
+    filter: none;
   }
 }
 
@@ -18434,9 +18634,10 @@ body.hnf-view--jarvis-principal .content.content--view-jarvis:has(.jarvis-hq--pr
   background: var(--hnf-jarvis-glass-elevated);
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 24px 56px rgba(0, 0, 0, 0.48),
-    0 1px 0 rgba(255, 255, 255, 0.14) inset;
-  transform: translateY(-2px);
+    0 30px 72px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 0 32px rgba(56, 189, 248, 0.06);
+  transform: translateY(-4px);
 }
 
 .hnf-jarvis-premium__panel--line-flota:hover {

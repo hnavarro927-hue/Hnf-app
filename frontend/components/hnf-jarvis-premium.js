@@ -734,6 +734,9 @@ export function createHnfJarvisPremiumCommand({
         .join(' · ');
       const article = document.createElement('article');
       article.className = 'hnf-jarvis-premium__ot-row';
+      if (row.status.key === 'urgente') {
+        article.classList.add('hnf-jarvis-premium__ot-row--urgente');
+      }
       article.tabIndex = 0;
       article.setAttribute('role', 'button');
       article.dataset.otId = row.id;
