@@ -151,7 +151,7 @@ export function createHnfJarvisPremiumCommand({
   const nProc = Number(traffic.pendientes) || 0;
   const nOk = Number(traffic.ok) || 0;
 
-  const mkKpi = (variant, title, value, hint) => {
+  const mkKpi = (variant, title, value, hint, { ctaLabel, view }) => {
     const card = document.createElement('div');
     card.className = `hnf-jarvis-premium__kpi hnf-jarvis-premium__kpi--${variant}`;
     const t = document.createElement('span');
@@ -163,7 +163,20 @@ export function createHnfJarvisPremiumCommand({
     const h = document.createElement('span');
     h.className = 'hnf-jarvis-premium__kpi-hint';
     h.textContent = hint;
-    card.append(t, v, h);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hnf-jarvis-premium__kpi-cta';
+    btn.textContent = ctaLabel;
+    btn.addEventListener('click', () => {
+      emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, {
+        source: 'kpi-card',
+        kpiVariant: variant,
+        view,
+        label: ctaLabel,
+      });
+      navigateToView?.(view);
+    });
+    card.append(t, v, h, btn);
     return card;
   };
 
@@ -172,19 +185,22 @@ export function createHnfJarvisPremiumCommand({
       'crit',
       'Crítico hoy',
       nCrit,
-      nCrit ? 'OT con señal crítica' : 'Sin OT críticas en panel'
+      nCrit ? 'OT con señal crítica' : 'Sin OT críticas en panel',
+      { ctaLabel: 'Revisar OT', view: 'clima' }
     ),
     mkKpi(
       'proc',
       'En proceso',
       nProc,
-      nProc ? 'Requieren atención' : 'Sin cola ámbar'
+      nProc ? 'Requieren atención' : 'Sin cola ámbar',
+      { ctaLabel: 'Ver pendientes', view: 'clima' }
     ),
     mkKpi(
       'ok',
       'Operación',
       nOk,
-      traffic.totalOt ? 'OT en ritmo (verde)' : 'Sin OT cargadas en corte'
+      traffic.totalOt ? 'OT en ritmo (verde)' : 'Sin OT cargadas en corte',
+      { ctaLabel: 'Completar informe', view: 'clima' }
     )
   );
 
