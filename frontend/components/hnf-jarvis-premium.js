@@ -433,23 +433,41 @@ export function createHnfJarvisPremiumCommand({
     otLive.append(otLiveHead);
   }
 
-  const otGrid = document.createElement('div');
-  otGrid.className = 'hnf-jarvis-premium__ot-live-grid';
+  const otList = document.createElement('div');
+  otList.className = 'hnf-jarvis-premium__ot-live-list';
+
+  const mkSep = () => {
+    const s = document.createElement('span');
+    s.className = 'hnf-jarvis-premium__ot-row-sep';
+    s.textContent = '|';
+    s.setAttribute('aria-hidden', 'true');
+    return s;
+  };
 
   if (!otLiveRows.length) {
     const empty = document.createElement('p');
     empty.className = 'hnf-jarvis-premium__ot-live-empty';
     empty.textContent =
       'No hay órdenes de trabajo en el corte actual. Abrí Clima operativo para cargar o revisar OT.';
-    otGrid.append(empty);
+    otList.append(empty);
   } else {
     for (const row of otLiveRows) {
-      const card = document.createElement('article');
-      card.className = 'hnf-jarvis-premium__ot-card';
-      card.tabIndex = 0;
-      card.setAttribute('role', 'button');
-      card.dataset.otId = row.id;
-      card.setAttribute('aria-label', `OT ${row.id}, ${row.cliente}, ${row.status.label}`);
+      const channelsHint = [
+        row.channels.whatsapp ? 'WhatsApp' : null,
+        row.channels.email ? 'Email' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const article = document.createElement('article');
+      article.className = 'hnf-jarvis-premium__ot-row';
+      article.tabIndex = 0;
+      article.setAttribute('role', 'button');
+      article.dataset.otId = row.id;
+      article.dataset.otStatus = row.status.key;
+      article.setAttribute(
+        'aria-label',
+        `OT ${row.id}, ${row.cliente}, ${row.status.label}${channelsHint ? `, ${channelsHint}` : ''}`
+      );
 
       const openClima = () => {
         emitPremium(JARVIS_PREMIUM_EVENTS.OT_LIVE_SELECT, { otId: row.id, source: 'operacion-vivo' });
@@ -459,87 +477,57 @@ export function createHnfJarvisPremiumCommand({
           navigateToView?.('clima', { otId: row.id });
         }
       };
-      card.addEventListener('click', openClima);
-      card.addEventListener('keydown', (ev) => {
+      article.addEventListener('click', openClima);
+      article.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter' || ev.key === ' ') {
           ev.preventDefault();
           openClima();
         }
       });
 
-      const top = document.createElement('div');
-      top.className = 'hnf-jarvis-premium__ot-card-top';
+      const meta = document.createElement('div');
+      meta.className = 'hnf-jarvis-premium__ot-row-meta';
       const otNum = document.createElement('span');
-      otNum.className = 'hnf-jarvis-premium__ot-card-id';
+      otNum.className = 'hnf-jarvis-premium__ot-row-id';
       otNum.textContent = row.id;
       const cli = document.createElement('span');
-      cli.className = 'hnf-jarvis-premium__ot-card-client';
+      cli.className = 'hnf-jarvis-premium__ot-row-client';
       cli.textContent = row.cliente;
-      top.append(otNum, cli);
-
-      const badges = document.createElement('div');
-      badges.className = 'hnf-jarvis-premium__ot-card-badges';
       const stBadge = document.createElement('span');
       stBadge.className = `hnf-jarvis-premium__ot-badge hnf-jarvis-premium__ot-badge--${row.status.key}`;
       stBadge.textContent = row.status.label;
-      badges.append(stBadge);
+      meta.append(otNum, mkSep(), cli, mkSep(), stBadge);
 
-      const chRow = document.createElement('div');
-      chRow.className = 'hnf-jarvis-premium__ot-card-channels';
-      if (row.channels.whatsapp) {
-        const b = document.createElement('span');
-        b.className = 'hnf-jarvis-premium__ot-chan hnf-jarvis-premium__ot-chan--wa';
-        b.textContent = 'WhatsApp';
-        chRow.append(b);
-      }
-      if (row.channels.email) {
-        const b = document.createElement('span');
-        b.className = 'hnf-jarvis-premium__ot-chan hnf-jarvis-premium__ot-chan--mail';
-        b.textContent = 'Email';
-        chRow.append(b);
-      }
-      if (!chRow.childElementCount) {
-        const b = document.createElement('span');
-        b.className = 'hnf-jarvis-premium__ot-chan hnf-jarvis-premium__ot-chan--na';
-        b.textContent = 'Canal no vinculado';
-        chRow.append(b);
-      }
-      badges.append(chRow);
-
+      const body = document.createElement('div');
+      body.className = 'hnf-jarvis-premium__ot-row-body';
       const jobTitle = document.createElement('h3');
-      jobTitle.className = 'hnf-jarvis-premium__ot-card-job';
+      jobTitle.className = 'hnf-jarvis-premium__ot-row-title';
       jobTitle.textContent = row.title;
-
       const jobDesc = document.createElement('p');
-      jobDesc.className = 'hnf-jarvis-premium__ot-card-desc';
+      jobDesc.className = 'hnf-jarvis-premium__ot-row-desc';
       jobDesc.textContent = row.desc;
+      body.append(jobTitle, jobDesc);
 
-      const techLine = document.createElement('p');
-      techLine.className = 'hnf-jarvis-premium__ot-card-tech';
-      const techLbl = document.createElement('span');
-      techLbl.className = 'hnf-jarvis-premium__ot-card-tech-lbl';
-      techLbl.textContent = 'Técnico';
-      const techVal = document.createElement('strong');
-      techVal.textContent = row.tech;
-      techLine.append(techLbl, techVal);
+      const techLine = document.createElement('div');
+      techLine.className = 'hnf-jarvis-premium__ot-row-tech';
+      techLine.textContent = row.tech;
 
       const barWrap = document.createElement('div');
-      barWrap.className = 'hnf-jarvis-premium__ot-progress';
+      barWrap.className = `hnf-jarvis-premium__ot-progress hnf-jarvis-premium__ot-progress--${row.status.key}`;
       barWrap.setAttribute('aria-hidden', 'true');
       const barTrack = document.createElement('div');
       barTrack.className = 'hnf-jarvis-premium__ot-progress-track';
       const barFill = document.createElement('div');
       barFill.className = `hnf-jarvis-premium__ot-progress-fill hnf-jarvis-premium__ot-progress-fill--${row.status.bar}`;
-      barFill.style.width = `${row.status.pct}%`;
       barTrack.append(barFill);
       barWrap.append(barTrack);
 
-      card.append(top, badges, jobTitle, jobDesc, techLine, barWrap);
-      otGrid.append(card);
+      article.append(meta, body, techLine, barWrap);
+      otList.append(article);
     }
   }
 
-  otLive.append(otGrid);
+  otLive.append(otList);
 
   const modules = document.createElement('div');
   modules.className = 'hnf-jarvis-premium__modules';
