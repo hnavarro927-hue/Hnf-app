@@ -62,6 +62,12 @@ export function listIngresosOperativosDelDia() {
  * @param {object} row
  */
 function normalizeIngresoItem(base) {
+  const pr = base.prioridad;
+  let prioridad = 'media';
+  if (pr === 'urgente' || pr === 'alta') prioridad = 'alta';
+  else if (pr === 'normal') prioridad = 'media';
+  else if (INGRESO_PRIORIDADES.includes(pr)) prioridad = pr;
+
   return {
     ...base,
     cliente: String(base.cliente || '').trim(),
@@ -75,9 +81,16 @@ function normalizeIngresoItem(base) {
     sourceKind: INGRESO_SOURCE_KINDS.includes(base.sourceKind) ? base.sourceKind : 'manual',
     subtipo: String(base.subtipo || '').trim(),
     descripcion: String(base.descripcion || '').trim(),
-    prioridad: INGRESO_PRIORIDADES.includes(base.prioridad) ? base.prioridad : 'media',
+    observaciones: String(base.observaciones || '').trim(),
+    prioridad,
     fechaVisita: String(base.fechaVisita || '').trim(),
     horaVisita: String(base.horaVisita || '').trim(),
+    fechaSolicitud: String(base.fechaSolicitud || '').trim(),
+    horaSolicitud: String(base.horaSolicitud || '').trim(),
+    emailCorreo: String(base.emailCorreo || '').trim(),
+    regionZona: String(base.regionZona || '').trim(),
+    operationMode: base.operationMode === 'automatic' ? 'automatic' : 'manual',
+    tecnicoAsignadoOt: String(base.tecnicoAsignadoOt || '').trim(),
   };
 }
 
@@ -108,6 +121,13 @@ export function appendIngresoOperativo(row) {
     prioridad: row.prioridad,
     fechaVisita: row.fechaVisita,
     horaVisita: row.horaVisita,
+    observaciones: row.observaciones,
+    fechaSolicitud: row.fechaSolicitud,
+    horaSolicitud: row.horaSolicitud,
+    emailCorreo: row.emailCorreo,
+    regionZona: row.regionZona,
+    operationMode: row.operationMode,
+    tecnicoAsignadoOt: row.tecnicoAsignadoOt,
   });
   const prev = loadIngresosOperativosRaw();
   saveAll([item, ...prev]);
@@ -210,6 +230,13 @@ export function patchIngresoOperativo(id, partial) {
     ...('prioridad' in p && INGRESO_PRIORIDADES.includes(p.prioridad) ? { prioridad: p.prioridad } : {}),
     ...('fechaVisita' in p ? { fechaVisita: String(p.fechaVisita || '').trim() } : {}),
     ...('horaVisita' in p ? { horaVisita: String(p.horaVisita || '').trim() } : {}),
+    ...('observaciones' in p ? { observaciones: String(p.observaciones || '').trim() } : {}),
+    ...('fechaSolicitud' in p ? { fechaSolicitud: String(p.fechaSolicitud || '').trim() } : {}),
+    ...('horaSolicitud' in p ? { horaSolicitud: String(p.horaSolicitud || '').trim() } : {}),
+    ...('emailCorreo' in p ? { emailCorreo: String(p.emailCorreo || '').trim() } : {}),
+    ...('regionZona' in p ? { regionZona: String(p.regionZona || '').trim() } : {}),
+    ...('operationMode' in p ? { operationMode: p.operationMode === 'automatic' ? 'automatic' : 'manual' } : {}),
+    ...('tecnicoAsignadoOt' in p ? { tecnicoAsignadoOt: String(p.tecnicoAsignadoOt || '').trim() } : {}),
     ...('estado' in p && INGRESO_ESTADOS.includes(p.estado) ? { estado: p.estado } : {}),
     ...('validadoPorUsuario' in p ? { validadoPorUsuario: Boolean(p.validadoPorUsuario) } : {}),
     updatedAt: new Date().toISOString(),
