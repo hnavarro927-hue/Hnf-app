@@ -19095,4 +19095,114 @@ body.hnf-op-command .hnf-op-view--flota .ot-detail-card {
     box-shadow: none;
   }
 }
+/* --- Clima OT SaaS dashboard blocks --- */
+.ot-saas-dashboard {
+  position: relative;
+  display: grid;
+  gap: 14px;
+}
 
+.ot-saas-sticky {
+  position: sticky;
+  top: 8px;
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-1) 94%, #4f8bff 6%);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 20px rgba(12, 22, 44, 0.12);
+}
+
+.ot-saas-sticky__meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.ot-saas-pill { background: var(--surface-0); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; min-width: 130px; }
+.ot-saas-pill span { display:block; font-size:11px; color: var(--muted); }
+.ot-saas-pill strong { font-size: 13px; }
+.ot-saas-sticky__actions { display:flex; gap:8px; align-items:center; }
+
+.ot-saas-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.ot-saas-tab {
+  border: 1px solid var(--line);
+  background: var(--surface-0);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ot-saas-tab.is-active {
+  background: linear-gradient(130deg, #365dff, #6e7dff);
+  color: #fff;
+  border-color: transparent;
+}
+
+.ot-saas-panels { display:grid; gap:12px; }
+.ot-saas-panel { display:grid; gap:12px; }
+.ot-saas-block {
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 10px 18px rgba(8, 18, 40, 0.08);
+}
+.ot-inline-edit__area {
+  min-height: 80px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface-0) 84%, #7e90ff 16%);
+}
+.ot-inline-edit__area:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+}
+.ot-inline-edit__actions { margin-top: 8px; display:flex; justify-content:flex-end; }
+
+.ot-saas-cards .ot-equipo-detail-row {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 16px rgba(14, 27, 52, 0.08);
+}
+
+.ot-saas-evidence-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+.ot-dropzone {
+  border: 1px dashed color-mix(in srgb, #5a6dff 55%, var(--line) 45%);
+  border-radius: 12px;
+  padding: 12px;
+  display: block;
+  cursor: pointer;
+  text-align: center;
+  color: var(--muted);
+}
+.ot-dropzone.is-over { background: color-mix(in srgb, #6074ff 14%, var(--surface-0) 86%); }
+
+.ot-visual-checklist { display:grid; gap:8px; }
+.ot-visual-check {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface-0) 90%, #ff8d8d 10%);
+}
+.ot-visual-check.is-on { background: color-mix(in srgb, var(--surface-0) 88%, #48d69f 12%); }
+
+.jarvis-orb {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 40;
+}
+.jarvis-orb__core {
+  width: 52px; height: 52px; border-radius: 999px; border: none; color: #fff; cursor: pointer;
+  box-shadow: 0 14px 24px rgba(0,0,0,0.26);
+}
+.jarvis-orb--pendiente .jarvis-orb__core { background: linear-gradient(145deg, #f0a646, #df7e2e); }
+.jarvis-orb--en-proceso .jarvis-orb__core { background: linear-gradient(145deg, #5a79ff, #4c53e4); }
+.jarvis-orb--terminado .jarvis-orb__core { background: linear-gradient(145deg, #1cbf84, #0e8f63); }
+.jarvis-orb__panel {
+  margin-top: 10px; width: 280px; max-height: 240px; overflow: auto;
+  background: var(--surface-0); border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+  box-shadow: 0 14px 24px rgba(12,20,40,0.2);
+}
+.jarvis-orb__list { margin: 8px 0 0; padding-left: 18px; display:grid; gap:6px; }
