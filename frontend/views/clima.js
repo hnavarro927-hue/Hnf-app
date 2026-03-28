@@ -3,7 +3,7 @@ import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
-import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
+import { otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import {
   HNF_OT_OPERATION_MODES,
@@ -206,6 +206,91 @@ const attachChecklistUI = (parent, checklistRef, readOnly) => {
   };
   parent.append(wrap);
   rerender();
+};
+
+const createInlineEditableBlock = ({ title, hint, value = '', readOnly = false, onSave }) => {
+  const block = document.createElement('article');
+  block.className = 'ot-saas-block ot-saas-block--summary';
+  const head = document.createElement('div');
+  head.className = 'ot-saas-block__head';
+  const h = document.createElement('h4');
+  h.textContent = title;
+  const p = document.createElement('p');
+  p.className = 'muted';
+  p.textContent = hint;
+  head.append(h, p);
+
+  const content = document.createElement('div');
+  content.className = 'ot-inline-edit';
+  const area = document.createElement('div');
+  area.className = 'ot-inline-edit__area';
+  area.contentEditable = String(!readOnly);
+  area.textContent = value || '';
+  area.dataset.placeholder = 'Escribe aquí…';
+
+  const actions = document.createElement('div');
+  actions.className = 'ot-inline-edit__actions';
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'secondary-button';
+  save.textContent = 'Guardar';
+  save.disabled = readOnly || typeof onSave !== 'function';
+  save.addEventListener('click', async () => {
+    if (typeof onSave !== 'function') return;
+    await onSave(String(area.textContent || '').trim());
+  });
+  actions.append(save);
+
+  content.append(area, actions);
+  block.append(head, content);
+  return block;
+};
+
+const createJarvisSuggestions = (ot) => {
+  const out = [];
+  if (!ot) return out;
+  if (!ot.resumenTrabajo?.trim()) out.push('Completa el resumen para habilitar cierre sin fricción.');
+  if ((ot.equipos?.length || 0) === 0) out.push('Agrega al menos un equipo para trazabilidad técnica.');
+  if (!ot.pdfUrl) out.push('Genera borrador PDF antes del cierre para validación interna.');
+  if (ot.estado === 'pendiente') out.push('Mueve la OT a “en proceso” para reflejar ejecución real.');
+  return out.slice(0, 3);
+};
+
+const mountJarvisOrb = (host, ot) => {
+  const orb = document.createElement('aside');
+  orb.className = `jarvis-orb jarvis-orb--${(ot?.estado || 'pendiente').replace(/\s+/g, '-')}`;
+  orb.setAttribute('aria-label', 'Jarvis contextual');
+  orb.innerHTML = `
+    <button type="button" class="jarvis-orb__core" aria-expanded="false" aria-controls="jarvis-orb-panel">J</button>
+    <div id="jarvis-orb-panel" class="jarvis-orb__panel" hidden>
+      <h4>Jarvis · Sugerencias</h4>
+      <ul class="jarvis-orb__list"></ul>
+    </div>
+  `;
+  const core = orb.querySelector('.jarvis-orb__core');
+  const panel = orb.querySelector('.jarvis-orb__panel');
+  const ul = orb.querySelector('.jarvis-orb__list');
+  createJarvisSuggestions(ot).forEach((txt) => {
+    const li = document.createElement('li');
+    li.textContent = txt;
+    ul.append(li);
+  });
+  if (!ul.children.length) {
+    const li = document.createElement('li');
+    li.textContent = 'Operación estable. Mantén evidencias y costos al día.';
+    ul.append(li);
+  }
+  core?.addEventListener('click', () => {
+    const open = panel?.hasAttribute('hidden') === false;
+    if (open) {
+      panel?.setAttribute('hidden', '');
+      core.setAttribute('aria-expanded', 'false');
+    } else {
+      panel?.removeAttribute('hidden');
+      core.setAttribute('aria-expanded', 'true');
+    }
+  });
+  host.append(orb);
 };
 
 const buildField = (field) => {
@@ -1247,28 +1332,82 @@ export const climaView = ({
   });
 
   const detailCard = document.createElement('article');
-  detailCard.className = 'ot-detail-card';
+  detailCard.className = 'ot-detail-card ot-saas-dashboard';
 
   if (!selectedOT) {
     detailCard.innerHTML =
       '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado del medio.</p>';
   } else {
     const ro = selectedOT.estado === 'terminado';
-    const titleRow = document.createElement('div');
-    titleRow.className = 'ot-detail-card__header';
-    const titleBlock = document.createElement('div');
-    titleBlock.innerHTML = `<p class="muted">Paso 3 · Detalle y cierre</p><h3>${selectedOT.id} · ${selectedOT.cliente}</h3>`;
-    titleRow.append(titleBlock, createStatusBadge(selectedOT.estado));
-    detailCard.append(
-      titleRow,
-      buildOtOperationalDetailPanel(selectedOT, actions, ro, isPatchingOtOperational)
-    );
-    if (intelGuidance?.recordLabel && selectedOT.id === intelGuidance.recordLabel) {
-      detailCard.classList.add('is-intel-detail-focus');
-    }
+    const topSticky = document.createElement('header');
+    topSticky.className = 'ot-saas-sticky';
+    const meta = document.createElement('div');
+    meta.className = 'ot-saas-sticky__meta';
+    [
+      ['OT', selectedOT.id],
+      ['Cliente', selectedOT.cliente],
+      ['Estado', selectedOT.estado],
+      ['Técnico', selectedOT.tecnicoAsignado],
+    ].forEach(([k, v]) => {
+      const pill = document.createElement('div');
+      pill.className = 'ot-saas-pill';
+      pill.innerHTML = `<span>${k}</span><strong>${v || '—'}</strong>`;
+      meta.append(pill);
+    });
+    const actionsTop = document.createElement('div');
+    actionsTop.className = 'ot-saas-sticky__actions';
+    const pdfTop = document.createElement('button');
+    pdfTop.type = 'button';
+    pdfTop.className = 'secondary-button';
+    pdfTop.textContent = isGeneratingPdf ? 'Generando…' : 'Generar PDF';
+    pdfTop.disabled = Boolean(isGeneratingPdf || isClosingOT);
+    pdfTop.addEventListener('click', async () => actions.generatePdfFromOt(selectedOT));
+    const closeTop = document.createElement('button');
+    closeTop.type = 'button';
+    closeTop.className = 'primary-button';
+    closeTop.textContent = isClosingOT ? 'Procesando…' : 'Cerrar OT';
+    closeTop.disabled = Boolean(isClosingOT || ro || !otCanClose(selectedOT));
+    closeTop.addEventListener('click', async () => {
+      await actions.closeAndGenerateReport(selectedOT, {
+        costoMateriales: roundEcon(selectedOT.costoMateriales),
+        costoManoObra: roundEcon(selectedOT.costoManoObra),
+        costoTraslado: roundEcon(selectedOT.costoTraslado),
+        costoOtros: roundEcon(selectedOT.costoOtros),
+        montoCobrado: roundEcon(selectedOT.montoCobrado),
+      });
+    });
+    actionsTop.append(pdfTop, closeTop);
+    topSticky.append(meta, actionsTop);
+    detailCard.append(topSticky);
+
+    const tabs = document.createElement('div');
+    tabs.className = 'ot-saas-tabs';
+    const tabPanels = document.createElement('div');
+    tabPanels.className = 'ot-saas-panels';
+    const tabDefs = [
+      { key: 'ejecucion', label: 'Ejecución' },
+      { key: 'equipos', label: 'Equipos' },
+      { key: 'evidencia', label: 'Evidencia' },
+      { key: 'informe', label: 'Informe' },
+    ];
+    const setActiveTab = (key) => {
+      tabs.querySelectorAll('button').forEach((btn) => btn.classList.toggle('is-active', btn.dataset.tab === key));
+      tabPanels.querySelectorAll('[data-panel]').forEach((p) => {
+        p.hidden = p.dataset.panel !== key;
+      });
+    };
+    tabDefs.forEach((t, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `ot-saas-tab ${idx === 0 ? 'is-active' : ''}`;
+      btn.dataset.tab = t.key;
+      btn.textContent = t.label;
+      btn.addEventListener('click', () => setActiveTab(t.key));
+      tabs.append(btn);
+    });
 
     const summaryGrid = document.createElement('div');
-    summaryGrid.className = 'ot-summary-grid';
+    summaryGrid.className = 'ot-summary-grid ot-saas-block';
     [
       ['Dirección', selectedOT.direccion],
       ['Comuna', selectedOT.comuna],
@@ -1285,495 +1424,171 @@ export const climaView = ({
       row.innerHTML = `<span>${label}</span><strong>${value || '—'}</strong>`;
       summaryGrid.append(row);
     });
-    const lastHist = (() => {
-      const h = selectedOT.historial;
-      if (!Array.isArray(h) || !h.length) return null;
-      return h[h.length - 1];
-    })();
-    const audit = document.createElement('div');
-    audit.className = 'ot-audit-strip';
-    audit.setAttribute('role', 'region');
-    audit.setAttribute('aria-label', 'Auditoría y trazabilidad');
-    const lh = lastHist;
-    const histLine = lh
-      ? `${lh.accion || '—'}${lh.detalle ? ` · ${lh.detalle}` : ''}${lh.actor ? ` · por ${lh.actor}` : ''} · ${formatAuditTs(lh.at)}`
-      : 'Sin movimientos en historial todavía.';
-    audit.innerHTML = `
-      <p class="ot-audit-strip__line"><strong>Última actualización (servidor):</strong> ${formatAuditTs(selectedOT.updatedAt)}</p>
-      <p class="ot-audit-strip__line"><strong>Alta:</strong> ${formatAuditTs(selectedOT.createdAt || selectedOT.creadoEn)} · <strong>Creado por:</strong> ${selectedOT.creadoPor || '—'} · <strong>Último cambio por:</strong> ${selectedOT.actualizadoPor || '—'}</p>
-      <p class="ot-audit-strip__line"><strong>Última acción registrada:</strong> ${histLine}</p>
-    `;
 
-    const blockB = document.createElement('section');
-    blockB.className = 'ot-exec-block ot-exec-block--b-datos';
-    const bTitle = document.createElement('h3');
-    bTitle.className = 'ot-exec-block__title';
-    bTitle.textContent = 'B · Datos automáticos (solo lectura)';
-    blockB.append(bTitle, summaryGrid, audit);
+    const panelExec = document.createElement('section');
+    panelExec.className = 'ot-saas-panel';
+    panelExec.dataset.panel = 'ejecucion';
+    panelExec.hidden = false;
+    panelExec.append(
+      summaryGrid,
+      createInlineEditableBlock({
+        title: 'Resumen',
+        hint: 'Edición inline y guardado rápido',
+        value: selectedOT.resumenTrabajo,
+        readOnly: ro,
+        onSave: async (txt) =>
+          actions.saveVisitText(selectedOT.id, {
+            observaciones: selectedOT.observaciones || '',
+            resumenTrabajo: txt,
+            recomendaciones: selectedOT.recomendaciones || '',
+          }),
+      }),
+      createInlineEditableBlock({
+        title: 'Observaciones',
+        hint: 'Bloque operativo editable',
+        value: selectedOT.observaciones,
+        readOnly: ro,
+        onSave: async (txt) =>
+          actions.saveVisitText(selectedOT.id, {
+            observaciones: txt,
+            resumenTrabajo: selectedOT.resumenTrabajo || '',
+            recomendaciones: selectedOT.recomendaciones || '',
+          }),
+      }),
+      createInlineEditableBlock({
+        title: 'Recomendaciones',
+        hint: 'Sugerencias para continuidad',
+        value: selectedOT.recomendaciones,
+        readOnly: ro,
+        onSave: async (txt) =>
+          actions.saveVisitText(selectedOT.id, {
+            observaciones: selectedOT.observaciones || '',
+            resumenTrabajo: selectedOT.resumenTrabajo || '',
+            recomendaciones: txt,
+          }),
+      })
+    );
 
-    const blockA = document.createElement('section');
-    blockA.className = 'ot-exec-block ot-exec-block--a-trabajo';
-    const aTitle = document.createElement('h3');
-    aTitle.className = 'ot-exec-block__title';
-    aTitle.textContent = ro ? 'A · Registro de visita' : 'A · Completar ahora';
-    blockA.append(aTitle);
-
-    if (selectedOT.estado !== 'terminado') {
-      const visitWrap = document.createElement('div');
-      visitWrap.className = 'ot-visit-text';
-      const vtTitle = document.createElement('h3');
-      vtTitle.className = 'ot-section-title';
-      vtTitle.textContent = 'Resumen de visita (obligatorio para cerrar OT)';
-      const vtHint = document.createElement('p');
-      vtHint.className = 'muted';
-      vtHint.textContent =
-        'Completá y guardá resumen, recomendaciones y observaciones antes de usar «Cerrar OT».';
-
-      const vGrid = document.createElement('div');
-      vGrid.className = 'ot-form__grid';
-
-      const mkTa = (name, label, value) => {
-        const w = document.createElement('label');
-        w.className = 'form-field';
-        const lb = document.createElement('span');
-        lb.className = 'form-field__label';
-        lb.textContent = label;
-        const ta = document.createElement('textarea');
-        ta.name = name;
-        ta.rows = 3;
-        ta.value = value || '';
-        w.append(lb, ta);
-        return w;
-      };
-
-      vGrid.append(
-        mkTa('visitObs', 'Observaciones generales', selectedOT.observaciones),
-        mkTa('visitResumen', 'Resumen del trabajo', selectedOT.resumenTrabajo),
-        mkTa('visitReco', 'Recomendaciones generales', selectedOT.recomendaciones)
-      );
-
-      const saveVisit = document.createElement('button');
-      saveVisit.type = 'button';
-      saveVisit.className = 'primary-button';
-      saveVisit.textContent = isSavingVisitText ? 'Guardando…' : 'Guardar resumen de visita';
-      saveVisit.disabled = Boolean(isSavingVisitText || isClosingOT || isSavingOtEconomics);
-      saveVisit.addEventListener('click', async () => {
-        const obs = vGrid.querySelector('[name=visitObs]')?.value?.trim() ?? '';
-        const res = vGrid.querySelector('[name=visitResumen]')?.value?.trim() ?? '';
-        const rec = vGrid.querySelector('[name=visitReco]')?.value?.trim() ?? '';
-        await actions.saveVisitText(selectedOT.id, {
-          observaciones: obs,
-          resumenTrabajo: res,
-          recomendaciones: rec,
-        });
-      });
-
-      visitWrap.append(vtTitle, vtHint, vGrid, saveVisit);
-      blockA.append(visitWrap);
-    }
-
-    const equiposTitle = document.createElement('h3');
-    equiposTitle.className = 'ot-section-title';
-    equiposTitle.textContent = 'Equipos de la OT';
-    blockA.append(equiposTitle);
-
+    const panelEquipos = document.createElement('section');
+    panelEquipos.className = 'ot-saas-panel';
+    panelEquipos.dataset.panel = 'equipos';
+    panelEquipos.hidden = true;
     const detailEqHost = document.createElement('div');
-    detailEqHost.className = 'ot-detail-equipos-host';
-
-    const initialEquipos =
-      selectedOT.equipos?.length > 0 ? selectedOT.equipos : [{}];
-    initialEquipos.forEach((eq, idx) => {
-      detailEqHost.append(buildDetailEquipoRow(eq, idx, selectedOT.estado === 'terminado'));
-    });
-
-    const addDetailEq = document.createElement('button');
-    addDetailEq.type = 'button';
-    addDetailEq.className = 'secondary-button';
-    addDetailEq.textContent = '+ Agregar equipo';
-    addDetailEq.disabled = Boolean(
-      isSavingEquipos || isSavingOtEconomics || selectedOT.estado === 'terminado'
-    );
-    addDetailEq.addEventListener('click', () => {
-      if (detailEqHost.querySelectorAll('.ot-equipo-detail-row').length >= MAX_EQUIPOS) return;
-      if (selectedOT.estado === 'terminado') return;
-      const n = detailEqHost.querySelectorAll('.ot-equipo-detail-row').length;
-      detailEqHost.append(
-        buildDetailEquipoRow({ id: `eq-new-${Date.now()}-${n}` }, n, false)
-      );
-    });
-
-    const saveEq = document.createElement('button');
-    saveEq.type = 'button';
-    saveEq.className = 'primary-button';
-    saveEq.textContent = isSavingEquipos ? 'Guardando…' : 'Guardar equipos y fotos';
-    saveEq.disabled = Boolean(
-      isSavingEquipos || isClosingOT || isSavingOtEconomics || selectedOT.estado === 'terminado'
-    );
-    saveEq.addEventListener('click', async () => {
-      const built = collectEquiposFromDetail(detailEqHost, selectedOT);
-      await actions.saveEquipos(selectedOT.id, built);
+    detailEqHost.className = 'ot-detail-equipos-host ot-saas-cards';
+    (selectedOT.equipos?.length ? selectedOT.equipos : [{}]).forEach((eq, idx) => {
+      detailEqHost.append(buildDetailEquipoRow(eq, idx, ro));
     });
 
     const eqToolbar = document.createElement('div');
     eqToolbar.className = 'ot-equipos-toolbar';
+    const addDetailEq = document.createElement('button');
+    addDetailEq.type = 'button';
+    addDetailEq.className = 'secondary-button';
+    addDetailEq.textContent = '+ Equipo';
+    addDetailEq.disabled = Boolean(ro || isSavingEquipos);
+    addDetailEq.addEventListener('click', () => {
+      const n = detailEqHost.querySelectorAll('.ot-equipo-detail-row').length;
+      if (n >= MAX_EQUIPOS || ro) return;
+      detailEqHost.append(buildDetailEquipoRow({ id: `eq-new-${Date.now()}-${n}` }, n, false));
+    });
+    const saveEq = document.createElement('button');
+    saveEq.type = 'button';
+    saveEq.className = 'primary-button';
+    saveEq.textContent = isSavingEquipos ? 'Guardando…' : 'Guardar equipos';
+    saveEq.disabled = Boolean(ro || isSavingEquipos);
+    saveEq.addEventListener('click', async () => {
+      await actions.saveEquipos(selectedOT.id, collectEquiposFromDetail(detailEqHost, selectedOT));
+    });
     eqToolbar.append(addDetailEq, saveEq);
-    blockA.append(detailEqHost, eqToolbar);
+    panelEquipos.append(detailEqHost, eqToolbar);
 
-    const pdfRow = document.createElement('div');
-    pdfRow.className = 'ot-pdf-actions';
-    const pdfBtn = document.createElement('button');
-    pdfBtn.type = 'button';
-    pdfBtn.className = 'secondary-button';
-    pdfBtn.textContent = isGeneratingPdf ? 'Generando…' : 'Generar informe (PDF borrador)';
-    pdfBtn.disabled = Boolean(isGeneratingPdf || isClosingOT || isSavingOtEconomics);
-    pdfBtn.addEventListener('click', async () => {
-      await actions.generatePdfFromOt(selectedOT);
-    });
-    const pdfHelp = document.createElement('p');
-    pdfHelp.className = 'muted';
-    pdfHelp.textContent = 'No cierra la OT: solo abre un PDF con lo que hay ahora para revisar o imprimir.';
-    pdfRow.append(pdfBtn, pdfHelp);
-    blockA.append(pdfRow);
-
-    if (selectedOT.pdfUrl && selectedOT.pdfName) {
-      const reportRow = document.createElement('div');
-      reportRow.className = 'report-actions';
-      const viewBtn = document.createElement('button');
-      viewBtn.type = 'button';
-      viewBtn.className = 'secondary-button';
-      viewBtn.textContent = 'Ver informe guardado';
-      viewBtn.addEventListener('click', () => {
-        window.open(selectedOT.pdfUrl, '_blank', 'noopener,noreferrer');
-      });
-      const dlBtn = document.createElement('button');
-      dlBtn.type = 'button';
-      dlBtn.className = 'secondary-button';
-      dlBtn.textContent = 'Descargar informe';
-      dlBtn.addEventListener('click', () => {
-        const a = document.createElement('a');
-        a.href = selectedOT.pdfUrl;
-        a.download = selectedOT.pdfName;
-        a.rel = 'noopener';
-        document.body.append(a);
-        a.click();
-        a.remove();
-      });
-      reportRow.append(viewBtn, dlBtn);
-      blockA.append(reportRow);
-    }
-
-    detailCard.append(blockA, blockB);
-
-    const blockC = document.createElement('section');
-    blockC.className = 'ot-exec-block ot-exec-block--c-evidencia';
-    const cTitle = document.createElement('h3');
-    cTitle.className = 'ot-exec-block__title';
-    cTitle.textContent = 'C · Evidencia a nivel visita (fotos)';
-    const legTitle = document.createElement('h4');
-    legTitle.className = 'ot-exec-block__sub';
-    legTitle.textContent = 'Antes / durante / después (OT sin equipos o legado)';
-    const evidenceGrid = document.createElement('div');
-    evidenceGrid.className = 'evidence-grid';
-    evidenceGrid.append(
-      createEvidenceSection('Antes (OT)', selectedOT.fotografiasAntes),
-      createEvidenceSection('Durante (OT)', selectedOT.fotografiasDurante),
-      createEvidenceSection('Después (OT)', selectedOT.fotografiasDespues)
-    );
-    blockC.append(cTitle, legTitle, evidenceGrid);
-    detailCard.append(blockC);
-
-    const blockD = document.createElement('section');
-    blockD.className = 'ot-exec-block ot-exec-block--d-cierre';
-    const dTitle = document.createElement('h3');
-    dTitle.className = 'ot-exec-block__title';
-    dTitle.textContent = 'D · Cierre (checklist, economía y estado)';
-    blockD.append(dTitle);
-
-    if (selectedOT.estado !== 'terminado') {
-      const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
-      const opPanel = document.createElement('div');
-      opPanel.className = 'hnf-operational-context hnf-operational-context--clima';
-      opPanel.setAttribute('data-hnf-domain', 'clima-ot');
-      opPanel.setAttribute('data-hnf-schema', brief.schema);
-      const opTitle = document.createElement('h4');
-      opTitle.className = 'hnf-operational-context__title';
-      opTitle.textContent = 'Checklist operativo (cierre)';
-      if (!brief.blockers.length) {
-        const ok = document.createElement('p');
-        ok.className = 'hnf-operational-context__ok';
-        ok.textContent =
-          'Sin bloqueos detectados en este resumen. Confirmá siempre con «Guardar» en cada bloque y con el servidor antes de «Cerrar OT».';
-        opPanel.append(opTitle, ok);
-      } else {
-        const ul = document.createElement('ul');
-        ul.className = 'hnf-operational-context__list';
-        brief.blockers.forEach((b) => {
-          const li = document.createElement('li');
-          li.textContent = b.detail;
-          ul.append(li);
-        });
-        opPanel.append(opTitle, ul);
-      }
-      blockD.append(opPanel);
-    }
-
-    let updateCloseButtonState = () => {};
-
-    const econModern = document.createElement('div');
-    econModern.className = 'ot-economics-modern';
-
-    const econHead = document.createElement('div');
-    econHead.className = 'ot-economics-modern__head';
-    const econTitle = document.createElement('h3');
-    econTitle.className = 'ot-economics-modern__title';
-    econTitle.textContent = 'Resultado económico (CLP · panel interno)';
-    const econHint = document.createElement('p');
-    econHint.className = 'muted ot-economics-modern__hint';
-    econHint.textContent = ro
-      ? 'Valores guardados al cerrar la visita. Solo lectura.'
-      : 'Los indicadores grandes se calculan al instante al escribir. Guardá los cambios en el servidor con el botón Guardar. Para usar «Cerrar OT» necesitás monto cobrado y costo total (suma de costos) mayores que cero.';
-    const econSavedRow = document.createElement('p');
-    econSavedRow.className =
-      ro || otEconomicsSaved
-        ? 'ot-econ-saved-badge ot-econ-saved-badge--ok'
-        : 'ot-econ-saved-badge ot-econ-saved-badge--pending';
-    econSavedRow.setAttribute('role', 'status');
-    econSavedRow.textContent = ro
-      ? '✔ Resultado económico guardado (OT cerrada).'
-      : otEconomicsSaved
-        ? '✔ Resultado económico guardado'
-        : '⚠ Cambios pendientes por guardar';
-    econHead.append(econTitle, econHint, econSavedRow);
-
-    const econLiveRoot = document.createElement('div');
-    econLiveRoot.className = 'ot-economics-live-root';
-
-    const inputsRow = document.createElement('div');
-    inputsRow.className = 'ot-econ-inputs-grid';
-
-    const mkCostCard = (name, label, value) => {
-      const card = document.createElement('div');
-      card.className = 'ot-econ-field-card';
-      const lb = document.createElement('span');
-      lb.className = 'ot-econ-field-card__label';
-      lb.textContent = label;
-      const inp = document.createElement('input');
-      inp.type = 'number';
-      inp.min = '0';
-      inp.step = 'any';
-      inp.name = name;
-      inp.value = String(value ?? 0);
-      inp.className = 'ot-econ-field-card__input';
-      inp.readOnly = ro;
-      card.append(lb, inp);
-      return card;
-    };
-
-    if (!ro) {
-      inputsRow.append(
-        mkCostCard('costoMateriales', 'Materiales', selectedOT.costoMateriales),
-        mkCostCard('costoManoObra', 'Mano de obra', selectedOT.costoManoObra),
-        mkCostCard('costoTraslado', 'Traslado', selectedOT.costoTraslado),
-        mkCostCard('costoOtros', 'Otros', selectedOT.costoOtros),
-        mkCostCard('montoCobrado', 'Monto cobrado (CLP)', selectedOT.montoCobrado)
-      );
-    }
-
-    const kpiRow = document.createElement('div');
-    kpiRow.className = 'ot-econ-kpi-row';
-
-    const mkKpi = (label, variantClass) => {
-      const card = document.createElement('div');
-      card.className = `ot-econ-kpi ${variantClass}`.trim();
-      const lb = document.createElement('span');
-      lb.className = 'ot-econ-kpi__label';
-      lb.textContent = label;
-      const val = document.createElement('span');
-      val.className = 'ot-econ-kpi__value';
-      val.textContent = formatClp(0);
-      card.append(lb, val);
-      return { card, val };
-    };
-
-    const kCosto = mkKpi('Costo total (CLP)', 'ot-econ-kpi--costo');
-    const kMonto = mkKpi('Monto cobrado (CLP)', 'ot-econ-kpi--ingreso');
-    const kUtil = mkKpi('Utilidad (CLP)', 'ot-econ-kpi--util ot-econ-kpi--neutral');
-    const kMar = mkKpi('Margen %', 'ot-econ-kpi--margen');
-
-    kpiRow.append(kCosto.card, kMonto.card, kUtil.card, kMar.card);
-
-    if (!ro) {
-      econLiveRoot.append(inputsRow, kpiRow);
-    } else {
-      econLiveRoot.append(kpiRow);
-    }
-
-    const updateLiveEconomics = () => {
-      if (ro) {
-        const ct = roundEcon(selectedOT.costoTotal);
-        const mc = roundEcon(selectedOT.montoCobrado);
-        const ut = roundEcon(selectedOT.utilidad ?? mc - ct);
-        const mp = mc > 0 ? roundEcon((ut / mc) * 100) : null;
-        kCosto.val.textContent = formatClp(ct);
-        kMonto.val.textContent = formatClp(mc);
-        kUtil.val.textContent = formatClp(ut);
-        kMar.val.textContent = mc > 0 && mp != null ? `${mp.toFixed(1)}%` : '—';
-        kUtil.card.className = `ot-econ-kpi ot-econ-kpi--util ${utilidadToneClass(ut, mc)}`.trim();
-        return;
-      }
-      const { costoTotal, monto, utilidad, margenPct } = computeLiveEconomicsFrom(econLiveRoot);
-      kCosto.val.textContent = formatClp(costoTotal);
-      kMonto.val.textContent = formatClp(monto);
-      kUtil.val.textContent = formatClp(utilidad);
-      kMar.val.textContent = monto > 0 && margenPct != null ? `${margenPct.toFixed(1)}%` : '—';
-      kUtil.card.className = `ot-econ-kpi ot-econ-kpi--util ${utilidadToneClass(utilidad, monto)}`.trim();
-    };
-
-    updateLiveEconomics();
-
-    if (!ro) {
-      inputsRow.querySelectorAll('input').forEach((inp) => {
-        inp.addEventListener('input', () => {
-          actions?.invalidateOtEconomicsSaved?.();
-          updateLiveEconomics();
-          updateCloseButtonState();
-        });
-      });
-    }
-
-    const saveEcon = document.createElement('button');
-    saveEcon.type = 'button';
-    saveEcon.className = 'primary-button ot-economics-modern__save';
-    saveEcon.textContent = isSavingOtEconomics ? 'Guardando…' : 'Guardar resultado económico';
-    saveEcon.title = 'Envía materiales, mano de obra, traslado, otros y monto cobrado al servidor.';
-    saveEcon.disabled = Boolean(
-      ro || isSavingOtEconomics || isClosingOT || isSavingEquipos || isSavingVisitText
-    );
-    saveEcon.addEventListener('click', async () => {
-      const q = (n) => econLiveRoot.querySelector(`[name="${n}"]`);
-      await actions.saveOtEconomics(selectedOT.id, {
-        costoMateriales: parseMoneyInput(q('costoMateriales')?.value),
-        costoManoObra: parseMoneyInput(q('costoManoObra')?.value),
-        costoTraslado: parseMoneyInput(q('costoTraslado')?.value),
-        costoOtros: parseMoneyInput(q('costoOtros')?.value),
-        montoCobrado: parseMoneyInput(q('montoCobrado')?.value),
-      });
-    });
-
-    econModern.append(econHead, econLiveRoot);
-    if (!ro) econModern.append(saveEcon);
-    blockD.append(econModern);
-
-    const statusActions = document.createElement('div');
-    statusActions.className = 'status-actions';
-    statusActions.innerHTML = '<p class="muted">Cambiar estado (sin cerrar definitivamente)</p>';
-    const statusButtons = document.createElement('div');
-    statusButtons.className = 'status-actions__buttons';
-
-    ['pendiente', 'en proceso', 'terminado'].forEach((status) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = `secondary-button ${selectedOT.estado === status ? 'is-active' : ''}`.trim();
-      button.textContent = status;
-      button.disabled = Boolean(isUpdatingStatus || isSavingOtEconomics);
-      button.addEventListener('click', async () => {
-        if (status === selectedOT.estado) return;
-        await actions.updateOTStatus(selectedOT.id, status);
-      });
-      statusButtons.append(button);
-    });
-    statusActions.append(statusButtons);
-
-    const closeWrap = document.createElement('div');
-    closeWrap.className = 'status-actions status-actions--close';
-    const closeLabel = document.createElement('p');
-    closeLabel.className = 'muted';
-    closeLabel.textContent =
-      'Cierre definitivo: la OT pasa a terminada, se genera el PDF con los datos ya guardados en el servidor y queda el informe archivado. Requisitos: fotos por equipo, checklist completo, resumen y recomendaciones; resultado económico guardado con monto cobrado y costo total mayores que cero (si tocaste los importes, guardá antes o se guardarán al intentar cerrar).';
-    const canCloseNow = selectedOT.estado === 'terminado' || otCanClose(selectedOT);
-    if (!canCloseNow && selectedOT.estado !== 'terminado') {
-      const gapHint = document.createElement('p');
-      gapHint.className = 'ot-close-hint';
-      gapHint.textContent = formatAllCloseBlockersMessage(selectedOT);
-      closeWrap.append(closeLabel, gapHint);
-    } else {
-      closeWrap.append(closeLabel);
-    }
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'primary-button';
-    closeBtn.textContent = isClosingOT ? 'Procesando…' : 'Cerrar OT e informe final';
-
-    updateCloseButtonState = () => {
-      if (selectedOT.estado === 'terminado') {
-        closeBtn.disabled = true;
-        closeBtn.title = '';
-        return;
-      }
-      const mcSrv = roundEcon(selectedOT.montoCobrado);
-      const ctSrv = roundEcon(selectedOT.costoTotal);
-      const econBlocked =
-        !otEconomicsSaved || mcSrv <= 0 || ctSrv <= 0;
-      const evidenceOk = otCanClose(selectedOT);
-      closeBtn.disabled = Boolean(
-        isClosingOT ||
-          isUploadingEvidence ||
-          isSavingEquipos ||
-          isSavingVisitText ||
-          isSavingOtEconomics ||
-          !evidenceOk ||
-          econBlocked
-      );
-      const hints = [];
-      if (!evidenceOk) hints.push(formatAllCloseBlockersMessage(selectedOT));
-      if (!otEconomicsSaved) {
-        hints.push('Guardá el resultado económico en el servidor (botón Guardar). Si ya cargaste los montos, se intentará guardar automáticamente al cerrar.');
-      } else if (mcSrv <= 0 || ctSrv <= 0) {
-        hints.push(
-          'En el servidor el monto cobrado y el costo total deben ser mayores que cero. Ajustá y guardá de nuevo.'
-        );
-      }
-      closeBtn.title = hints.filter(Boolean).join(' ');
-    };
-
-    updateCloseButtonState();
-
-    closeBtn.addEventListener('click', async () => {
-      const collectEconPayload = () => {
-        const q = (n) => econLiveRoot.querySelector(`[name="${n}"]`);
-        return {
-          costoMateriales: parseMoneyInput(q('costoMateriales')?.value),
-          costoManoObra: parseMoneyInput(q('costoManoObra')?.value),
-          costoTraslado: parseMoneyInput(q('costoTraslado')?.value),
-          costoOtros: parseMoneyInput(q('costoOtros')?.value),
-          montoCobrado: parseMoneyInput(q('montoCobrado')?.value),
-        };
+    const panelEvidence = document.createElement('section');
+    panelEvidence.className = 'ot-saas-panel';
+    panelEvidence.dataset.panel = 'evidencia';
+    panelEvidence.hidden = true;
+    const evidenceBoard = document.createElement('div');
+    evidenceBoard.className = 'ot-saas-evidence-grid';
+    ['fotografiasAntes', 'fotografiasDurante', 'fotografiasDespues'].forEach((key, idx) => {
+      const labels = ['Antes', 'Durante', 'Después'];
+      const col = document.createElement('article');
+      col.className = 'ot-saas-block';
+      const h = document.createElement('h4');
+      h.textContent = `${labels[idx]} (visita)`;
+      const drop = document.createElement('label');
+      drop.className = 'ot-dropzone';
+      drop.innerHTML = '<span>Arrastrá imágenes aquí o toca para cargar</span>';
+      const hiddenFile = document.createElement('input');
+      hiddenFile.type = 'file';
+      hiddenFile.accept = 'image/*';
+      hiddenFile.multiple = true;
+      hiddenFile.hidden = true;
+      drop.append(hiddenFile);
+      const gallery = document.createElement('div');
+      gallery.className = 'ot-evidence-preview';
+      const renderGallery = (items = []) => {
+        gallery.innerHTML = '';
+        if (!items.length) {
+          const em = document.createElement('p');
+          em.className = 'muted';
+          em.textContent = 'Sin evidencia.';
+          gallery.append(em);
+          return;
+        }
+        items.forEach((it) => gallery.append(createEvidenceSection(it.name || 'Evidencia', [it])));
       };
-      await actions.closeAndGenerateReport(selectedOT, collectEconPayload());
-    });
-    closeWrap.append(closeBtn);
-    statusActions.append(closeWrap);
-    blockD.append(statusActions);
-
-    if (selectedOT.estado === 'terminado') {
-      const textBlocks = document.createElement('div');
-      textBlocks.className = 'ot-text-blocks';
-      [
-        ['Observaciones generales', selectedOT.observaciones || '—'],
-        ['Resumen del trabajo', selectedOT.resumenTrabajo || '—'],
-        ['Recomendaciones generales', selectedOT.recomendaciones || '—'],
-      ].forEach(([label, value]) => {
-        const block = document.createElement('article');
-        block.className = 'ot-text-card';
-        block.innerHTML = `<h4>${label}</h4><p class="muted">${value}</p>`;
-        textBlocks.append(block);
+      renderGallery((selectedOT[key] || []).map(normalizeEvidenceItemForUi));
+      hiddenFile.addEventListener('change', async () => {
+        const added = await readFilesAsEvidence(hiddenFile);
+        const payload = collectEquiposFromDetail(detailEqHost, selectedOT);
+        if (!payload[0]) return;
+        payload[0][key] = [...(payload[0][key] || []), ...added.map((a) => ({ ...a, id: newLocalEvidenceId() }))];
+        await actions.saveEquipos(selectedOT.id, payload);
       });
-      blockD.append(textBlocks);
-    }
+      drop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        drop.classList.add('is-over');
+      });
+      drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+      drop.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        drop.classList.remove('is-over');
+        hiddenFile.files = e.dataTransfer.files;
+        hiddenFile.dispatchEvent(new Event('change'));
+      });
+      col.append(h, drop, gallery);
+      evidenceBoard.append(col);
+    });
+    panelEvidence.append(evidenceBoard);
 
-    detailCard.append(blockD);
+    const panelInforme = document.createElement('section');
+    panelInforme.className = 'ot-saas-panel';
+    panelInforme.dataset.panel = 'informe';
+    panelInforme.hidden = true;
+    const checklistPanel = document.createElement('article');
+    checklistPanel.className = 'ot-saas-block';
+    checklistPanel.innerHTML = '<h4>Checklist visual</h4>';
+    const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
+    const checklist = document.createElement('div');
+    checklist.className = 'ot-visual-checklist';
+    (brief.blockers.length ? brief.blockers.map((b) => ({ ok: false, label: b.detail })) : [{ ok: true, label: 'Sin bloqueos operativos.' }]).forEach((item) => {
+      const row = document.createElement('label');
+      row.className = `ot-visual-check ${item.ok ? 'is-on' : ''}`;
+      const t = document.createElement('span');
+      t.textContent = item.label;
+      row.append(t);
+      checklist.append(row);
+    });
+    checklistPanel.append(checklist);
+    const previewPanel = document.createElement('article');
+    previewPanel.className = 'ot-saas-block';
+    previewPanel.innerHTML = '<h4>Preview de informe</h4>';
+    previewPanel.append(createClientPreview(selectedOT));
+    panelInforme.append(checklistPanel, previewPanel);
 
-    detailCard.append(createClientPreview(selectedOT));
+    tabPanels.append(panelExec, panelEquipos, panelEvidence, panelInforme);
+    detailCard.append(tabs, tabPanels);
+    detailCard.append(buildOtOperationalDetailPanel(selectedOT, actions, ro, isPatchingOtOperational));
+    mountJarvisOrb(detailCard, selectedOT);
   }
 
   overview.append(listCard, detailCard);
