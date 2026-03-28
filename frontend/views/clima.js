@@ -372,9 +372,20 @@ const buildField = (field) => {
   return wrapper;
 };
 
-const createStatusBadge = (status) => {
+const createStatusBadge = (status, variant = 'estado') => {
+  const raw = String(status || '').trim().toLowerCase();
+  const normalized =
+    raw === 'terminado'
+      ? 'completado'
+      : raw === 'en proceso'
+        ? 'en-proceso'
+        : raw === 'automatico'
+          ? 'automatico'
+          : raw === 'automático'
+            ? 'automatico'
+            : raw || 'pendiente';
   const badge = document.createElement('span');
-  badge.className = `status-badge status-badge--${(status || 'pendiente').replace(/\s+/g, '-')}`;
+  badge.className = `status-badge status-badge--${normalized} ${variant === 'mode' ? 'status-badge--mode' : ''}`;
   badge.textContent = status || 'pendiente';
   return badge;
 };
@@ -1355,7 +1366,7 @@ export const climaView = ({
           <span class="muted">${item.fecha} · ${item.equipos?.length || 0} eq. · ${item.tipoServicio}</span>
         </div>
       `;
-      button.append(createStatusBadge(item.estado));
+      button.append(createStatusBadge(item.estado), createStatusBadge(opMode === 'automatic' ? 'Automático' : 'Manual', 'mode'));
       button.addEventListener('click', () => actions.selectOT(item.id));
       list.append(button);
     });
@@ -1382,7 +1393,6 @@ export const climaView = ({
     [
       ['OT', selectedOT.id],
       ['Cliente', selectedOT.cliente],
-      ['Estado', selectedOT.estado],
       ['Técnico', selectedOT.tecnicoAsignado],
     ].forEach(([k, v]) => {
       const pill = document.createElement('div');
@@ -1390,6 +1400,22 @@ export const climaView = ({
       pill.innerHTML = `<span>${k}</span><strong>${v || '—'}</strong>`;
       meta.append(pill);
     });
+    const statusPill = document.createElement('div');
+    statusPill.className = 'ot-saas-pill';
+    const stK = document.createElement('span');
+    stK.textContent = 'Estado';
+    const stV = document.createElement('strong');
+    stV.append(createStatusBadge(selectedOT.estado));
+    statusPill.append(stK, stV);
+    meta.append(statusPill);
+    const modePill = document.createElement('div');
+    modePill.className = 'ot-saas-pill';
+    const modeK = document.createElement('span');
+    modeK.textContent = 'Modo';
+    const modeV = document.createElement('strong');
+    modeV.append(createStatusBadge(labelOperationMode(selectedOT.operationMode), 'mode'));
+    modePill.append(modeK, modeV);
+    meta.append(modePill);
     const actionsTop = document.createElement('div');
     actionsTop.className = 'ot-saas-sticky__actions';
     const pdfTop = document.createElement('button');
