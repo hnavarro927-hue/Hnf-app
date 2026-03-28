@@ -82,99 +82,135 @@ const collectEquipoEvidencePayload = (ev) => {
 };
 
 const attachEvidenceUI = (parent, evidenceStore, fieldKey, title, readOnly) => {
-  const wrap = document.createElement('div');
-  wrap.className = 'form-field ot-evidence-block';
+  const wrap = document.createElement('article');
+  wrap.className = 'ot-evidence-saas-card';
 
-  const lb = document.createElement('span');
-  lb.className = 'form-field__label';
+  const head = document.createElement('div');
+  head.className = 'ot-evidence-saas-card__head';
+
+  const lb = document.createElement('h4');
+  lb.className = 'ot-evidence-saas-card__title';
   lb.textContent = title;
 
+  const status = document.createElement('span');
+  status.className = 'ot-evidence-status';
+
+  head.append(lb, status);
+
+  const hint = document.createElement('p');
+  hint.className = 'ot-evidence-saas-card__hint muted';
+  hint.textContent = 'Sube imágenes con toque (iPad) o arrastra y suelta.';
+
+  const uploader = document.createElement('button');
+  uploader.type = 'button';
+  uploader.className = 'ot-evidence-dropzone';
+  uploader.innerHTML = '<strong>+ Agregar imágenes</strong><span>Toca aquí para abrir la galería o cámara.</span>';
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  input.hidden = true;
+
   const preview = document.createElement('div');
-  preview.className = 'ot-evidence-preview';
+  preview.className = 'ot-evidence-grid';
+
+  const getList = () => {
+    if (!Array.isArray(evidenceStore[fieldKey])) evidenceStore[fieldKey] = [];
+    return evidenceStore[fieldKey];
+  };
 
   const rerender = () => {
     preview.innerHTML = '';
-    const list = evidenceStore[fieldKey] || [];
+    const list = getList();
+    const isComplete = list.length > 0;
+    status.textContent = isComplete ? 'Completo' : 'Faltante';
+    status.className = `ot-evidence-status ${isComplete ? 'is-complete' : 'is-missing'}`;
+
+    if (!list.length) {
+      const empty = document.createElement('p');
+      empty.className = 'muted ot-evidence-empty';
+      empty.textContent = 'Aún no hay imágenes en esta sección.';
+      preview.append(empty);
+      return;
+    }
+
     list.forEach((item) => {
-      const card = document.createElement('div');
-      card.className = 'ot-evidence-card';
+      const card = document.createElement('figure');
+      card.className = 'ot-evidence-thumb-card';
 
-      if (item.url) {
-        const img = document.createElement('img');
-        img.src = item.url;
-        img.alt = item.name || 'Evidencia';
-        img.className = 'ot-evidence-thumb';
-        img.loading = 'lazy';
-        card.append(img);
-      } else {
-        const ph = document.createElement('div');
-        ph.className = 'ot-evidence-thumb ot-evidence-thumb--empty';
-        ph.textContent = 'Sin archivo';
-        card.append(ph);
-      }
+      const img = document.createElement('img');
+      img.src = item.url || '';
+      img.alt = item.name || 'Evidencia';
+      img.className = 'ot-evidence-thumb';
+      img.loading = 'lazy';
+      card.append(img);
 
-      const meta = document.createElement('div');
-      meta.className = 'ot-evidence-meta';
-
-      const nameEl = document.createElement('span');
-      nameEl.className = 'ot-evidence-name';
-      nameEl.textContent = item.name || 'Sin nombre';
-      nameEl.title = item.name || '';
-
-      const actions = document.createElement('div');
-      actions.className = 'ot-evidence-actions';
-
-      const openBtn = document.createElement('button');
-      openBtn.type = 'button';
-      openBtn.className = 'secondary-button ot-evidence-open';
-      openBtn.textContent = 'Abrir';
-      openBtn.disabled = !item.url;
-      openBtn.addEventListener('click', () => {
-        if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
-      });
-
-      actions.append(openBtn);
       if (!readOnly) {
         const rmBtn = document.createElement('button');
         rmBtn.type = 'button';
-        rmBtn.className = 'secondary-button';
-        rmBtn.textContent = 'Quitar';
+        rmBtn.className = 'ot-evidence-thumb-remove';
+        rmBtn.textContent = '❌';
+        rmBtn.setAttribute('aria-label', `Eliminar ${item.name || 'evidencia'}`);
         rmBtn.addEventListener('click', () => {
-          const arr = evidenceStore[fieldKey];
+          const arr = getList();
           const idx = arr.findIndex((x) => x.id === item.id);
           if (idx !== -1) arr.splice(idx, 1);
           rerender();
         });
-        actions.append(rmBtn);
+        card.append(rmBtn);
       }
 
-      meta.append(nameEl, actions);
-      card.append(meta);
+      const cap = document.createElement('figcaption');
+      cap.className = 'ot-evidence-name';
+      cap.textContent = item.name || 'Sin nombre';
+      cap.title = item.name || '';
+      card.append(cap);
       preview.append(card);
     });
   };
 
-  wrap.append(lb, preview);
-
-  if (!readOnly) {
-    const inp = document.createElement('input');
-    inp.type = 'file';
-    inp.multiple = true;
-    inp.accept = 'image/*';
-    inp.addEventListener('change', async () => {
-      const added = await readFilesAsEvidence(inp);
-      evidenceStore[fieldKey] = added.map((a) => ({
+  const addFilesFromInput = async (srcInput) => {
+    const added = await readFilesAsEvidence(srcInput);
+    if (!added.length) return;
+    const arr = getList();
+    arr.push(
+      ...added.map((a) => ({
         id: newLocalEvidenceId(),
         name: a.name,
         url: a.url,
         createdAt: new Date().toISOString(),
-      }));
-      inp.value = '';
-      rerender();
+      }))
+    );
+    srcInput.value = '';
+    rerender();
+  };
+
+  if (!readOnly) {
+    uploader.addEventListener('click', () => input.click());
+    uploader.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploader.classList.add('is-over');
     });
-    wrap.append(inp);
+    uploader.addEventListener('dragleave', () => uploader.classList.remove('is-over'));
+    uploader.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      uploader.classList.remove('is-over');
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (!files.length) return;
+      const dt = new DataTransfer();
+      files.forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+      await addFilesFromInput(input);
+    });
+    input.addEventListener('change', async () => {
+      await addFilesFromInput(input);
+    });
+  } else {
+    uploader.hidden = true;
   }
 
+  wrap.append(head, hint, uploader, input, preview);
   parent.append(wrap);
   rerender();
 };
@@ -336,9 +372,20 @@ const buildField = (field) => {
   return wrapper;
 };
 
-const createStatusBadge = (status) => {
+const createStatusBadge = (status, variant = 'estado') => {
+  const raw = String(status || '').trim().toLowerCase();
+  const normalized =
+    raw === 'terminado'
+      ? 'completado'
+      : raw === 'en proceso'
+        ? 'en-proceso'
+        : raw === 'automatico'
+          ? 'automatico'
+          : raw === 'automático'
+            ? 'automatico'
+            : raw || 'pendiente';
   const badge = document.createElement('span');
-  badge.className = `status-badge status-badge--${(status || 'pendiente').replace(/\s+/g, '-')}`;
+  badge.className = `status-badge status-badge--${normalized} ${variant === 'mode' ? 'status-badge--mode' : ''}`;
   badge.textContent = status || 'pendiente';
   return badge;
 };
@@ -1319,7 +1366,7 @@ export const climaView = ({
           <span class="muted">${item.fecha} · ${item.equipos?.length || 0} eq. · ${item.tipoServicio}</span>
         </div>
       `;
-      button.append(createStatusBadge(item.estado));
+      button.append(createStatusBadge(item.estado), createStatusBadge(opMode === 'automatic' ? 'Automático' : 'Manual', 'mode'));
       button.addEventListener('click', () => actions.selectOT(item.id));
       list.append(button);
     });
@@ -1332,7 +1379,7 @@ export const climaView = ({
   });
 
   const detailCard = document.createElement('article');
-  detailCard.className = 'ot-detail-card ot-saas-dashboard';
+  detailCard.className = 'ot-detail-card ot-saas-dashboard ot-detail-card--premium';
 
   if (!selectedOT) {
     detailCard.innerHTML =
@@ -1340,13 +1387,12 @@ export const climaView = ({
   } else {
     const ro = selectedOT.estado === 'terminado';
     const topSticky = document.createElement('header');
-    topSticky.className = 'ot-saas-sticky';
+    topSticky.className = 'ot-saas-sticky ot-saas-sticky--premium';
     const meta = document.createElement('div');
     meta.className = 'ot-saas-sticky__meta';
     [
       ['OT', selectedOT.id],
       ['Cliente', selectedOT.cliente],
-      ['Estado', selectedOT.estado],
       ['Técnico', selectedOT.tecnicoAsignado],
     ].forEach(([k, v]) => {
       const pill = document.createElement('div');
@@ -1354,6 +1400,22 @@ export const climaView = ({
       pill.innerHTML = `<span>${k}</span><strong>${v || '—'}</strong>`;
       meta.append(pill);
     });
+    const statusPill = document.createElement('div');
+    statusPill.className = 'ot-saas-pill';
+    const stK = document.createElement('span');
+    stK.textContent = 'Estado';
+    const stV = document.createElement('strong');
+    stV.append(createStatusBadge(selectedOT.estado));
+    statusPill.append(stK, stV);
+    meta.append(statusPill);
+    const modePill = document.createElement('div');
+    modePill.className = 'ot-saas-pill';
+    const modeK = document.createElement('span');
+    modeK.textContent = 'Modo';
+    const modeV = document.createElement('strong');
+    modeV.append(createStatusBadge(labelOperationMode(selectedOT.operationMode), 'mode'));
+    modePill.append(modeK, modeV);
+    meta.append(modePill);
     const actionsTop = document.createElement('div');
     actionsTop.className = 'ot-saas-sticky__actions';
     const pdfTop = document.createElement('button');
@@ -1381,7 +1443,7 @@ export const climaView = ({
     detailCard.append(topSticky);
 
     const tabs = document.createElement('div');
-    tabs.className = 'ot-saas-tabs';
+    tabs.className = 'ot-saas-tabs ot-saas-tabs--premium';
     const tabPanels = document.createElement('div');
     tabPanels.className = 'ot-saas-panels';
     const tabDefs = [

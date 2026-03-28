@@ -433,6 +433,13 @@ export const dashboardView = ({
   const otPend = ots.filter((o) => o.estado === 'pendiente').length;
   const otProc = ots.filter((o) => o.estado === 'en proceso').length;
   const otTerm = ots.filter((o) => o.estado === 'terminado').length;
+  const cierreAlertCount =
+    flotaCompletadaNoCerrada +
+    otSinCostos +
+    otTerminadasNoInformadas +
+    flotaCerradaSinIngresoFinal +
+    otInformadasNoCobradas +
+    mantSinContinuidadTiendas;
 
   const alerts = [];
   if (otAbiertas.length) alerts.push(`${otAbiertas.length} OT sin cerrar (no terminadas).`);
@@ -518,52 +525,26 @@ export const dashboardView = ({
   const opsStack = document.createElement('div');
   opsStack.className = 'ops-intro-stack';
 
-  const hero = document.createElement('div');
-  hero.className = 'ops-hero';
-  ['ops-hero__veil', 'ops-hero__aurora', 'ops-hero__particles', 'ops-hero__core'].forEach((c) => {
-    const el = document.createElement('div');
-    el.className = c;
-    el.setAttribute('aria-hidden', 'true');
-    hero.append(el);
-  });
-  const hc = document.createElement('div');
-  hc.className = 'ops-hero__content';
-  const brand = document.createElement('p');
-  brand.className = 'ops-hero__brand';
-  brand.textContent = 'HNF Servicios Integrales';
-  const headline = document.createElement('h1');
-  headline.className = 'ops-hero__headline';
-  headline.textContent = 'Centro de Operaciones Inteligente';
-  const tagline = document.createElement('p');
-  tagline.className = 'ops-hero__tagline';
-  tagline.textContent = 'Control total de Clima y Flota en tiempo real';
-  const heroLive = document.createElement('div');
-  heroLive.className = 'ops-hero__live';
-  const hDot = document.createElement('span');
-  hDot.className = 'ops-live-dot';
-  const hLiveTxt = document.createElement('span');
-  hLiveTxt.className = 'ops-live-text';
-  hLiveTxt.textContent = `Última sincronización ${formatRelativeAgo(lastDataRefreshAt)} · ${apiBaseLabel || 'API'}`;
-  heroLive.append(hDot, hLiveTxt);
-  hc.append(brand, headline, tagline, heroLive);
-  hero.append(hc);
+  const masterHub = document.createElement('section');
+  masterHub.className = 'ops-master-hub';
+  masterHub.innerHTML = `
+    <div class="ops-master-hub__head">
+      <p class="ops-master-hub__eyebrow">HNF · Centro de mando</p>
+      <h1>Módulos maestros operativos</h1>
+      <p class="muted">Entrada principal de operación. Selecciona Clima, Flota o Matrix/Gerencia para ejecutar.</p>
+    </div>
+  `;
 
   const portalGrid = document.createElement('div');
   portalGrid.className = 'portal-grid portal-grid--premium';
 
   const ICON_CLIM =
     'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z';
-  const ICON_PLAN =
-    'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
   const ICON_FLOT =
     'M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM3 11h12v4H3v-4zm0-2h12V7l-2-3H5L3 7v2zm14 6h3l2 2v3h-5v-5z';
-  const ICON_ADM =
-    'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z';
-  const ICON_IA =
-    'M13 10V3L4 14h7v7l9-11h-7z';
-  const ICON_OPP = 'M3 17l6-6 4 4 8-8M3 21h18M3 3v18h18';
+  const ICON_MATRIX = 'M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z';
 
-  const mkPortalTile = (viewId, modClass, pathD, kicker, title, desc) => {
+  const mkPortalTile = (viewId, modClass, pathD, kicker, title, desc, ctaLabel = 'Ingresar →') => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `portal-tile portal-tile--${modClass}`;
@@ -584,7 +565,7 @@ export const dashboardView = ({
     body.append(k, t, d);
     const cta = document.createElement('span');
     cta.className = 'portal-tile__cta';
-    cta.textContent = 'Ingresar →';
+    cta.innerHTML = `<span class="portal-tile__cta-btn">${ctaLabel}</span>`;
     b.append(iconWrap, body, cta);
     b.addEventListener('click', () => {
       if (typeof navigateToView === 'function') navigateToView(viewId);
@@ -593,22 +574,95 @@ export const dashboardView = ({
   };
 
   portalGrid.append(
-    mkPortalTile('clima', 'clima', ICON_CLIM, 'Línea HVAC', 'Clima operativo', 'OT, evidencias, economía, cierre.'),
-    mkPortalTile('planificacion', 'plan', ICON_PLAN, 'Agenda', 'Planificación', 'Clientes, tiendas, AM/PM, mantenciones.'),
+    mkPortalTile('clima', 'clima', ICON_CLIM, 'Master Module', 'Clima', 'OT, evidencias, ejecución técnica y cierre.', 'Entrar a Clima →'),
     mkPortalTile('flota', 'flota', ICON_FLOT, 'Movilidad', 'Flota', 'Solicitudes, pipeline, costos e ingresos.'),
     mkPortalTile(
-      'oportunidades',
-      'comercial',
-      ICON_OPP,
-      'Ingresos',
-      'Oportunidades',
-      'Desde informes técnicos aprobados: prioridad y montos estimados.'
-    ),
-    mkPortalTile('admin', 'admin', ICON_ADM, 'Corporativo', 'Administración', 'Respaldos JSON y datos maestros.'),
-    mkPortalTile('asistente', 'ia', ICON_IA, 'Inteligencia', 'Asistente HNF', 'Diagnóstico sobre datos reales.')
+      'control-gerencial',
+      'matrix',
+      ICON_MATRIX,
+      'Control center',
+      'Matrix / Gerencia',
+      'Resumen ejecutivo, validaciones y estado integral de reportes.',
+      'Abrir Matrix Gerencial →'
+    )
   );
 
-  opsStack.append(hero, portalGrid);
+  const executiveSummary = document.createElement('section');
+  executiveSummary.className = 'ops-exec-summary';
+  executiveSummary.innerHTML = `
+    <div class="ops-exec-summary__head">
+      <h2>Resumen ejecutivo</h2>
+      <p class="muted">Vista rápida de operación transversal para decisiones de hoy.</p>
+    </div>
+  `;
+  const execGrid = document.createElement('div');
+  execGrid.className = 'ops-exec-summary__grid';
+  [
+    ['OT en proceso', String(otProc), 'Ejecución técnica activa'],
+    ['Pendientes', String(otPend), 'OT en cola inicial'],
+    ['Finalizadas', String(otTerm), 'Con cierre operativo'],
+    ['Alertas críticas', String(alerts.length), 'Condiciones que requieren acción'],
+  ].forEach(([title, value, sub], idx) => {
+    const card = document.createElement('article');
+    card.className = `ops-exec-kpi ${idx === 3 && alerts.length ? 'is-critical' : ''}`;
+    card.innerHTML = `<h3>${title}</h3><p class="ops-exec-kpi__value">${value}</p><p class="muted">${sub}</p>`;
+    execGrid.append(card);
+  });
+  executiveSummary.append(execGrid);
+
+  const matrixBlock = document.createElement('section');
+  matrixBlock.className = 'ops-matrix-board';
+  matrixBlock.innerHTML = `
+    <div class="ops-matrix-board__head">
+      <h2>Matrix / Gerencia</h2>
+      <p class="muted">Centro de gestión ejecutiva entre Clima, Flota y control administrativo.</p>
+    </div>
+  `;
+  const matrixList = document.createElement('ul');
+  matrixList.className = 'ops-matrix-board__list';
+  [
+    `Overview ejecutivo: ${otAbiertas.length} OT abiertas y ${flotaActivas.length} flota en curso.`,
+    `Alertas cruzadas: ${alerts.length} operativas + ${cierreAlertCount} de cierre gerencial.`,
+    `Validaciones pendientes: ${otSinFotos.length} OT con huecos de evidencia.`,
+    `Estado de informes: ${climaTerminadaSinPdf} OT terminadas sin PDF final.`,
+  ].forEach((text) => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    matrixList.append(li);
+  });
+  const matrixActions = document.createElement('div');
+  matrixActions.className = 'ops-matrix-board__actions';
+  const goGer = document.createElement('button');
+  goGer.type = 'button';
+  goGer.className = 'primary-button';
+  goGer.textContent = 'Abrir control gerencial';
+  goGer.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('control-gerencial'));
+  const goOps = document.createElement('button');
+  goOps.type = 'button';
+  goOps.className = 'secondary-button';
+  goOps.textContent = 'Ir a panel operativo vivo';
+  goOps.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('panel-operativo-vivo'));
+  matrixActions.append(goGer, goOps);
+  matrixBlock.append(matrixList, matrixActions);
+
+  const quickNav = document.createElement('div');
+  quickNav.className = 'ops-secondary-nav';
+  [
+    ['planificacion', 'Planificación'],
+    ['oportunidades', 'Oportunidades'],
+    ['admin', 'Administración'],
+    ['asistente', 'Asistente IA'],
+  ].forEach(([viewId, label]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'secondary-button';
+    btn.textContent = label;
+    btn.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView(viewId));
+    quickNav.append(btn);
+  });
+
+  masterHub.append(portalGrid);
+  opsStack.append(masterHub, executiveSummary, matrixBlock, quickNav);
 
   const mesRef = monthLabelEs(new Date(monthStart + 'T12:00:00'));
   const cmd = document.createElement('section');
