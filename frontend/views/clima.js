@@ -701,11 +701,26 @@ const buildOtOperationalSummarySection = (ot) => {
     d.append(sk, sv);
     return d;
   };
+  const fmtEst = (n) =>
+    n != null && Number.isFinite(Number(n))
+      ? `$${Math.round(Number(n)).toLocaleString('es-CL', { maximumFractionDigits: 0 })}`
+      : '—';
+  const tf = String(ot.tipoFacturacion || 'inmediata').toLowerCase();
   grid.append(
     row('Origen solicitud', labelOrigenSolicitud(ot.origenSolicitud)),
     row('Prioridad', labelPrioridadOperativa(ot.prioridadOperativa)),
     row('Tipo / subtipo', `${ot.tipoServicio || '—'} / ${ot.subtipoServicio || '—'}`),
-    row('Bandeja → aviso', `${ot.bandejaAsignada || '—'} → ${ot.notificacionAsignadaA || '—'}`)
+    row('Bandeja → aviso', `${ot.bandejaAsignada || '—'} → ${ot.notificacionAsignadaA || '—'}`),
+    row('Facturación', tf === 'mensual' ? 'Mensual (ingreso consolidado al cierre; estimado ≠ facturado)' : 'Inmediata'),
+    row('Período facturación', ot.periodoFacturacion || '—'),
+    row('Tienda (referencia)', ot.tiendaNombre ? `${ot.tiendaNombre}${ot.tiendaId ? ` · ${ot.tiendaId}` : ''}` : '—'),
+    row('Valor ref. tienda', `${fmtEst(ot.valorReferencialTienda)} · estimado gerencial`),
+    row('Utilidad estimada', ot.utilidadEstimada != null ? `${fmtEst(ot.utilidadEstimada)} · estimado` : '—'),
+    row(
+      'Margen estimado',
+      ot.margenEstimadoRatio != null ? `${(Number(ot.margenEstimadoRatio) * 100).toFixed(1)}% · estimado` : '—'
+    ),
+    row('Cierre mensual', ot.incluidaEnCierreMensual ? `Incluida · ${ot.cierreMensualId || '—'}` : 'No incluida')
   );
 
   block.append(head, badges, grid);
@@ -2397,6 +2412,25 @@ export const climaView = ({
           <span class="muted">${item.fecha} · ${item.equipos?.length || 0} eq. · ${item.tipoServicio}</span>
         </div>
       `;
+      const tf = String(item.tipoFacturacion || 'inmediata').toLowerCase();
+      const factRow = document.createElement('div');
+      factRow.className = 'ot-list__fact-row';
+      const chip = (text, cls) => {
+        const s = document.createElement('span');
+        s.className = `hnf-ot-fact-chip ${cls}`;
+        s.textContent = text;
+        return s;
+      };
+      factRow.append(
+        chip(tf === 'mensual' ? 'Fact. mensual' : 'Fact. inmediata', tf === 'mensual' ? 'hnf-ot-fact-chip--warn' : 'hnf-ot-fact-chip--ok')
+      );
+      if (tf === 'mensual' && !item.incluidaEnCierreMensual && String(item.estado || '').toLowerCase() !== 'facturada') {
+        factRow.append(chip('Pend. cierre mensual', 'hnf-ot-fact-chip--pending'));
+      }
+      if (String(item.estado || '').toLowerCase() === 'facturada') {
+        factRow.append(chip('Facturada', 'hnf-ot-fact-chip--done'));
+      }
+      button.querySelector('div')?.append(factRow);
       button.append(createStatusBadge(item.estado), createStatusBadge(opMode === 'automatic' ? 'Automático' : 'Manual', 'mode'));
       button.addEventListener('click', () => actions.selectOT(item.id));
       list.append(button);

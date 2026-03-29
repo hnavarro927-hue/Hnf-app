@@ -8,10 +8,12 @@ import {
   tipoServicioOtDesdeTipoSolicitudInferida,
   valorizacionOtDesdeTipoSolicitud,
 } from '../domain/maestro-documento-ot-valorizacion.engine.js';
+import { defaultTipoFacturacion, periodoYYYYMM } from '../domain/ot-facturacion.engine.js';
 import { hnfExtendedClientRepository } from '../repositories/hnfExtendedClient.repository.js';
 import { maestroContactoRepository } from '../repositories/maestroContacto.repository.js';
 import { maestroDocumentoRepository } from '../repositories/maestroDocumento.repository.js';
 import { otRepository } from '../repositories/ot.repository.js';
+import { tiendaFinancieraRepository } from '../repositories/tiendaFinanciera.repository.js';
 import { otService } from './ot.service.js';
 
 const ESTADOS_OP = ['pendiente', 'en_proceso', 'gestionado', 'cerrado'];
@@ -147,6 +149,31 @@ export function buildOtPayloadFromDocumento(doc, ctx, opts = {}) {
   };
 }
 
+async function enrichPayloadEconomicoFacturacion(otPayload, doc) {
+  const tipoFacturacion =
+    otPayload.tipoFacturacion ||
+    defaultTipoFacturacion({
+      tipoServicio: otPayload.tipoServicio,
+      subtipoServicio: otPayload.subtipoServicio,
+    });
+  const periodoFacturacion = tipoFacturacion === 'mensual' ? periodoYYYYMM() : null;
+  let next = { ...otPayload, tipoFacturacion, periodoFacturacion };
+  if (tipoFacturacion === 'mensual' && doc.cliente_id) {
+    const tlist = await tiendaFinancieraRepository.findByClienteId(doc.cliente_id);
+    const t = tlist[0];
+    if (t) {
+      const vr = Number.parseFloat(String(t.valorReferencialTienda ?? 0).replace(',', '.'));
+      next = {
+        ...next,
+        tiendaId: t.id,
+        tiendaNombre: String(t.nombre || '').slice(0, 200) || null,
+        valorReferencialTienda: Number.isFinite(vr) ? Math.round(vr * 100) / 100 : 0,
+      };
+    }
+  }
+  return next;
+}
+
 async function tryAutoCrearOtParaDocumento(documentoId, actor, motivo) {
   if (!otAutoDesdeDocumentoHabilitado()) {
     return { skipped: true, reason: 'deshabilitado' };
@@ -161,11 +188,12 @@ async function tryAutoCrearOtParaDocumento(documentoId, actor, motivo) {
     return { skipped: true, reason: 'sin_cliente' };
   }
 
-  const otPayload = buildOtPayloadFromDocumento(doc, ctx, {
+  let otPayload = buildOtPayloadFromDocumento(doc, ctx, {
     origenPedido: 'jarvis',
     operationMode: 'automatic',
     estadoCoreOverride: 'pendiente',
   });
+  otPayload = await enrichPayloadEconomicoFacturacion(otPayload, doc);
 
   const created = await otService.create(otPayload, actor);
   if (created.errors) {
@@ -227,10 +255,11 @@ export const hnfOperativoBandejaService = {
       };
     }
 
-    const otPayload = buildOtPayloadFromDocumento(doc, ctx, {
+    let otPayload = buildOtPayloadFromDocumento(doc, ctx, {
       origenPedido: 'documento_maestro',
       operationMode: 'manual',
     });
+    otPayload = await enrichPayloadEconomicoFacturacion(otPayload, doc);
 
     const created = await otService.create(otPayload, actor);
     if (created.errors) return { errors: created.errors };

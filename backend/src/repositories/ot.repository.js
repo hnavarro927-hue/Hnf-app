@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bandejaFromTipoServicio, notificacionAsignadaFromBandeja } from '../domain/hnf-ot-bandeja.js';
+import { calcularEstimadosMensuales } from '../domain/ot-facturacion.engine.js';
 import { appendHistorial } from '../utils/historialUtil.js';
 import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
 
@@ -126,8 +127,46 @@ const ensureDefaults = (item) => {
       const n = Number.parseFloat(String(item.margenEstimado).replace(',', '.'));
       return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
     })(),
+    tipoFacturacion: ['inmediata', 'mensual'].includes(String(item.tipoFacturacion || '').toLowerCase())
+      ? String(item.tipoFacturacion).toLowerCase()
+      : 'inmediata',
+    periodoFacturacion:
+      item.periodoFacturacion != null && String(item.periodoFacturacion).trim()
+        ? String(item.periodoFacturacion).trim().slice(0, 7)
+        : null,
+    tiendaId: item.tiendaId != null && String(item.tiendaId).trim() ? String(item.tiendaId).trim() : null,
+    tiendaNombre:
+      item.tiendaNombre != null && String(item.tiendaNombre).trim()
+        ? String(item.tiendaNombre).slice(0, 200)
+        : null,
+    valorReferencialTienda: round2(item.valorReferencialTienda ?? 0),
+    incluidaEnCierreMensual: Boolean(item.incluidaEnCierreMensual),
+    cierreMensualId:
+      item.cierreMensualId != null && String(item.cierreMensualId).trim()
+        ? String(item.cierreMensualId).trim()
+        : null,
+    utilidadEstimada:
+      item.utilidadEstimada != null && item.utilidadEstimada !== ''
+        ? (() => {
+            const n = Number.parseFloat(String(item.utilidadEstimada).replace(',', '.'));
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+          })()
+        : null,
+    margenEstimadoRatio:
+      item.margenEstimadoRatio != null && item.margenEstimadoRatio !== ''
+        ? (() => {
+            const n = Number.parseFloat(String(item.margenEstimadoRatio).replace(',', '.'));
+            return Number.isFinite(n) ? Math.round(n * 10000) / 10000 : null;
+          })()
+        : null,
   };
-  return computeOtEconomics(base);
+  const eco = computeOtEconomics(base);
+  const est = calcularEstimadosMensuales(eco);
+  return {
+    ...eco,
+    utilidadEstimada: est.utilidadEstimada,
+    margenEstimadoRatio: est.margenEstimadoRatio,
+  };
 };
 
 const touch = (item, accion, detalle, actor = 'sistema') => ({
@@ -444,9 +483,11 @@ export const otRepository = {
     if ('contactoTerreno' in p) updated.contactoTerreno = str('contactoTerreno') || '';
     if ('telefonoContacto' in p) updated.telefonoContacto = str('telefonoContacto') || '';
     if ('tipoServicio' in p && p.tipoServicio) {
-      updated.tipoServicio = String(p.tipoServicio).toLowerCase() === 'flota' ? 'flota' : 'clima';
+      const t = String(p.tipoServicio).toLowerCase();
+      const allowed = ['clima', 'flota', 'comercial', 'administrativo'];
+      updated.tipoServicio = allowed.includes(t) ? t : 'clima';
       updated.bandejaAsignada = bandejaFromTipoServicio(updated.tipoServicio);
-      updated.notificacionAsignadaA = updated.bandejaAsignada === 'gery' ? 'Gery' : 'Romina';
+      updated.notificacionAsignadaA = notificacionAsignadaFromBandeja(updated.bandejaAsignada);
     }
     if ('subtipoServicio' in p) updated.subtipoServicio = str('subtipoServicio') || '';
     if ('observaciones' in p) updated.observaciones = str('observaciones') || '';
@@ -460,6 +501,37 @@ export const otRepository = {
     if ('whatsappContactoNombre' in p) updated.whatsappContactoNombre = str('whatsappContactoNombre') || '';
     if ('entradaExterna' in p) updated.entradaExterna = Boolean(p.entradaExterna);
     if ('pendienteRespuestaCliente' in p) updated.pendienteRespuestaCliente = Boolean(p.pendienteRespuestaCliente);
+
+    if ('tipoFacturacion' in p && p.tipoFacturacion != null) {
+      const tf = String(p.tipoFacturacion).toLowerCase();
+      if (['inmediata', 'mensual'].includes(tf)) updated.tipoFacturacion = tf;
+    }
+    if ('periodoFacturacion' in p) {
+      updated.periodoFacturacion =
+        p.periodoFacturacion != null && String(p.periodoFacturacion).trim()
+          ? String(p.periodoFacturacion).trim().slice(0, 7)
+          : null;
+    }
+    if ('tiendaId' in p) {
+      updated.tiendaId =
+        p.tiendaId != null && String(p.tiendaId).trim() ? String(p.tiendaId).trim() : null;
+    }
+    if ('tiendaNombre' in p) {
+      updated.tiendaNombre =
+        p.tiendaNombre != null ? String(p.tiendaNombre).slice(0, 200) : '';
+    }
+    if ('valorReferencialTienda' in p && p.valorReferencialTienda != null) {
+      updated.valorReferencialTienda = round2(p.valorReferencialTienda);
+    }
+    if ('incluidaEnCierreMensual' in p) {
+      updated.incluidaEnCierreMensual = Boolean(p.incluidaEnCierreMensual);
+    }
+    if ('cierreMensualId' in p) {
+      updated.cierreMensualId =
+        p.cierreMensualId != null && String(p.cierreMensualId).trim()
+          ? String(p.cierreMensualId).trim()
+          : null;
+    }
 
     updated = touch(updated, 'edicion', 'Datos principales de la OT actualizados', actor);
     updated = ensureDefaults(updated);

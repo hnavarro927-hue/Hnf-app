@@ -68,6 +68,20 @@ export const otModel = {
     /** Valorización automática Jarvis / intake (CLP, estimado) */
     'montoEstimado',
     'margenEstimado',
+    /** inmediata | mensual — mantención Clima suele ser mensual */
+    'tipoFacturacion',
+    /** Período contable YYYY-MM */
+    'periodoFacturacion',
+    'tiendaId',
+    'tiendaNombre',
+    /** Referencia gerencial (no es cobro inmediato si es mensual) */
+    'valorReferencialTienda',
+    /** utilidad referencial: valor ref − costo (estimado) */
+    'utilidadEstimada',
+    /** utilidad_referencial / valor_referencial */
+    'margenEstimadoRatio',
+    'incluidaEnCierreMensual',
+    'cierreMensualId',
   ],
   statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada', 'finalizada', 'facturada'],
   origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],

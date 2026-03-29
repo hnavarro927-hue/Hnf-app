@@ -27,6 +27,7 @@ import {
   resolveBandejaFinal,
 } from '../domain/maestro-document-destino.engine.js';
 import { hnfOperativoIntegradoService } from './hnfOperativoIntegrado.service.js';
+import { etiquetasFacturacionUi } from '../domain/ot-facturacion.engine.js';
 import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
 import {
   aplicarModuloPorTipoSolicitud,
@@ -144,6 +145,13 @@ function enrichOtBandejaVista(ot) {
     estado_etiqueta,
     estado_operativo: ot.estadoOperativo ?? null,
     monto_cobrado: ot.montoCobrado ?? 0,
+    tipo_facturacion: String(ot.tipoFacturacion || 'inmediata').toLowerCase(),
+    periodo_facturacion: ot.periodoFacturacion || null,
+    valor_referencial_tienda: ot.valorReferencialTienda ?? 0,
+    utilidad_estimada: ot.utilidadEstimada ?? null,
+    margen_estimado_ratio: ot.margenEstimadoRatio ?? null,
+    incluida_en_cierre_mensual: Boolean(ot.incluidaEnCierreMensual),
+    facturacion_badges: etiquetasFacturacionUi(ot),
   };
 }
 
@@ -1789,6 +1797,34 @@ export const maestroService = {
         ? Math.round(ticketsEstimados.reduce((a, b) => a + b, 0) / ticketsEstimados.length)
         : null;
 
+    const periodoCur = today.slice(0, 7);
+    let kpi_fin_costo_ejecutado_mes_clp = 0;
+    let kpi_fin_ingreso_estimado_mensual_clp = 0;
+    let kpi_fin_ingreso_facturado_mes_clp = 0;
+    let kpi_fin_utilidad_estimada_mensual_clp = 0;
+    let kpi_fin_utilidad_facturada_mes_clp = 0;
+    for (const o of ots) {
+      const mesFecha = String(o.fecha || '').slice(0, 7);
+      const mesCreado = String(o.createdAt || o.creadoEn || '').slice(0, 7);
+      if (mesFecha === periodoCur || mesCreado === periodoCur) {
+        kpi_fin_costo_ejecutado_mes_clp += roundClp(o.costoTotal);
+      }
+      const tf = String(o.tipoFacturacion || 'inmediata').toLowerCase();
+      const st = normalizeOtEstadoStored(o.estado);
+      if (tf === 'mensual' && String(o.periodoFacturacion || '').slice(0, 7) === periodoCur && st !== 'facturada') {
+        kpi_fin_ingreso_estimado_mensual_clp += roundClp(o.valorReferencialTienda);
+        kpi_fin_utilidad_estimada_mensual_clp += roundClp(o.utilidadEstimada ?? 0);
+      }
+      const cob = roundClp(o.montoCobrado);
+      if (cob > 0 && (tf === 'inmediata' || st === 'facturada')) {
+        const mesPago = String(o.cerradoEn || o.updatedAt || '').slice(0, 7);
+        if (mesPago === periodoCur) {
+          kpi_fin_ingreso_facturado_mes_clp += cob;
+          kpi_fin_utilidad_facturada_mes_clp += roundClp(o.utilidad ?? cob - roundClp(o.costoTotal));
+        }
+      }
+    }
+
     return {
       pendientes_romina: pend.romina,
       pendientes_gery: pend.gery,
@@ -1805,6 +1841,11 @@ export const maestroService = {
       gerencial_ot_ingresos_en_proceso_clp,
       gerencial_ot_ingresos_cerrados_hoy_clp,
       gerencial_ot_ticket_promedio_clp,
+      kpi_fin_costo_ejecutado_mes_clp,
+      kpi_fin_ingreso_estimado_mensual_clp,
+      kpi_fin_ingreso_facturado_mes_clp,
+      kpi_fin_utilidad_estimada_mensual_clp,
+      kpi_fin_utilidad_facturada_mes_clp,
     };
   },
 };

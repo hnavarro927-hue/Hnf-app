@@ -163,6 +163,13 @@ const CORE_PATCH_KEYS = [
   'whatsappContactoNombre',
   'entradaExterna',
   'pendienteRespuestaCliente',
+  'tipoFacturacion',
+  'periodoFacturacion',
+  'tiendaId',
+  'tiendaNombre',
+  'valorReferencialTienda',
+  'incluidaEnCierreMensual',
+  'cierreMensualId',
 ];
 
 export const validateOTCorePatch = (payload = {}) => {
@@ -191,6 +198,18 @@ export const validateOTCorePatch = (payload = {}) => {
     const p = String(payload.prioridadOperativa).trim();
     if (!otModel.prioridadOperativaOptions.includes(p)) {
       errors.push(`prioridadOperativa inválida. Valores: ${otModel.prioridadOperativaOptions.join(', ')}.`);
+    }
+  }
+  if ('tipoFacturacion' in payload && payload.tipoFacturacion != null) {
+    const tf = String(payload.tipoFacturacion).toLowerCase();
+    if (!['inmediata', 'mensual'].includes(tf)) {
+      errors.push('tipoFacturacion debe ser inmediata|mensual.');
+    }
+  }
+  if ('periodoFacturacion' in payload && payload.periodoFacturacion != null) {
+    const s = String(payload.periodoFacturacion).trim();
+    if (s && !/^\d{4}-\d{2}$/.test(s)) {
+      errors.push('periodoFacturacion debe ser YYYY-MM.');
     }
   }
   return { valid: errors.length === 0, errors };

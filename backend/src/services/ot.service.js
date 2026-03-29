@@ -5,6 +5,7 @@ import {
   briefToOtTrace,
   runJarvisIntakeClassification,
 } from '../domain/jarvis-intake-engine.js';
+import { puedeEstadoFacturadaManual } from '../domain/ot-facturacion.engine.js';
 import { suggestTechnicianAutomatic } from '../domain/jarvisOtAssignment.stub.js';
 import { jarvisIntakeService } from './jarvisIntake.service.js';
 import {
@@ -14,7 +15,11 @@ import {
 import { otModel } from '../models/ot.model.js';
 import { otRepository } from '../repositories/ot.repository.js';
 import { isAdminActor } from '../utils/hnfActor.js';
-import { isOtCierreEstricto, normalizeIncomingEstadoPatch, normalizeOtEstadoStored } from '../utils/otEstado.js';
+import {
+  isOtCierreEstricto,
+  normalizeIncomingEstadoPatch,
+  normalizeOtEstadoStored,
+} from '../utils/otEstado.js';
 import {
   validateEconomicsPatch,
   validateEquiposPatchBody,
@@ -376,11 +381,20 @@ export const otService = {
       return { error: 'Estado inválido.' };
     }
 
+    const current = await otRepository.findById(id);
+    if (!current) {
+      return { error: 'OT no encontrada.' };
+    }
+
+    if (normalizeOtEstadoStored(estadoN) === 'facturada' && !puedeEstadoFacturadaManual(current)) {
+      return {
+        error:
+          'OT con facturación mensual: el estado facturada se aplica desde el cierre mensual (marcar facturado).',
+        code: 'FACTURACION_MENSUAL',
+      };
+    }
+
     if (isOtCierreEstricto(estadoN)) {
-      const current = await otRepository.findById(id);
-      if (!current) {
-        return { error: 'OT no encontrada.' };
-      }
       if (!hasResponsableForClose(current)) {
         return {
           error:

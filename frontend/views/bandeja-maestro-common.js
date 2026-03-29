@@ -104,7 +104,10 @@ function renderDocRow(d, { offline, showFb, navigateToView, reloadApp, onChanged
     const m = Number(ors.monto_estimado || 0);
     const mFmt = Number.isFinite(m) ? m.toLocaleString('es-CL', { maximumFractionDigits: 0 }) : '—';
     const stOt = ors.estado_etiqueta || ors.estado || '—';
-    otExtra = ` · <span class="hnf-bandeja-maestro__ot-ok">OT creada ✔</span> <strong>${esc(ors.ot_id)}</strong> · Monto est. <strong>$${esc(mFmt)}</strong> · Estado OT: <strong>${esc(stOt)}</strong>`;
+    const badges = Array.isArray(ors.facturacion_badges)
+      ? ors.facturacion_badges.map((b) => `[${esc(b.label)}]`).join(' ')
+      : '';
+    otExtra = ` · <span class="hnf-bandeja-maestro__ot-ok">OT creada ✔</span> <strong>${esc(ors.ot_id)}</strong> · Monto est. <strong>$${esc(mFmt)}</strong> · Estado OT: <strong>${esc(stOt)}</strong>${badges ? ` · ${badges}` : ''}`;
   } else if (d.ot_id_vinculada) {
     otExtra = ` · OT: <strong>${esc(d.ot_id_vinculada)}</strong>`;
   } else {

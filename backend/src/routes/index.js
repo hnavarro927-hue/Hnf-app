@@ -20,6 +20,7 @@ import { hnfOperativoIntegradoRoutes } from './hnfOperativoIntegrado.routes.js';
 import { maestroRoutes } from './maestro.routes.js';
 import { operativoBandejaRoutes } from './operativoBandeja.routes.js';
 import { intakeRoutes } from './intake.routes.js';
+import { finanzasRoutes } from './finanzas.routes.js';
 
 export const routes = [
   ...healthRoutes,
@@ -44,4 +45,5 @@ export const routes = [
   ...hnfOperativoIntegradoRoutes,
   ...maestroRoutes,
   ...operativoBandejaRoutes,
+  ...finanzasRoutes,
 ];

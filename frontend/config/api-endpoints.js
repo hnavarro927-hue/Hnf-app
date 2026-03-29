@@ -34,4 +34,6 @@ export const apiEndpoints = {
   operativoAsignar: '/operativo/asignar',
   operativoMarcarGestionado: '/operativo/marcar-gestionado',
   intakeExterno: '/intake/externo',
+  finanzasTiendas: '/finanzas/tiendas',
+  finanzasCierresMensuales: '/finanzas/cierres-mensuales',
 };
