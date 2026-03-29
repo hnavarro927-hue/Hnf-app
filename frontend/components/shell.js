@@ -52,7 +52,7 @@ export const createShell = ({
   const items =
     Array.isArray(navItems) && navItems.length > 0 ? navItems : HNF_COMMAND_NAV_FULL;
   const element = document.createElement('div');
-  element.className = 'shell shell--command-center';
+  element.className = 'shell shell--command-center hnf-tech-rebirth';
   if (typeof window !== 'undefined' && isTabletMode()) {
     element.classList.add('shell--tablet');
   }

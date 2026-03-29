@@ -502,9 +502,12 @@ export function createHnfJarvisPremiumCommand({
   const heroTag = document.createElement('p');
   heroTag.className = 'hnf-jarvis-premium__hero-tag';
   heroTag.textContent = 'HNF Servicios Integrales';
-  const heroLine = document.createElement('p');
-  heroLine.className = 'hnf-jarvis-premium__hero-line';
-  heroLine.textContent = 'Continuidad operacional sin interrupciones';
+  const heroLine = document.createElement('h1');
+  heroLine.className = 'hnf-jarvis-premium__hero-line hnf-jarvis-premium__hero-headline';
+  heroLine.textContent = 'CENTRO DE OPERACIONES';
+  const heroSub = document.createElement('p');
+  heroSub.className = 'hnf-jarvis-premium__hero-sub';
+  heroSub.textContent = 'Continuidad operacional sin interrupciones';
   const heroChips = document.createElement('div');
   heroChips.className = 'hnf-jarvis-premium__hero-chips';
   const chipFlota = document.createElement('span');
@@ -514,7 +517,7 @@ export function createHnfJarvisPremiumCommand({
   chipClima.className = 'hnf-jarvis-premium__hero-chip hnf-jarvis-premium__hero-chip--clima';
   chipClima.textContent = 'Clima · HVAC';
   heroChips.append(chipFlota, chipClima);
-  heroCopy.append(heroTag, heroLine, heroChips);
+  heroCopy.append(heroTag, heroLine, heroSub, heroChips);
   hero.append(heroCopy);
 
   /* —— KPI superior: Crítico / En proceso / Operación —— */
