@@ -19,6 +19,16 @@ const esc = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+function formatDurSeg(sec) {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n < 0) return '—';
+  if (n < 60) return `${n}s`;
+  if (n < 3600) return `${Math.floor(n / 60)} min`;
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  return `${h} h ${m} min`;
+}
+
 const ESTADO_DOC = {
   borrador: 'Borrador',
   clasificado_jarvis: 'Clasificado por Jarvis',
@@ -701,6 +711,40 @@ export const baseMaestraHubView = ({
       mkDetBlock('Vehículo detectado', vinc.vehiculo);
       mkDetBlock('Técnico detectado', vinc.tecnico);
       card.append(relWrap);
+
+      if (d.intake_canal || d.mensaje_original) {
+        const ext = document.createElement('div');
+        ext.className = 'hnf-maestro-intake-externo tarjeta';
+        const canalHum =
+          d.intake_canal === 'whatsapp'
+            ? 'WhatsApp'
+            : d.intake_canal === 'correo'
+              ? 'Correo'
+              : d.intake_canal || 'Externo';
+        const th = document.createElement('p');
+        th.className = 'small';
+        th.innerHTML = `<strong>Ingreso automático</strong> · ${esc(canalHum)} · <span class="muted">Origen:</span> ${esc(d.intake_origen || '—')}`;
+        const tf = document.createElement('p');
+        tf.className = 'muted small';
+        tf.textContent = [
+          `Ingresado: ${d.intake_fecha_ingreso ? new Date(d.intake_fecha_ingreso).toLocaleString('es-CL') : '—'}`,
+          d.tipo_solicitud_inferida ? `Tipo solicitud: ${d.tipo_solicitud_inferida}` : null,
+          d.tiempo_hasta_gestion_segundos != null
+            ? `Tiempo hasta 1.ª gestión: ${formatDurSeg(d.tiempo_hasta_gestion_segundos)}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        const lm = document.createElement('p');
+        lm.className = 'small muted';
+        lm.textContent = 'Mensaje original';
+        const pre = document.createElement('pre');
+        pre.className = 'hnf-maestro-intake-msg';
+        pre.textContent = d.mensaje_original || '—';
+        ext.append(th, tf, lm, pre);
+        card.append(ext);
+      }
+
       const sumApr = textoResumenUltimaAprobacion(d);
       if (sumApr) {
         const pSum = document.createElement('p');

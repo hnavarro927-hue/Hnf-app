@@ -12,6 +12,11 @@ import { otService } from './ot.service.js';
 const ESTADOS_OP = ['pendiente', 'en_proceso', 'gestionado', 'cerrado'];
 const RESPONSABLES = ['romina', 'gery', 'lyn'];
 
+function intakePrimeraGestionPatch(doc) {
+  if (!doc?.intake_fecha_ingreso || doc.intake_fecha_primera_gestion) return {};
+  return { intake_fecha_primera_gestion: new Date().toISOString() };
+}
+
 function appendHistorialRevision(cur, tipo, detalle, usuario) {
   const h = Array.isArray(cur?.historial_revision) ? [...cur.historial_revision] : [];
   h.push({
@@ -172,6 +177,7 @@ export const hnfOperativoBandejaService = {
         ot_id_vinculada: created.id,
         estado_operativo: 'en_proceso',
         historial_revision,
+        ...intakePrimeraGestionPatch(doc),
       },
       actor
     );
@@ -204,6 +210,7 @@ export const hnfOperativoBandejaService = {
     const patch = {
       responsable_asignado: responsable,
       historial_revision,
+      ...intakePrimeraGestionPatch(doc),
     };
     const eo = String(doc.estado_operativo || 'pendiente').toLowerCase();
     if (eo === 'pendiente') patch.estado_operativo = 'en_proceso';
@@ -230,11 +237,12 @@ export const hnfOperativoBandejaService = {
       actor
     );
 
-    const updated = await maestroDocumentoRepository.update(
-      id,
-      { estado_operativo: eo, historial_revision },
-      actor
-    );
+    const patchDoc = { estado_operativo: eo, historial_revision };
+    if (eo === 'en_proceso' || eo === 'gestionado') {
+      Object.assign(patchDoc, intakePrimeraGestionPatch(doc));
+    }
+
+    const updated = await maestroDocumentoRepository.update(id, patchDoc, actor);
 
     if (doc.ot_id_vinculada) {
       await otRepository.patchEstadoOperativoYDocumentoOrigen(

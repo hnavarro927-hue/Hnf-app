@@ -64,9 +64,23 @@ function renderDocRow(d, { offline, showFb, navigateToView, reloadApp, onChanged
   row.dataset.docId = d.id;
   const st = String(d.estado_revision || '');
   const tipo = d.tipo_archivo || d.categoria_detectada || '—';
+  const extOrigen =
+    d.intake_canal === 'whatsapp'
+      ? ` · WhatsApp ${esc(d.intake_origen || '')}`
+      : d.intake_canal === 'correo'
+        ? ` · Correo ${esc(d.intake_origen || '')}`
+        : '';
   row.innerHTML = `<header class="hnf-bandeja-maestro__hdr"><strong>${esc(d.nombre_archivo)}</strong>
-    <span class="muted small">${esc(st)} · ${esc(tipo)} · ${esc(d.destino_final || '—')} → bandeja ${esc(d.bandeja_destino || '—')}</span></header>
+    <span class="muted small">${esc(st)} · ${esc(tipo)} · ${esc(d.destino_final || '—')} → bandeja ${esc(d.bandeja_destino || '—')}${extOrigen}</span></header>
     <p class="small muted">Cliente: ${esc(probLabel(d.cliente_probable))} · Contacto: ${esc(probLabel(d.contacto_probable))} · Patente: ${esc(d.patente_probable || '—')} · Técnico: ${esc(probLabel(d.tecnico_probable))}</p>`;
+
+  if (d.intake_canal && d.mensaje_original) {
+    const mp = document.createElement('p');
+    mp.className = 'small muted hnf-bandeja-maestro__intake-preview';
+    const raw = String(d.mensaje_original);
+    mp.textContent = raw.length > 240 ? `${raw.slice(0, 240)}…` : raw;
+    row.querySelector('.hnf-bandeja-maestro__hdr')?.after(mp);
+  }
 
   const eo = String(d.estado_operativo || 'pendiente').toLowerCase();
   const opMeta = document.createElement('p');

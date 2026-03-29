@@ -122,6 +122,9 @@ export const getMaestroDocumentos = async (request, response) => {
     x.destino_final,
     x.bandeja_destino,
     x.destino_detectado,
+    x.intake_origen,
+    x.mensaje_original,
+    x.intake_canal,
   ]);
   sendSuccess(response, 200, data, { resource: 'maestro/documentos' });
 };

@@ -28,6 +28,11 @@ import {
 } from '../domain/maestro-document-destino.engine.js';
 import { hnfOperativoIntegradoService } from './hnfOperativoIntegrado.service.js';
 import { isOtCerrada } from '../utils/otEstado.js';
+import {
+  aplicarModuloPorTipoSolicitud,
+  inferTipoSolicitudFromText,
+  RESPUESTA_AUTOMATICA_INTAKE_FASE1,
+} from '../domain/jarvis-intake-externo.engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_ROOT = path.resolve(__dirname, '../../data');
@@ -85,6 +90,14 @@ function aplicarDestinoJarvisNuevo(moduloSugerido) {
     bandeja_destino,
     clasificacion_fuente: 'jarvis',
   };
+}
+
+function tiempoHastaGestionSegundos(doc) {
+  const a = doc?.intake_fecha_ingreso;
+  const b = doc?.intake_fecha_primera_gestion;
+  if (!a || !b) return null;
+  const ms = new Date(b).getTime() - new Date(a).getTime();
+  return Number.isFinite(ms) && ms >= 0 ? Math.round(ms / 1000) : null;
 }
 
 function appendHistorialRevision(cur, tipo, detalle, usuario) {
@@ -840,6 +853,7 @@ export const maestroService = {
         ...c,
         revision_manual_sugerida: documentoTieneRevisionManualSugerida(d),
         tiene_archivo: Boolean(ruta_interna),
+        tiempo_hasta_gestion_segundos: tiempoHastaGestionSegundos(d),
       };
     });
   },
@@ -947,6 +961,157 @@ export const maestroService = {
     }
 
     return { documentos: creados, total: creados.filter((x) => x.id).length };
+  },
+
+  /**
+   * Ingesta WhatsApp / correo → documento(s) en Base Maestra, clasificación Jarvis y bandeja (clima/flota/…).
+   * Fase 1: respuesta automática solo como texto sugerido en JSON (sin envío por API externa).
+   */
+  async ingestExternoCanal(body, actor) {
+    const canal = String(body?.canal || '').toLowerCase().trim();
+    if (!['whatsapp', 'correo'].includes(canal)) return { errors: ['canal debe ser whatsapp|correo'] };
+    const origen = String(body?.origen || '').trim().slice(0, 320);
+    const mensaje = String(body?.mensaje || '').trim();
+    if (!origen) return { errors: ['origen obligatorio (teléfono, correo o identificador remitente)'] };
+    if (!mensaje) return { errors: ['mensaje obligatorio'] };
+    const adjuntos = Array.isArray(body.adjuntos) ? body.adjuntos : [];
+    if (adjuntos.length > MAX_FILES) return { errors: [`Máximo ${MAX_FILES} adjuntos`] };
+
+    const tipoSol = inferTipoSolicitudFromText(`${mensaje}\n${origen}`);
+    const intakeBatchId = `IBATCH-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    const now = new Date().toISOString();
+    const prefixText = `[INGRESO_EXTERNO canal=${canal} origen=${origen} tipo_solicitud=${tipoSol}]\n${mensaje}\n\n`;
+    const prefixBuf = Buffer.from(prefixText, 'utf8');
+
+    const ctx = await buildMaestroJarvisContext();
+    const uploadAbs = path.join(DATA_ROOT, UPLOAD_REL);
+    await mkdir(uploadAbs, { recursive: true });
+
+    const items = [];
+    const adjuntosErrores = [];
+    if (adjuntos.length === 0) {
+      items.push({
+        name: `intake-${canal}-${Date.now()}.txt`,
+        mime: 'text/plain',
+        buffer: Buffer.alloc(0),
+      });
+    } else {
+      adjuntos.forEach((a, idx) => {
+        const b64 = String(a.dataBase64 || a.base64 || '').replace(/^data:[^;]+;base64,/, '');
+        const mime = String(a.mimeType || a.tipo_archivo || 'application/octet-stream').slice(0, 120);
+        const name = safeName(a.nombre_archivo || a.name || `adjunto-${idx + 1}`);
+        if (!b64) {
+          adjuntosErrores.push(`Sin base64: ${name}`);
+          return;
+        }
+        let buf;
+        try {
+          buf = Buffer.from(b64, 'base64');
+        } catch {
+          adjuntosErrores.push(`Base64 inválido: ${name}`);
+          return;
+        }
+        if (buf.length > MAX_BYTES) {
+          adjuntosErrores.push(`Archivo demasiado grande: ${name}`);
+          return;
+        }
+        items.push({ name, mime, buffer: buf });
+      });
+    }
+
+    if (adjuntos.length > 0 && items.length === 0) {
+      return {
+        errors: ['Ningún adjunto válido.'],
+        adjuntos_errores: adjuntosErrores,
+      };
+    }
+
+    const total = items.length;
+    const creados = [];
+    for (let idx = 0; idx < items.length; idx += 1) {
+      const it = items[idx];
+      const combined = Buffer.concat([prefixBuf, it.buffer]);
+      const hash = createHash('sha256').update(combined).digest('hex');
+      const fileRel = path.join(UPLOAD_REL, `${hash.slice(0, 16)}_${it.name}`).replace(/\\/g, '/');
+      const abs = path.join(DATA_ROOT, fileRel);
+      await writeFile(abs, combined);
+
+      let jarvis = classifyDocumentBuffer({ filename: it.name, mimeType: it.mime, buffer: combined }, ctx);
+      jarvis = aplicarModuloPorTipoSolicitud(jarvis, tipoSol);
+      const vinc = resolveRelationalLinks(jarvis, ctx);
+      const historial_revision = appendHistorialRevision(
+        {},
+        'intake_externo',
+        JSON.stringify({ canal, origen, tipo_solicitud: tipoSol, batch: intakeBatchId, indice: idx, total }).slice(
+          0,
+          1950
+        ),
+        actor
+      );
+
+      const row = {
+        nombre_archivo: it.name,
+        tipo_archivo: it.mime,
+        categoria_detectada: jarvis.categoria_detectada,
+        entidad_relacionada_tipo: null,
+        entidad_relacionada_id: null,
+        clasificado_por_jarvis: true,
+        confianza_jarvis: jarvis.confianza_clasificacion,
+        estado_revision: 'pendiente_revision',
+        etiquetas: ['intake_externo', canal],
+        fecha_subida: now,
+        subido_por: actor,
+        url_storage: null,
+        ruta_interna: fileRel,
+        hash_archivo: hash,
+        resumen_jarvis: jarvis.resumen_breve,
+        datos_detectados: jarvis.datos_detectados,
+        modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
+        cliente_probable: jarvis.cliente_probable,
+        contacto_probable: jarvis.contacto_probable,
+        tecnico_probable: jarvis.tecnico_probable,
+        patente_probable: jarvis.patente_probable,
+        ot_probable: jarvis.ot_probable,
+        jarvis_advertencias: jarvis.advertencias,
+        observacion_revision: '',
+        actor_revision: null,
+        engine_version: jarvis.version,
+        relational_engine_version: vinc.version,
+        jarvis_vinculacion: vinc,
+        cliente_id: vinc.autoClienteId,
+        contacto_id: vinc.autoContactoId,
+        vehiculo_id: vinc.autoVehiculoId,
+        tecnico_id: vinc.autoTecnicoId,
+        historial_revision,
+        texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
+        estado_operativo: 'pendiente',
+        responsable_asignado: null,
+        ot_id_vinculada: null,
+        intake_canal: canal,
+        intake_origen: origen,
+        mensaje_original: mensaje.slice(0, 8000),
+        intake_fecha_ingreso: now,
+        intake_fecha_primera_gestion: null,
+        tipo_solicitud_inferida: tipoSol,
+        intake_batch_id: intakeBatchId,
+        intake_adjunto_total: total,
+        intake_indice_adjunto: idx,
+        ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
+      };
+
+      const created = await maestroDocumentoRepository.create(row, actor);
+      created.url_descarga = `/maestro/documentos/${encodeURIComponent(created.id)}/descarga`;
+      creados.push(created);
+    }
+
+    return {
+      documentos: creados,
+      total: creados.length,
+      intake_batch_id: intakeBatchId,
+      tipo_solicitud_inferida: tipoSol,
+      respuesta_automatica_sugerida: RESPUESTA_AUTOMATICA_INTAKE_FASE1,
+      adjuntos_errores: adjuntosErrores.length ? adjuntosErrores : undefined,
+    };
   },
 
   async aprobarDocumentoMaestro(id, body, actor) {
@@ -1353,6 +1518,16 @@ export const maestroService = {
         estado_operativo: String(rest.estado_operativo || 'pendiente').toLowerCase(),
         responsable_asignado: rest.responsable_asignado || null,
         ot_id_vinculada: rest.ot_id_vinculada || null,
+        intake_canal: rest.intake_canal || null,
+        intake_origen: rest.intake_origen || null,
+        mensaje_original: rest.mensaje_original
+          ? String(rest.mensaje_original).slice(0, 1200)
+          : null,
+        tipo_solicitud_inferida: rest.tipo_solicitud_inferida || null,
+        intake_fecha_ingreso: rest.intake_fecha_ingreso || null,
+        intake_fecha_primera_gestion: rest.intake_fecha_primera_gestion || null,
+        tiempo_hasta_gestion_segundos: tiempoHastaGestionSegundos(rest),
+        intake_batch_id: rest.intake_batch_id || null,
       };
     });
 

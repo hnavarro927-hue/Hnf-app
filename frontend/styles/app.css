@@ -23375,6 +23375,22 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
   margin: 0.35rem 0 0;
   padding-left: 1.1rem;
 }
+.hnf-maestro-intake-externo {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.65rem;
+}
+.hnf-maestro-intake-msg {
+  margin: 0.35rem 0 0;
+  padding: 0.45rem 0.55rem;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  background: var(--surface-elevated, rgba(0, 0, 0, 0.04));
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+}
 .hnf-maestro-jarvis {
   margin-bottom: 1rem;
   padding: 0.65rem 0.85rem;
