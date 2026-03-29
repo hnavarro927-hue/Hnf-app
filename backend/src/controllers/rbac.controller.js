@@ -1,21 +1,11 @@
-import {
-  ACTION_ACCESS,
-  MODULE_ACCESS,
-  resolveRbacRole,
-  roleCanPerformAction,
-} from '../config/rbac.config.js';
-import { sendError, sendSuccess } from '../utils/http.js';
-import { getRequestActor } from '../utils/requestActor.js';
+import { buildMePayload } from '../services/auth.service.js';
+import { auditService } from '../services/audit.service.js';
 import { assertAction } from '../utils/rbacHttp.js';
+import { sendError, sendSuccess } from '../utils/http.js';
 
 export const getRbacMe = async (request, response) => {
-  const actor = getRequestActor(request);
-  const role = resolveRbacRole(actor);
-  const actions = Object.fromEntries(
-    Object.keys(ACTION_ACCESS).map((a) => [a, roleCanPerformAction(role, a)])
-  );
-  const modules = MODULE_ACCESS[role] || MODULE_ACCESS.admin;
-  sendSuccess(response, 200, { actor, role, modules, actions }, { resource: 'rbac/me' });
+  const payload = buildMePayload(request.hnfAuth);
+  sendSuccess(response, 200, payload, { resource: 'rbac/me' });
 };
 
 export const getAuditRecent = async (request, response) => {

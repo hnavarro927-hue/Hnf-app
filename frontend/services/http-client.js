@@ -1,4 +1,5 @@
 import { appConfig } from '../config/app.config.js';
+import { getSessionToken } from '../config/auth-token.storage.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
 import { fetchWithRetry } from '../domain/hnf-network.js';
 
@@ -10,15 +11,22 @@ const actorHeaders = () => {
 };
 
 const request = async (path, options = {}) => {
+  const { skipAuth, ...fetchInit } = options;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...actorHeaders(),
+    ...(fetchInit.headers || {}),
+  };
+  if (!skipAuth) {
+    const t = getSessionToken();
+    if (t) headers.Authorization = `Bearer ${t}`;
+  }
+
   const response = await fetchWithRetry(
     buildUrl(path),
     {
-      headers: {
-        'Content-Type': 'application/json',
-        ...actorHeaders(),
-        ...(options.headers || {}),
-      },
-      ...options,
+      ...fetchInit,
+      headers,
     },
     { retries: 3, timeoutMs: 30000 }
   );
@@ -53,17 +61,22 @@ const request = async (path, options = {}) => {
 };
 
 export const httpClient = {
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) }),
-  patch: (path, body) => request(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: (path) => request(path, { method: 'DELETE' }),
-  /** Descarga binaria con actor (p. ej. archivos maestro). */
+  get: (path, opts) => request(path, { ...opts, method: 'GET' }),
+  post: (path, body, opts = {}) =>
+    request(path, { ...opts, method: 'POST', body: JSON.stringify(body ?? {}) }),
+  patch: (path, body, opts = {}) =>
+    request(path, { ...opts, method: 'PATCH', body: JSON.stringify(body ?? {}) }),
+  delete: (path, opts) => request(path, { ...opts, method: 'DELETE' }),
+  /** Descarga binaria (Bearer + actor). */
   getBlob: async (path) => {
+    const headers = { ...actorHeaders() };
+    const t = getSessionToken();
+    if (t) headers.Authorization = `Bearer ${t}`;
     const response = await fetchWithRetry(
       buildUrl(path),
       {
         method: 'GET',
-        headers: { ...actorHeaders() },
+        headers,
       },
       { retries: 2, timeoutMs: 120000 }
     );

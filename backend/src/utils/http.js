@@ -42,7 +42,7 @@ export const corsHeadersForRequest = (request) => {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,PUT,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-HNF-Actor',
+    'Access-Control-Allow-Headers': 'Content-Type, X-HNF-Actor, Authorization',
     Vary: 'Origin',
   };
 };

@@ -1,8 +1,10 @@
 import { expenseModel } from '../models/expense.model.js';
 import { expenseService } from '../services/expense.service.js';
+import { assertAction } from '../utils/rbacHttp.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 
 export const getAllExpenses = async (request, response) => {
+  if (!assertAction(request, response, 'expenses.read')) return;
   sendSuccess(response, 200, expenseService.getAll(), {
     resource: 'expenses',
     model: expenseModel,
@@ -11,6 +13,7 @@ export const getAllExpenses = async (request, response) => {
 };
 
 export const getExpenseById = async (request, response) => {
+  if (!assertAction(request, response, 'expenses.read')) return;
   const item = expenseService.getById(request.params.id);
 
   if (!item) {
@@ -27,6 +30,7 @@ export const getExpenseById = async (request, response) => {
 };
 
 export const createExpense = async (request, response) => {
+  if (!assertAction(request, response, 'expenses.create')) return;
   const item = expenseService.create(request.body || {});
 
   if (item.errors) {
@@ -43,7 +47,16 @@ export const createExpense = async (request, response) => {
 };
 
 export const patchExpense = async (request, response) => {
-  const result = expenseService.update(request.params.id, request.body || {});
+  const body = request.body || {};
+  const touchesFinanzas =
+    body.estadoAprobacion != null ||
+    body.observacionFinanzas !== undefined ||
+    body.devolverA !== undefined;
+  if (touchesFinanzas) {
+    if (!assertAction(request, response, 'finanzas.gasto_aprobar')) return;
+  } else if (!assertAction(request, response, 'expenses.patch')) return;
+
+  const result = expenseService.update(request.params.id, body);
 
   if (result.notFound) {
     return sendError(response, 404, 'Gasto no encontrado.', {

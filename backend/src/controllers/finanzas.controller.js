@@ -1,32 +1,38 @@
 import { cierreMensualService } from '../services/cierreMensual.service.js';
 import { tiendaFinancieraService } from '../services/tiendaFinanciera.service.js';
+import { assertAction } from '../utils/rbacHttp.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 import { getRequestActor } from '../utils/requestActor.js';
 
-export const getTiendasFinancieras = async (_request, response) => {
+export const getTiendasFinancieras = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const data = await tiendaFinancieraService.list();
   sendSuccess(response, 200, data, { resource: 'finanzas/tiendas' });
 };
 
 export const postTiendaFinanciera = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const row = await tiendaFinancieraService.create(request.body || {}, actor);
   sendSuccess(response, 201, row, { resource: 'finanzas/tiendas', action: 'create' });
 };
 
 export const patchTiendaFinanciera = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const r = await tiendaFinancieraService.update(request.params?.id, request.body || {}, actor);
   if (r.error) return sendError(response, 404, r.error);
   sendSuccess(response, 200, r, { resource: 'finanzas/tiendas', action: 'patch' });
 };
 
-export const getCierresMensuales = async (_request, response) => {
+export const getCierresMensuales = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const data = await cierreMensualService.listCierres();
   sendSuccess(response, 200, data, { resource: 'finanzas/cierres-mensuales' });
 };
 
 export const getCierreMensual = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const r = await cierreMensualService.getCierre(request.params?.id);
   if (r.error) return sendError(response, 404, r.error);
   sendSuccess(response, 200, r, { resource: 'finanzas/cierres-mensuales' });
@@ -42,6 +48,7 @@ const periodoFromRequest = (request) => {
 };
 
 export const getCandidatasCierre = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const periodo = periodoFromRequest(request);
   const r = await cierreMensualService.candidatasPeriodo(periodo);
   if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
@@ -49,6 +56,7 @@ export const getCandidatasCierre = async (request, response) => {
 };
 
 export const postCierreMensual = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const r = await cierreMensualService.crearCierre(request.body || {}, actor);
   if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
@@ -56,6 +64,7 @@ export const postCierreMensual = async (request, response) => {
 };
 
 export const postCierreIncluirOt = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const otId = String(request.body?.ot_id || request.body?.otId || '').trim();
   if (!otId) return sendError(response, 400, 'ot_id obligatorio');
@@ -66,6 +75,7 @@ export const postCierreIncluirOt = async (request, response) => {
 };
 
 export const postCierreExcluirOt = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const otId = String(request.body?.ot_id || request.body?.otId || '').trim();
   if (!otId) return sendError(response, 400, 'ot_id obligatorio');
@@ -76,6 +86,7 @@ export const postCierreExcluirOt = async (request, response) => {
 };
 
 export const postCierreCerrar = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const r = await cierreMensualService.cerrarPeriodo(request.params?.id, actor);
   if (r.error) return sendError(response, 404, r.error);
@@ -84,6 +95,7 @@ export const postCierreCerrar = async (request, response) => {
 };
 
 export const postCierreMarcarFacturado = async (request, response) => {
+  if (!assertAction(request, response, 'finanzas.gerencial')) return;
   const actor = getRequestActor(request);
   const r = await cierreMensualService.marcarFacturado(request.params?.id, actor);
   if (r.error) return sendError(response, 404, r.error);

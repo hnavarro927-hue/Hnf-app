@@ -60,6 +60,8 @@ const formatLastSyncLabel = (lastDataRefreshAt) => {
 export const createShell = ({
   activeView,
   onNavigate,
+  onLogout = null,
+  sessionUserLabel = '',
   apiBaseLabel,
   integrationStatus,
   deployStatusElement = null,
@@ -135,6 +137,25 @@ export const createShell = ({
   apiLab.className = 'shell-api__label';
   apiLab.textContent = 'API';
   apiRow.append(apiLab, document.createTextNode(` ${apiBaseLabel || '—'}`));
+
+  if (typeof onLogout === 'function') {
+    const sess = document.createElement('div');
+    sess.className = 'shell-session';
+    sess.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;margin-top:0.35rem;';
+    if (sessionUserLabel) {
+      const who = document.createElement('span');
+      who.className = 'muted small';
+      who.textContent = sessionUserLabel;
+      sess.append(who);
+    }
+    const out = document.createElement('button');
+    out.type = 'button';
+    out.className = 'secondary-button';
+    out.textContent = 'Salir';
+    out.addEventListener('click', () => onLogout());
+    sess.append(out);
+    header.append(sess);
+  }
 
   const slaStrip = document.createElement('div');
   slaStrip.className = 'hnf-sla-commitment-strip';

@@ -1,8 +1,12 @@
 import { hnfOperativoBandejaService } from '../services/hnfOperativoBandeja.service.js';
+import { assertAction } from '../utils/rbacHttp.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 import { getRequestActor } from '../utils/requestActor.js';
 
+const gate = (req, res) => assertAction(req, res, 'operativo.flow');
+
 export const postOperativoCrearOtDesdeDocumento = async (request, response) => {
+  if (!gate(request, response)) return;
   const actor = getRequestActor(request);
   const body = request.body && typeof request.body === 'object' ? request.body : {};
   const documento_id = String(body.documento_id || body.documentoId || '').trim();
@@ -13,6 +17,7 @@ export const postOperativoCrearOtDesdeDocumento = async (request, response) => {
 };
 
 export const patchOperativoAsignar = async (request, response) => {
+  if (!gate(request, response)) return;
   const actor = getRequestActor(request);
   const body = request.body && typeof request.body === 'object' ? request.body : {};
   const r = await hnfOperativoBandejaService.asignarResponsableDocumento(body, actor);
@@ -22,6 +27,7 @@ export const patchOperativoAsignar = async (request, response) => {
 };
 
 export const postOperativoMarcarGestionado = async (request, response) => {
+  if (!gate(request, response)) return;
   const actor = getRequestActor(request);
   const body = request.body && typeof request.body === 'object' ? request.body : {};
   const documento_id = String(body.documento_id || body.documentoId || '').trim();

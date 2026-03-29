@@ -1,12 +1,20 @@
 import './styles/app.css';
 import { appConfig, formatApiBaseLabel } from './config/app.config.js';
 import { createShell } from './components/shell.js';
+import { authApiService } from './services/auth-api.service.js';
+import { usersService } from './services/users.service.js';
+import { clearSessionToken, getSessionToken } from './config/auth-token.storage.js';
+import { setStoredOperatorName } from './config/operator.config.js';
 import {
-  defaultViewForRole,
-  getNavItemsForRole,
-  isViewAllowedForRole,
-  resolveOperatorRole,
-} from './domain/hnf-operator-role.js';
+  clearSessionBackendRole,
+  setSessionBackendRole,
+} from './config/session-bridge.js';
+import {
+  defaultViewForModules,
+  isViewAllowedForModules,
+  navItemsFromModules,
+} from './domain/hnf-access-nav.js';
+import { resolveOperatorRole } from './domain/hnf-operator-role.js';
 import { clientService } from './services/client.service.js';
 import { flotaSolicitudService } from './services/flota-solicitud.service.js';
 import { expenseService } from './services/expense.service.js';
@@ -22,6 +30,10 @@ import { buildHnfAdnSnapshot } from './domain/hnf-adn.js';
 import { climaView } from './views/clima.js';
 import { flotaView } from './views/flota.js';
 import { adminView } from './views/admin.js';
+import { auditoriaView, loadAuditoriaData } from './views/auditoria.js';
+import { loginView } from './views/login.js';
+import { sinAccesoView } from './views/sin-acceso.js';
+import { usuariosView, loadUsuariosData } from './views/usuarios.js';
 import { planificacionService } from './services/planificacion.service.js';
 import { planificacionView } from './views/planificacion.js';
 import { asistenteIaView } from './views/asistente-ia.js';
@@ -782,6 +794,21 @@ const viewRegistry = {
       return { clients, ots, expenses };
     },
   },
+
+  'sin-acceso': {
+    render: sinAccesoView,
+    load: async () => ({}),
+  },
+
+  auditoria: {
+    render: auditoriaView,
+    load: loadAuditoriaData,
+  },
+
+  usuarios: {
+    render: usuariosView,
+    load: loadUsuariosData,
+  },
 };
 
 const openPdfBlobInNewTab = (blob) => {
@@ -836,6 +863,12 @@ const state = {
   intelGuidanceOneShot: null,
   /** Borrador / foco comercial al abrir Oportunidades desde Jarvis (un disparo hasta cerrar o salir). */
   commercialIntelOneShot: null,
+  /** Sesión HNF (GET /auth/me). */
+  authMe: null,
+  loginBanner: '',
+  deniedModuleId: null,
+  usuariosFeedback: null,
+  auditoriaFeedback: null,
 };
 
 let jarvisOsLastUi = null;
@@ -1438,6 +1471,35 @@ const createActions = () => ({
   },
 });
 
+async function handleUsuariosAction(kind, payload) {
+  state.usuariosFeedback = null;
+  try {
+    if (kind === 'create') {
+      await usersService.create(payload);
+      state.usuariosFeedback = { type: 'success', message: 'Usuario creado correctamente.' };
+    } else if (kind === 'patchRol') {
+      await usersService.patch(payload.id, { rol: payload.rol });
+      state.usuariosFeedback = { type: 'success', message: 'Rol actualizado.' };
+    } else if (kind === 'estado') {
+      await usersService.setEstado(payload.id, payload.activo);
+      state.usuariosFeedback = {
+        type: 'success',
+        message: payload.activo ? 'Usuario activado.' : 'Usuario desactivado.',
+      };
+    } else if (kind === 'resetPw') {
+      await usersService.resetPassword(payload.id, payload.password);
+      state.usuariosFeedback = { type: 'success', message: 'Contraseña restablecida.' };
+    }
+    await loadViewData();
+  } catch (e) {
+    state.usuariosFeedback = {
+      type: 'error',
+      message: e.message || 'No se pudo completar la acción.',
+    };
+    render();
+  }
+}
+
 async function navigateToView(viewId, intelOptions = null) {
   if (viewId === 'jarvis-intake') viewId = 'bandeja-canal';
   if (viewId === 'dashboard') {
@@ -1449,10 +1511,13 @@ async function navigateToView(viewId, intelOptions = null) {
     state.pendingScrollToMando = true;
   }
   if (!viewRegistry[viewId]) return;
-  const opRole = resolveOperatorRole();
-  if (!isViewAllowedForRole(opRole, viewId)) {
-    viewId = defaultViewForRole(opRole);
+  const modules = state.authMe?.modules;
+  if (modules && !isViewAllowedForModules(modules, viewId)) {
+    state.deniedModuleId = viewId;
+    viewId = 'sin-acceso';
     state.pendingScrollToMando = false;
+  } else if (modules) {
+    state.deniedModuleId = null;
   }
   state.activeView = viewId;
   if (viewId !== 'oportunidades') {
@@ -1566,8 +1631,24 @@ const render = () => {
         integrationStatus: state.integrationStatus,
         lastDataRefreshAt: state.lastSuccessfulFetchAt,
         onNavigate: (viewId) => navigateToView(viewId),
+        onLogout: async () => {
+          await authApiService.logout();
+          clearSessionBackendRole();
+          state.authMe = null;
+          try {
+            localStorage.removeItem('hnfActor');
+          } catch {
+            /* ignore */
+          }
+          mountLoginUi();
+        },
+        sessionUserLabel: state.authMe?.user?.nombre || state.authMe?.user?.username || '',
         deployStatusElement: getHnfDeployIndicatorElement(),
-        navItems: getNavItemsForRole(resolveOperatorRole()),
+        navItems: navItemsFromModules(
+          Array.isArray(state.authMe?.modules) && state.authMe.modules.length
+            ? state.authMe.modules
+            : ['*']
+        ),
       });
 
       const intelNavigate = (nav) => {
@@ -1704,6 +1785,10 @@ const render = () => {
             : null,
         commercialIntelContext: state.activeView === 'oportunidades' ? state.commercialIntelOneShot : null,
         operatorRole: resolveOperatorRole(),
+        deniedModuleId: state.deniedModuleId,
+        usuariosFeedback: state.usuariosFeedback,
+        auditoriaFeedback: state.auditoriaFeedback,
+        onUsuariosAction: handleUsuariosAction,
       };
 
       try {
@@ -1874,42 +1959,127 @@ const viewIdFromLocation = () => {
   return mapped && viewRegistry[mapped] ? mapped : null;
 };
 
-const operatorRoleBoot = resolveOperatorRole();
-const hashedRoute = viewIdFromLocation();
-let bootView =
-  hashedRoute && isViewAllowedForRole(operatorRoleBoot, hashedRoute)
-    ? hashedRoute
-    : null;
-if (!bootView) {
-  bootView = defaultViewForRole(operatorRoleBoot);
-}
-state.activeView = bootView;
-if (hashedRoute && bootView !== hashedRoute && typeof history !== 'undefined' && history.replaceState) {
-  try {
-    history.replaceState(null, '', `#/${bootView}`);
-  } catch {
-    /* ignore */
+async function startAuthenticatedApp() {
+  state.deniedModuleId = null;
+  const modules = state.authMe?.modules || ['*'];
+  const hashedRoute = viewIdFromLocation();
+  let bootView =
+    hashedRoute && isViewAllowedForModules(modules, hashedRoute) ? hashedRoute : null;
+  if (!bootView) {
+    bootView = defaultViewForModules(modules);
   }
-}
-if (typeof window !== 'undefined') {
-  const rawSeg = (window.location.hash || '').replace(/^#\/?/, '').split('/')[0].split('?')[0];
-  if (rawSeg === 'control-operativo-tiempo-real' || rawSeg === 'flujo-operativo-unificado') {
-    state.pendingScrollToMando = true;
-    const legacyTarget = isViewAllowedForRole(operatorRoleBoot, 'jarvis')
-      ? 'jarvis'
-      : defaultViewForRole(operatorRoleBoot);
-    state.activeView = legacyTarget;
-    if (legacyTarget !== 'jarvis') state.pendingScrollToMando = false;
+  state.activeView = bootView;
+  if (hashedRoute && bootView !== hashedRoute && typeof history !== 'undefined' && history.replaceState) {
     try {
-      if (history.replaceState) history.replaceState(null, '', `#/${legacyTarget}`);
+      history.replaceState(null, '', `#/${bootView}`);
     } catch {
       /* ignore */
     }
+  }
+  if (typeof window !== 'undefined') {
+    const rawSeg = (window.location.hash || '').replace(/^#\/?/, '').split('/')[0].split('?')[0];
+    if (rawSeg === 'control-operativo-tiempo-real' || rawSeg === 'flujo-operativo-unificado') {
+      state.pendingScrollToMando = true;
+      const legacyTarget = isViewAllowedForModules(modules, 'jarvis')
+        ? 'jarvis'
+        : defaultViewForModules(modules);
+      state.activeView = legacyTarget;
+      if (legacyTarget !== 'jarvis') state.pendingScrollToMando = false;
+      try {
+        if (history.replaceState) history.replaceState(null, '', `#/${legacyTarget}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  state.integrationStatus = 'cargando';
+  try {
+    render();
+  } catch (bootRenderErr) {
+    console.error('[HNF] render de arranque', bootRenderErr);
+  }
+
+  loadViewData()
+    .then(() => {
+      try {
+        startJarvisAutonomicSurface({ getViewData: () => state.viewData });
+        const pushJarvisOsUi = (data) => {
+          jarvisOsLastUi = data;
+          registerJarvisOsMemory({ presence: data.presence, decision: data.decision });
+          applyJarvisOsUi(data);
+        };
+        const s0 = getJarvisOsMergedState();
+        pushJarvisOsUi({
+          presence: jarvisOsBuildPresence(s0),
+          decision: jarvisOsBuildDecision(s0),
+        });
+        startJarvisAutonomousLoop(() => getJarvisOsMergedState(), pushJarvisOsUi);
+        startJarvisConsciousLoop({
+          getMergedState: getJarvisOsMergedState,
+          getViewData: () => state.viewData,
+        });
+        if (typeof window !== 'undefined') {
+          window.HNFJarvisConscious = { notifyExternalEvent: notifyJarvisExternalEvent };
+        }
+      } catch (bootErr) {
+        console.error('[HNF] post-load bootstrap', bootErr);
+      }
+    })
+    .catch(async (e) => {
+      console.error('[HNF] promesa loadViewData rechazada', e);
+      const probe = await probeBackendHealth();
+      applyConnectivityFromProbeResult(probe);
+      try {
+        render();
+      } catch {
+        paintGlobalRenderFallback();
+      }
+    });
+}
+
+function mountLoginUi() {
+  if (!app) return;
+  clearSessionBackendRole();
+  state.authMe = null;
+  app.innerHTML = '';
+  loginView(app, {
+    bannerMessage: state.loginBanner || '',
+    onSuccess: async ({ username, password }) => {
+      await authApiService.login(username, password);
+      const me = await authApiService.me();
+      state.authMe = me;
+      state.loginBanner = '';
+      setSessionBackendRole(me.role);
+      setStoredOperatorName(me.user?.nombre || me.actor || '');
+      await startAuthenticatedApp();
+    },
+  });
+}
+
+async function bootAuth() {
+  state.loginBanner = '';
+  if (!getSessionToken()) {
+    mountLoginUi();
+    return;
+  }
+  try {
+    const me = await authApiService.me();
+    state.authMe = me;
+    setSessionBackendRole(me.role);
+    setStoredOperatorName(me.user?.nombre || me.actor || '');
+    await startAuthenticatedApp();
+  } catch (e) {
+    clearSessionToken();
+    clearSessionBackendRole();
+    state.authMe = null;
+    if (e.status === 401) state.loginBanner = 'Tu sesión expiró';
+    mountLoginUi();
   }
 }
 
 if (typeof window !== 'undefined') {
   window.addEventListener('hashchange', () => {
+    if (!state.authMe) return;
     const v = viewIdFromLocation();
     if (v && v !== state.activeView) {
       navigateToView(v);
@@ -1925,46 +2095,4 @@ if (typeof window !== 'undefined') {
   window.HNFJarvisPulse?.startJarvisEvolutionAutoloop?.({ intervalMs: 300_000, kickoff: true });
 }
 
-state.integrationStatus = 'cargando';
-try {
-  render();
-} catch (bootRenderErr) {
-  console.error('[HNF] render de arranque', bootRenderErr);
-}
-
-loadViewData()
-  .then(() => {
-    try {
-      startJarvisAutonomicSurface({ getViewData: () => state.viewData });
-      const pushJarvisOsUi = (data) => {
-        jarvisOsLastUi = data;
-        registerJarvisOsMemory({ presence: data.presence, decision: data.decision });
-        applyJarvisOsUi(data);
-      };
-      const s0 = getJarvisOsMergedState();
-      pushJarvisOsUi({
-        presence: jarvisOsBuildPresence(s0),
-        decision: jarvisOsBuildDecision(s0),
-      });
-      startJarvisAutonomousLoop(() => getJarvisOsMergedState(), pushJarvisOsUi);
-      startJarvisConsciousLoop({
-        getMergedState: getJarvisOsMergedState,
-        getViewData: () => state.viewData,
-      });
-      if (typeof window !== 'undefined') {
-        window.HNFJarvisConscious = { notifyExternalEvent: notifyJarvisExternalEvent };
-      }
-    } catch (bootErr) {
-      console.error('[HNF] post-load bootstrap', bootErr);
-    }
-  })
-  .catch(async (e) => {
-    console.error('[HNF] promesa loadViewData rechazada', e);
-    const probe = await probeBackendHealth();
-    applyConnectivityFromProbeResult(probe);
-    try {
-      render();
-    } catch {
-      paintGlobalRenderFallback();
-    }
-  });
+bootAuth();

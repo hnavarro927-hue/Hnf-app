@@ -4,8 +4,9 @@
  */
 
 import { getStoredOperatorName } from '../config/operator.config.js';
+import { getSessionBackendRole } from '../config/session-bridge.js';
 
-/** @typedef {'admin' | 'clima' | 'flota' | 'control' | 'tecnico'} HnfOperatorRole — `control` = gerencial / finanzas (Lyn). */
+/** @typedef {'admin' | 'clima' | 'flota' | 'control' | 'tecnico' | 'conductor'} HnfOperatorRole — `control` = gerencial / finanzas (Lyn). */
 
 /** Clientes, directorio, validación, carga masiva (pestañas filtradas por rol en la vista). */
 export const HNF_CORE_NAV = { id: 'hnf-core', icon: '⬡', label: 'Clientes' };
@@ -21,7 +22,7 @@ export const HNF_BANDEJA_LYN_NAV = { id: 'bandeja-lyn', icon: '▤', label: 'Ban
 const pick = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 
 export const HNF_OS_NAV_ADMIN = [
-  { id: 'jarvis', icon: '◉', label: 'Jarvis' },
+  { id: 'jarvis', icon: '◉', label: 'Jarvis HQ' },
   { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
   { id: 'bandeja-canal', icon: '▣', label: 'Bandeja' },
   { id: 'clima', icon: '◎', label: 'Clima' },
@@ -47,9 +48,18 @@ export const HNF_COMMAND_NAV_FULL = HNF_OS_NAV_ADMIN;
  * @returns {HnfOperatorRole}
  */
 export function resolveOperatorRole() {
+  const br = getSessionBackendRole();
+  if (br === 'hernan' || br === 'admin') return 'admin';
+  if (br === 'lyn') return 'control';
+  if (br === 'romina') return 'clima';
+  if (br === 'gery') return 'flota';
+  if (br === 'tecnico') return 'tecnico';
+  if (br === 'conductor') return 'conductor';
+
   const raw = getStoredOperatorName().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
   if (!raw.trim()) return 'admin';
   if (raw.includes('tecnico') || raw.includes('técnico')) return 'tecnico';
+  if (raw.includes('conductor')) return 'conductor';
   if (raw.includes('romina')) return 'clima';
   if (raw.includes('gery')) return 'flota';
   if (raw.includes('lyn')) return 'control';
@@ -65,6 +75,9 @@ export function getNavItemsForRole(role) {
   if (role === 'admin') return [...HNF_OS_NAV_ADMIN];
   if (role === 'tecnico') {
     return [pick('clima'), pick('ingreso-operativo')].filter(Boolean);
+  }
+  if (role === 'conductor') {
+    return [pick('flota'), pick('ingreso-operativo')].filter(Boolean);
   }
   if (role === 'clima') {
     return [
@@ -116,6 +129,7 @@ export function getNavItemsForRole(role) {
  */
 export function defaultViewForRole(role) {
   if (role === 'tecnico') return 'clima';
+  if (role === 'conductor') return 'flota';
   if (role === 'clima') return 'clima';
   if (role === 'flota') return 'flota';
   if (role === 'control') return 'control-gerencial';
@@ -133,7 +147,7 @@ export function isViewAllowedForRole(role, viewId) {
 
 /** Clientes extendidos (Hernán / Lyn) */
 export function canAccessClientesManual(role) {
-  return role === 'admin' || role === 'control';
+  return role === 'admin' || role === 'control' || role === 'clima' || role === 'flota';
 }
 
 export function canAccessDirectorioInterno(role) {

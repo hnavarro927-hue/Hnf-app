@@ -1,9 +1,13 @@
 /**
- * Roles canónicos HNF (alineado a nombres operativos hasta login formal).
- * Permisos: módulos (vista / área) y acciones (API críticas).
+ * Roles canónicos HNF (sesión real + compat. resolveRbacRole por nombre).
+ * Permisos: módulos (vista shell) y acciones (API).
  */
 
 export const HNF_ROLES = ['admin', 'hernan', 'lyn', 'romina', 'gery', 'tecnico', 'conductor'];
+
+const lynUsersEnv = () =>
+  process.env.HNF_LYN_CAN_MANAGE_USERS === '1' ||
+  String(process.env.HNF_LYN_CAN_MANAGE_USERS || '').toLowerCase() === 'true';
 
 /** @param {string} actor */
 export function resolveRbacRole(actor) {
@@ -21,74 +25,100 @@ export function resolveRbacRole(actor) {
   return 'admin';
 }
 
-/** Vista / módulo shell (ids alineados a frontend) */
+/** Vista / módulo shell (ids alineados al frontend). */
 export const MODULE_ACCESS = {
   admin: ['*'],
   hernan: ['*'],
   lyn: [
     'jarvis',
-    'ingreso-operativo',
-    'bandeja-canal',
-    'clima',
-    'planificacion',
-    'flota',
     'oportunidades',
+    'finanzas',
+    'base-maestra',
     'ordenes-compra',
     'control-gerencial',
-    'finanzas',
-    'equipo',
-    'hnf-core',
-    'documentos-tecnicos',
-    'base-maestra',
-    'bandeja-romina',
-    'bandeja-gery',
     'bandeja-lyn',
+    'documentos-tecnicos',
+    'hnf-core',
+    'planificacion',
   ],
   romina: [
     'jarvis',
     'ingreso-operativo',
-    'bandeja-canal',
+    'bandeja-romina',
     'clima',
     'planificacion',
+    'base-maestra',
+    'documentos-tecnicos',
     'ordenes-compra',
     'hnf-core',
-    'base-maestra',
-    'bandeja-romina',
   ],
   gery: [
     'jarvis',
     'ingreso-operativo',
-    'bandeja-canal',
+    'bandeja-gery',
     'flota',
     'planificacion',
-    'ordenes-compra',
-    'hnf-core',
     'base-maestra',
-    'bandeja-gery',
+    'hnf-core',
   ],
-  tecnico: ['ingreso-operativo', 'clima'],
-  conductor: ['ingreso-operativo', 'equipo'],
+  tecnico: ['clima', 'ingreso-operativo'],
+  conductor: ['flota', 'ingreso-operativo'],
 };
 
-/** Acciones API (guard en controladores) */
+/** Acciones API (guard en controladores). Sin entrada = sin restricción explícita. */
 export const ACTION_ACCESS = {
   'oc.upload': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
   'oc.patch': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
   'oc.validate': ['admin', 'hernan', 'lyn'],
-  'commercial.propuesta.write': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
-  'commercial.borrador.write': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  'commercial.propuesta.write': ['admin', 'hernan', 'lyn'],
+  'commercial.borrador.write': ['admin', 'hernan', 'lyn'],
+  'commercial.module': ['admin', 'hernan', 'lyn'],
   'audit.read': ['admin', 'hernan', 'lyn'],
+  'finanzas.gerencial': ['admin', 'hernan', 'lyn'],
+  'finanzas.gasto_aprobar': ['admin', 'hernan', 'lyn'],
+  'maestro.read': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  'maestro.write': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  'maestro.document.approve': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  'expenses.read': ['admin', 'hernan', 'lyn', 'romina', 'gery', 'tecnico', 'conductor'],
+  'expenses.create': ['admin', 'hernan', 'lyn', 'romina', 'gery', 'tecnico', 'conductor'],
+  'expenses.patch': ['admin', 'hernan', 'lyn', 'romina', 'gery', 'tecnico', 'conductor'],
+  'users.read': ['admin', 'hernan'],
+  'users.manage': ['admin', 'hernan'],
+  'hnfcore.access': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  'operativo.flow': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
 };
 
-export function roleCanAccessModule(role, moduleId) {
+/**
+ * Lista de módulos visibles para el rol (incluye extras por env).
+ */
+export function getModuleListForRole(role) {
   const r = HNF_ROLES.includes(role) ? role : 'admin';
   const mods = MODULE_ACCESS[r] || MODULE_ACCESS.admin;
+  if (mods.includes('*')) {
+    return ['*'];
+  }
+  const out = [...mods];
+  if (r === 'lyn' && lynUsersEnv() && !out.includes('usuarios')) {
+    out.push('usuarios');
+  }
+  return out;
+}
+
+export function roleCanAccessModule(role, moduleId) {
+  const mods = getModuleListForRole(role);
   if (mods.includes('*')) return true;
   return mods.includes(String(moduleId || ''));
 }
 
 export function roleCanPerformAction(role, action) {
   const r = HNF_ROLES.includes(role) ? role : 'admin';
+  if (
+    (action === 'users.read' || action === 'users.manage') &&
+    r === 'lyn' &&
+    lynUsersEnv()
+  ) {
+    return true;
+  }
   const allowed = ACTION_ACCESS[action];
   if (!allowed) return true;
   return allowed.includes(r);

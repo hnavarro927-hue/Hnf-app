@@ -1,13 +1,16 @@
 import { commercialLeadService } from '../services/commercialLead.service.js';
+import { assertAction } from '../utils/rbacHttp.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 import { getRequestActor } from '../utils/requestActor.js';
 
-export const getCommercialLeads = async (_request, response) => {
+export const getCommercialLeads = async (request, response) => {
+  if (!assertAction(request, response, 'commercial.module')) return;
   const data = await commercialLeadService.list();
   sendSuccess(response, 200, data, { resource: 'commercial-leads' });
 };
 
 export const postCommercialLead = async (request, response) => {
+  if (!assertAction(request, response, 'commercial.module')) return;
   const actor = getRequestActor(request);
   const r = await commercialLeadService.createManual(request.body || {}, actor);
   if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
@@ -15,6 +18,7 @@ export const postCommercialLead = async (request, response) => {
 };
 
 export const patchCommercialLead = async (request, response) => {
+  if (!assertAction(request, response, 'commercial.module')) return;
   const actor = getRequestActor(request);
   const r = await commercialLeadService.patch(request.params?.id, request.body || {}, actor);
   if (r.error) return sendError(response, 404, r.error);
@@ -22,6 +26,7 @@ export const patchCommercialLead = async (request, response) => {
 };
 
 export const postCommercialLeadInteraccion = async (request, response) => {
+  if (!assertAction(request, response, 'commercial.module')) return;
   const actor = getRequestActor(request);
   const r = await commercialLeadService.registrarInteraccion(request.params?.id, request.body || {}, actor);
   if (r.error) return sendError(response, 404, r.error);
@@ -30,6 +35,7 @@ export const postCommercialLeadInteraccion = async (request, response) => {
 };
 
 export const postCommercialLeadConvertirOt = async (request, response) => {
+  if (!assertAction(request, response, 'commercial.module')) return;
   const actor = getRequestActor(request);
   const r = await commercialLeadService.convertirAOt(request.params?.id, actor);
   if (r.error) return sendError(response, 404, r.error);

@@ -1,3 +1,5 @@
+import { authRoutes } from './auth.routes.js';
+import { systemUserRoutes } from './systemUser.routes.js';
 import { clientRoutes } from './client.routes.js';
 import { expenseRoutes } from './expense.routes.js';
 import { flotaSolicitudRoutes } from './flotaSolicitud.routes.js';
@@ -27,6 +29,8 @@ import { commercialWorkspaceRoutes } from './commercialWorkspace.routes.js';
 import { rbacRoutes } from './rbac.routes.js';
 
 export const routes = [
+  ...authRoutes,
+  ...systemUserRoutes,
   ...healthRoutes,
   ...intakeRoutes,
   ...responsibilityRoutes,

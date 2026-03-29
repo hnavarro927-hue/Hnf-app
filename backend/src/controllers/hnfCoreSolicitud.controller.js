@@ -1,11 +1,15 @@
 import { hnfCoreSolicitudModel } from '../models/hnfCoreSolicitud.model.js';
 import { hnfCoreSolicitudService } from '../services/hnfCoreSolicitud.service.js';
+import { assertAction } from '../utils/rbacHttp.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 import { getRequestActor } from '../utils/requestActor.js';
 
 const searchParams = (request) => new URL(request.url || '/', 'http://localhost').searchParams;
 
+const gate = (req, res) => assertAction(req, res, 'hnfcore.access');
+
 export const getHnfCoreSolicitudes = async (request, response) => {
+  if (!gate(request, response)) return;
   const sp = searchParams(request);
   const filters = {};
   const tipo = sp.get('tipo');
@@ -33,6 +37,7 @@ export const getHnfCoreSolicitudes = async (request, response) => {
 };
 
 export const getHnfCoreSolicitudById = async (request, response) => {
+  if (!gate(request, response)) return;
   const id = request.params?.id;
   const row = await hnfCoreSolicitudService.getById(id);
   if (!row) {
@@ -42,6 +47,7 @@ export const getHnfCoreSolicitudById = async (request, response) => {
 };
 
 export const postHnfCoreSolicitud = async (request, response) => {
+  if (!gate(request, response)) return;
   const actor = getRequestActor(request);
   const result = await hnfCoreSolicitudService.create(request.body || {}, actor);
   if (result.errors) {
@@ -51,6 +57,7 @@ export const postHnfCoreSolicitud = async (request, response) => {
 };
 
 export const patchHnfCoreSolicitud = async (request, response) => {
+  if (!gate(request, response)) return;
   const id = request.params?.id;
   const actor = getRequestActor(request);
   const result = await hnfCoreSolicitudService.patch(id, request.body || {}, actor);

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { appConfig } from './config/app.js';
 import { startJarvisOperationalCycleTimer } from './cron/jarvis-cycle.js';
 import { routes } from './routes/index.js';
+import { ensureBootstrapAdmin } from './services/auth.service.js';
+import { evaluateRequestAuth } from './services/auth.gateway.js';
 import { corsHeadersForRequest, matchRoute, readJsonBody, sendError } from './utils/http.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -112,6 +114,14 @@ const server = createServer(async (request, response) => {
 
   try {
     request.params = matched.params;
+
+    const authResult = await evaluateRequestAuth(request, url.pathname);
+    if (!authResult.ok) {
+      return sendError(response, authResult.status, authResult.message, authResult.details);
+    }
+    request.hnfAuth = authResult.context;
+    request.hnfActor = authResult.context.actorLabel || 'sistema';
+
     request.body = ['POST', 'PATCH', 'PUT'].includes(request.method)
       ? await readJsonBody(request)
       : {};
@@ -124,19 +134,27 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(appConfig.port, '0.0.0.0', () => {
-  startJarvisOperationalCycleTimer();
-  const mode = frontendRoot === frontendDistRoot ? 'dist (build)' : 'código fuente';
-  const ips = lanIpv4Addresses();
-  console.log(`HNF backend listening on 0.0.0.0:${appConfig.port} (todas las interfaces)`);
-  console.log(`  Local:   http://127.0.0.1:${appConfig.port}`);
-  for (const ip of ips) {
-    console.log(`  En LAN:  http://${ip}:${appConfig.port}`);
+(async () => {
+  try {
+    await ensureBootstrapAdmin();
+  } catch (e) {
+    console.error('[HNF Auth] bootstrap usuarios', e);
+    process.exit(1);
   }
-  console.log(`HNF frontend static: ${mode} → ${frontendRoot}`);
-  if (frontendRoot !== frontendDistRoot) {
-    console.warn(
-      '[HNF] Sin frontend/dist: ejecuta "npm run build --prefix frontend" para servir el bundle (jsPDF y módulos npm).'
-    );
-  }
-});
+  server.listen(appConfig.port, '0.0.0.0', () => {
+    startJarvisOperationalCycleTimer();
+    const mode = frontendRoot === frontendDistRoot ? 'dist (build)' : 'código fuente';
+    const ips = lanIpv4Addresses();
+    console.log(`HNF backend listening on 0.0.0.0:${appConfig.port} (todas las interfaces)`);
+    console.log(`  Local:   http://127.0.0.1:${appConfig.port}`);
+    for (const ip of ips) {
+      console.log(`  En LAN:  http://${ip}:${appConfig.port}`);
+    }
+    console.log(`HNF frontend static: ${mode} → ${frontendRoot}`);
+    if (frontendRoot !== frontendDistRoot) {
+      console.warn(
+        '[HNF] Sin frontend/dist: ejecuta "npm run build --prefix frontend" para servir el bundle (jsPDF y módulos npm).'
+      );
+    }
+  });
+})();
