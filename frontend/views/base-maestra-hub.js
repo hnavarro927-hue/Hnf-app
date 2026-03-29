@@ -44,8 +44,21 @@ function etiquetaEstadoVinculo(estado) {
     crear_sugerido: 'Crear nuevo',
     sin_datos: 'No encontrado',
     vinculado_manual: 'Vincular existente',
+    revision_manual_sugerida: 'Revisión manual sugerida',
   };
   return m[estado] || estado || '—';
+}
+
+/** Indicador operativo por documento (UI Base Maestra). */
+function indicadorRevisionDocumento(d) {
+  const v = d.jarvis_vinculacion || {};
+  const blocks = [v.cliente, v.contacto, v.vehiculo, v.tecnico];
+  if (blocks.some((b) => b?.estado === 'revision_manual_sugerida')) return 'Revisión manual sugerida';
+  const fk = !!(d.cliente_id || d.contacto_id || d.vehiculo_id || d.tecnico_id);
+  if (fk || blocks.some((b) => b?.estado === 'vinculado_automatico')) return 'Vinculado';
+  const h = Array.isArray(d.historial_revision) ? d.historial_revision : [];
+  if (h.some((e) => e.tipo === 'reparacion_historica_jarvis')) return 'Reparado por Jarvis';
+  return 'Pendiente';
 }
 
 function readFileBase64(file) {
@@ -448,11 +461,50 @@ export const baseMaestraHubView = ({
       )
     );
     const list = Array.isArray(data?.maestroDocumentos) ? data.maestroDocumentos : [];
+
+    const barReparar = document.createElement('div');
+    barReparar.className = 'hnf-maestro-repair-bar tarjeta';
+    barReparar.innerHTML = `<p class="small muted">Reparación histórica: reconstruye <code>jarvis_vinculacion</code> desde datos guardados. No pisa IDs ya cargados; si Jarvis discrepa, marca revisión manual.</p>`;
+    const rowRep = document.createElement('div');
+    rowRep.className = 'hnf-maestro-doc-card__act';
+    const mkRep = (label, payload) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'secondary-button';
+      b.textContent = label;
+      b.disabled = offline;
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          const r = await maestroService.repararVinculosDocumentos({
+            ...payload,
+            origen: 'accion_usuario',
+          });
+          const n = r?.procesados ?? r?.resultados?.length ?? 0;
+          showFb(`Reparación aplicada a ${n} documento(s).`);
+          await refresh();
+        } catch (e) {
+          showFb(e.message || 'Error en reparación', true);
+        } finally {
+          b.disabled = offline;
+        }
+      });
+      return b;
+    };
+    rowRep.append(
+      mkRep('Reparar vínculos con Jarvis (lote incompletos)', { alcance: 'incompletos', limite: 80, offset: 0 }),
+      mkRep('Reparar todo lo pendiente', { alcance: 'incompletos', limite: 500, offset: 0 })
+    );
+    barReparar.append(rowRep);
+    w.append(barReparar);
+
     for (const d of list.slice(0, 40)) {
       const card = document.createElement('article');
       card.className = 'tarjeta hnf-maestro-doc-card';
       const st = ESTADO_DOC[d.estado_revision] || d.estado_revision;
+      const ind = indicadorRevisionDocumento(d);
       card.innerHTML = `<header><strong>${esc(d.nombre_archivo)}</strong> <span class="muted small">${esc(st)} · confianza ${esc(d.confianza_jarvis)}%</span></header>
+        <p class="hnf-maestro-doc-ind small"><span class="hnf-maestro-doc-ind__tag">${esc(ind)}</span></p>
         <p class="small">${esc(d.resumen_jarvis || '—')}</p>
         <p class="muted small">Módulo sugerido: ${esc(d.modulo_destino_sugerido || '—')} · categoría ${esc(d.categoria_detectada || '—')}</p>`;
       const vinc = d.jarvis_vinculacion && typeof d.jarvis_vinculacion === 'object' ? d.jarvis_vinculacion : {};
@@ -673,6 +725,19 @@ export const baseMaestraHubView = ({
       };
 
       row.append(
+        mkBtn('Reparar vínculos (este doc)', async () => {
+          try {
+            await maestroService.repararVinculosDocumentos({
+              alcance: 'id',
+              documento_id: d.id,
+              origen: 'accion_usuario',
+            });
+            showFb('Reparación aplicada a este documento.');
+            await refresh();
+          } catch (e) {
+            showFb(e.message || 'Error', true);
+          }
+        }),
         mkBtn('Guardar corrección', async () => {
           try {
             await maestroService.patchDocumento(d.id, {

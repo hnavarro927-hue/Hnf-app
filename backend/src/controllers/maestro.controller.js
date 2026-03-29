@@ -118,6 +118,13 @@ export const postMaestroDocumentosIngesta = async (request, response) => {
   sendSuccess(response, 201, r, { resource: 'maestro/documentos', action: 'ingesta' });
 };
 
+export const postMaestroDocumentosRepararVinculos = async (request, response) => {
+  const actor = getRequestActor(request);
+  const r = await maestroService.repararVinculosHistoricos(request.body || {}, actor);
+  if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
+  sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'reparar_vinculos' });
+};
+
 export const patchMaestroDocumento = async (request, response) => {
   const actor = getRequestActor(request);
   const r = await maestroService.patchDocumento(request.params?.id, request.body || {}, actor);

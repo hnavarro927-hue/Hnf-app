@@ -27,4 +27,5 @@ export const apiEndpoints = {
   maestroVehiculos: '/maestro/vehiculos',
   maestroDocumentos: '/maestro/documentos',
   maestroDocumentosIngesta: '/maestro/documentos/ingesta',
+  maestroDocumentosRepararVinculos: '/maestro/documentos/reparar-vinculos',
 };

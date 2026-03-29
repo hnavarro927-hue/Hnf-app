@@ -27,6 +27,8 @@ export const maestroService = {
 
   getDocumentos: () => httpClient.get(apiEndpoints.maestroDocumentos).then(data),
   ingestDocumentos: (body) => httpClient.post(apiEndpoints.maestroDocumentosIngesta, body).then(data),
+  repararVinculosDocumentos: (body) =>
+    httpClient.post(apiEndpoints.maestroDocumentosRepararVinculos, body || {}).then(data),
   patchDocumento: (id, body) =>
     httpClient.patch(`${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}`, body).then(data),
   reclasificarDocumento: (id) =>

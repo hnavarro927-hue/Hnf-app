@@ -75,6 +75,174 @@ function appendHistorialRevision(cur, tipo, detalle, usuario) {
   return h.length > 250 ? h.slice(-250) : h;
 }
 
+/** Clasificación mínima desde fila persistida (sin releer archivo salvo opción explícita). */
+function buildSyntheticClassifyFromStoredDoc(doc) {
+  const datos =
+    doc.datos_detectados && typeof doc.datos_detectados === 'object' ? { ...doc.datos_detectados } : {};
+  const arr = (k) => {
+    if (!Array.isArray(datos[k])) datos[k] = datos[k] != null && datos[k] !== '' ? [datos[k]] : [];
+  };
+  arr('ruts');
+  arr('emails');
+  arr('telefonos');
+  arr('patentes');
+  arr('ots');
+  if (!datos.patentes?.length && doc.patente_probable) datos.patentes = [doc.patente_probable];
+  if (!datos.ots?.length && doc.ot_probable) datos.ots = [doc.ot_probable];
+  const fn = String(doc.nombre_archivo || '');
+  const texto = `${fn}\n${doc.texto_match_sample || ''}\n${doc.resumen_jarvis || ''}`.slice(0, 50000);
+  return {
+    datos_detectados: datos,
+    texto_match_sample: texto,
+    resumen_breve: doc.resumen_jarvis || '',
+    cliente_probable: doc.cliente_probable || null,
+    contacto_probable: doc.contacto_probable || null,
+    tecnico_probable: doc.tecnico_probable || null,
+  };
+}
+
+/** Documentos candidatos a reparación (sin jarvis, sin versión o señales sin reflejar en bloques). */
+function documentoNecesitaReparacionVinculos(doc) {
+  const v = doc.jarvis_vinculacion;
+  if (!v || typeof v !== 'object' || !v.version) return true;
+  const datos = doc.datos_detectados || {};
+  const hasRut = (datos.ruts && datos.ruts.length > 0) || false;
+  const hasNom =
+    String(datos.nombre_cliente_inferido || '').trim().length > 2 || !!doc.cliente_probable?.nombre;
+  const hasMail = (datos.emails && datos.emails.length > 0) || false;
+  const hasTel = (datos.telefonos && datos.telefonos.length > 0) || false;
+  const hasPat =
+    (datos.patentes && datos.patentes.length > 0) || !!String(doc.patente_probable || '').trim();
+  if ((hasRut || hasNom) && (!v.cliente || v.cliente.estado === 'sin_datos')) return true;
+  if ((hasMail || hasTel) && (!v.contacto || v.contacto.estado === 'sin_datos')) return true;
+  if (hasPat && (!v.vehiculo || v.vehiculo.estado === 'sin_datos')) return true;
+  return false;
+}
+
+/**
+ * Aplica vínculos automáticos solo en FK vacíos; si ya hay FK no lo pisa.
+ * Si Jarvis discrepa con un FK existente, marca revisión manual sugerida.
+ */
+function mergeRepairVinculosConservador(cur, vinc) {
+  const before = {
+    cliente_id: cur.cliente_id || null,
+    contacto_id: cur.contacto_id || null,
+    vehiculo_id: cur.vehiculo_id || null,
+    tecnico_id: cur.tecnico_id || null,
+    jarvis_vinculacion_version: cur.jarvis_vinculacion?.version || null,
+  };
+
+  const curC = String(cur.cliente_id || '').trim();
+  const curCo = String(cur.contacto_id || '').trim();
+  const curV = String(cur.vehiculo_id || '').trim();
+  const curT = String(cur.tecnico_id || '').trim();
+
+  let clienteBlock = vinc.cliente;
+  if (curC) {
+    const sug = vinc.autoClienteId;
+    if (sug && sug !== curC) {
+      clienteBlock = {
+        estado: 'revision_manual_sugerida',
+        mensaje_ui: 'Vinculado manualmente; Jarvis sugiere otra coincidencia — revisar.',
+        vinculo_conservado_id: curC,
+        sugerencia_jarvis: { ...vinc.cliente },
+      };
+    } else {
+      clienteBlock = {
+        ...vinc.cliente,
+        estado: 'vinculado_manual',
+        cliente_id: curC,
+        mensaje_ui: 'Vinculado (conservado; reparación histórica no modifica este ID).',
+      };
+    }
+  }
+
+  let contactoBlock = vinc.contacto;
+  if (curCo) {
+    const sug = vinc.autoContactoId;
+    if (sug && sug !== curCo) {
+      contactoBlock = {
+        estado: 'revision_manual_sugerida',
+        mensaje_ui: 'Vinculado manualmente; Jarvis sugiere otro contacto — revisar.',
+        vinculo_conservado_id: curCo,
+        sugerencia_jarvis: { ...vinc.contacto },
+      };
+    } else {
+      contactoBlock = {
+        ...vinc.contacto,
+        estado: 'vinculado_manual',
+        contacto_id: curCo,
+        mensaje_ui: 'Vinculado (conservado; reparación histórica no modifica este ID).',
+      };
+    }
+  }
+
+  let vehBlock = vinc.vehiculo;
+  if (curV) {
+    const sug = vinc.autoVehiculoId;
+    if (sug && sug !== curV) {
+      vehBlock = {
+        estado: 'revision_manual_sugerida',
+        mensaje_ui: 'Vinculado manualmente; Jarvis sugiere otro vehículo — revisar.',
+        vinculo_conservado_id: curV,
+        sugerencia_jarvis: { ...vinc.vehiculo },
+      };
+    } else {
+      vehBlock = {
+        ...vinc.vehiculo,
+        estado: 'vinculado_manual',
+        vehiculo_id: curV,
+        mensaje_ui: 'Vinculado (conservado; reparación histórica no modifica este ID).',
+      };
+    }
+  }
+
+  let tecBlock = vinc.tecnico;
+  if (curT) {
+    const sug = vinc.autoTecnicoId;
+    if (sug && sug !== curT) {
+      tecBlock = {
+        estado: 'revision_manual_sugerida',
+        mensaje_ui: 'Vinculado manualmente; Jarvis sugiere otro técnico — revisar.',
+        vinculo_conservado_id: curT,
+        sugerencia_jarvis: { ...vinc.tecnico },
+      };
+    } else {
+      tecBlock = {
+        ...vinc.tecnico,
+        estado: 'vinculado_manual',
+        tecnico_id: curT,
+        mensaje_ui: 'Vinculado (conservado; reparación histórica no modifica este ID).',
+      };
+    }
+  }
+
+  const nextFk = {
+    cliente_id: curC || vinc.autoClienteId || null,
+    contacto_id: curCo || vinc.autoContactoId || null,
+    vehiculo_id: curV || vinc.autoVehiculoId || null,
+    tecnico_id: curT || vinc.autoTecnicoId || null,
+  };
+
+  const jarvis_vinculacion = {
+    ...vinc,
+    cliente: clienteBlock,
+    contacto: contactoBlock,
+    vehiculo: vehBlock,
+    tecnico: tecBlock,
+  };
+
+  const after = {
+    cliente_id: nextFk.cliente_id,
+    contacto_id: nextFk.contacto_id,
+    vehiculo_id: nextFk.vehiculo_id,
+    tecnico_id: nextFk.tecnico_id,
+    jarvis_vinculacion_version: jarvis_vinculacion.version,
+  };
+
+  return { before, nextFk, jarvis_vinculacion, after };
+}
+
 async function createContactoWithChecks(body, actor) {
   const n = normContacto(body);
   if (!n.nombre_contacto) return { errors: ['nombre_contacto obligatorio'] };
@@ -469,6 +637,109 @@ export const maestroService = {
     }
 
     return { errors: ['tipo debe ser cliente, contacto o vehiculo'] };
+  },
+
+  /**
+   * Reparación histórica masiva: reconstruye jarvis_vinculacion desde datos guardados (y opcionalmente relee archivo).
+   * No sobrescribe FK ya existentes; completa vacíos y marca revisión manual si Jarvis discrepa.
+   */
+  async repararVinculosHistoricos(body, actor) {
+    const alcance = String(body?.alcance || 'incompletos').toLowerCase();
+    const origen =
+      String(body?.origen || 'accion_usuario').toLowerCase() === 'job_manual' ? 'job_manual' : 'accion_usuario';
+    const limite = Math.min(Math.max(Number(body?.limite) || 200, 1), 500);
+    const offset = Math.max(Number(body?.offset) || 0, 0);
+    const enriquecer = Boolean(body?.enriquecer_desde_archivo);
+
+    const all = await maestroDocumentoRepository.findAll();
+    let ids = [];
+
+    if (alcance === 'id') {
+      const id = String(body?.documento_id || body?.id || '').trim();
+      if (!id) return { errors: ['documento_id (o id) obligatorio para alcance id'] };
+      ids = [id];
+    } else if (alcance === 'lote') {
+      const raw = Array.isArray(body?.documento_ids) ? body.documento_ids : [];
+      ids = raw.map((x) => String(x).trim()).filter(Boolean);
+      if (!ids.length) return { errors: ['documento_ids[] obligatorio para alcance lote'] };
+    } else if (alcance === 'todos') {
+      ids = [...all]
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+        .slice(offset, offset + limite)
+        .map((d) => d.id);
+    } else if (alcance === 'incompletos') {
+      ids = [...all]
+        .filter((d) => documentoNecesitaReparacionVinculos(d))
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+        .slice(offset, offset + limite)
+        .map((d) => d.id);
+    } else {
+      return { errors: ['alcance inválido: usar todos, incompletos, id o lote'] };
+    }
+
+    const ctx = await buildMaestroJarvisContext();
+    const resultados = [];
+
+    for (const docId of ids) {
+      const cur = all.find((x) => x.id === docId);
+      if (!cur) {
+        resultados.push({ id: docId, ok: false, error: 'no_encontrado' });
+        continue;
+      }
+
+      let docForSynth = cur;
+      if (enriquecer && cur.ruta_interna) {
+        try {
+          const abs = path.join(DATA_ROOT, cur.ruta_interna);
+          const buffer = await readFile(abs);
+          const jarvis = classifyDocumentBuffer(
+            { filename: cur.nombre_archivo, mimeType: cur.tipo_archivo, buffer },
+            ctx
+          );
+          docForSynth = {
+            ...cur,
+            datos_detectados: jarvis.datos_detectados,
+            texto_match_sample: jarvis.texto_match_sample,
+            resumen_jarvis: jarvis.resumen_breve,
+            cliente_probable: jarvis.cliente_probable,
+            contacto_probable: jarvis.contacto_probable,
+            tecnico_probable: jarvis.tecnico_probable,
+            patente_probable: jarvis.patente_probable,
+            ot_probable: jarvis.ot_probable,
+          };
+        } catch {
+          /* mantener fila tal cual */
+        }
+      }
+
+      const synthetic = buildSyntheticClassifyFromStoredDoc(docForSynth);
+      const vinc = resolveRelationalLinks(synthetic, ctx);
+      const { before, nextFk, jarvis_vinculacion, after } = mergeRepairVinculosConservador(cur, vinc);
+
+      const detalleHist = JSON.stringify({ origen, antes: before, despues: after }).slice(0, 1950);
+      const historial_revision = appendHistorialRevision(cur, 'reparacion_historica_jarvis', detalleHist, actor);
+
+      await maestroDocumentoRepository.update(
+        docId,
+        {
+          ...nextFk,
+          jarvis_vinculacion,
+          relational_engine_version: vinc.version,
+          historial_revision,
+        },
+        actor
+      );
+      resultados.push({ id: docId, ok: true, antes: before, despues: after });
+    }
+
+    return {
+      alcance,
+      origen,
+      limite,
+      offset,
+      procesados: resultados.length,
+      resultados,
+    };
   },
 
   async reclasificarDocumento(id, actor) {
