@@ -30,6 +30,7 @@ import { operacionControlView } from './views/operacion-control.js';
 import { panelOperativoVivoView } from './views/panel-operativo-vivo.js';
 import { technicalDocumentsView } from './views/technical-documents.js';
 import { oportunidadesView } from './views/oportunidades.js';
+import { ordenesCompraOcView } from './views/ordenes-compra-oc.js';
 import { mergeJarvisOperativeStoresFromServer, getCentroIngestaState } from './domain/jarvis-active-intake-engine.js';
 import { jarvisOperativeEventsService } from './services/jarvis-operative-events.service.js';
 import { jarvisHqView } from './views/jarvis-hq.js';
@@ -51,7 +52,9 @@ import { outlookIntakeService } from './services/outlook-intake.service.js';
 import { historicalVaultService } from './services/historical-vault.service.js';
 import { technicalDocumentsService } from './services/technical-documents.service.js';
 import { commercialLeadsService } from './services/commercial-leads.service.js';
+import { commercialWorkspaceService } from './services/commercial-workspace.service.js';
 import { commercialOpportunitiesService } from './services/commercial-opportunities.service.js';
+import { ocDocumentosService } from './services/oc-documentos.service.js';
 import { operationalCalendarService } from './services/operational-calendar.service.js';
 import { operationalEventsService } from './services/operational-events.service.js';
 import { hnfCoreSolicitudesService } from './services/hnf-core-solicitudes.service.js';
@@ -324,6 +327,8 @@ const minimalOperationalViewData = () => {
     commercialOpportunities: [],
     commercialOpportunityAlerts: [],
     commercialLeads: [],
+    commercialPropuestas: [],
+    documentosOc: [],
     flotaSolicitudes: [],
     whatsappFeed: {
       messages: [],
@@ -395,6 +400,8 @@ const loadFullOperationalDataImpl = async () => {
     techDocs,
     commercialOpps,
     commercialLeadsRaw,
+    commercialPropuestasRaw,
+    documentosOcRaw,
     historicalVault,
     operationalPanelDaily,
     operationalEvents,
@@ -430,6 +437,8 @@ const loadFullOperationalDataImpl = async () => {
     technicalDocumentsService.getAll().catch(() => []),
     commercialOpportunitiesService.getAll().catch(() => []),
     commercialLeadsService.getAll().catch(() => []),
+    commercialWorkspaceService.listPropuestas().catch(() => []),
+    ocDocumentosService.list().catch(() => []),
     historicalVaultService.getVault().catch(() => ({
       records: [],
       importBatches: [],
@@ -491,6 +500,8 @@ const loadFullOperationalDataImpl = async () => {
 
   const commercialOpportunities = Array.isArray(commercialOpps) ? commercialOpps : [];
   const commercialLeads = Array.isArray(commercialLeadsRaw) ? commercialLeadsRaw : [];
+  const commercialPropuestas = Array.isArray(commercialPropuestasRaw) ? commercialPropuestasRaw : [];
+  const documentosOc = Array.isArray(documentosOcRaw) ? documentosOcRaw : [];
   const commercialOpportunityAlerts =
     hnfDocumentIntelligence.computeCommercialOpportunityAlerts(commercialOpportunities);
 
@@ -533,6 +544,8 @@ const loadFullOperationalDataImpl = async () => {
     technicalDocumentAlerts,
     commercialOpportunities,
     commercialLeads,
+    commercialPropuestas,
+    documentosOc,
     commercialOpportunityAlerts,
     flotaSolicitudes: sol.data ?? [],
     whatsappFeed,
@@ -700,6 +713,11 @@ const viewRegistry = {
 
   oportunidades: {
     render: oportunidadesView,
+    load: loadFullOperationalData,
+  },
+
+  'ordenes-compra': {
+    render: ordenesCompraOcView,
     load: loadFullOperationalData,
   },
 
@@ -1616,6 +1634,7 @@ const render = () => {
           'oportunidades',
           'control-gerencial',
           'finanzas',
+          'ordenes-compra',
           'operacion-control',
           'equipo',
           'whatsapp',
@@ -1639,6 +1658,7 @@ const render = () => {
           'control-gerencial': 'control',
           'base-maestra': 'neutral',
           finanzas: 'finanzas',
+          'ordenes-compra': 'comercial',
           'operacion-control': 'control',
         };
         const useOpShell = opCommandViews.has(state.activeView) && state.activeView !== 'jarvis';

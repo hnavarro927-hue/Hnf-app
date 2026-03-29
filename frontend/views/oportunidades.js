@@ -2,6 +2,7 @@ import { buildMailtoUrl } from '../domain/jarvis-commercial-brain.js';
 import { commercialOpportunitiesService } from '../services/commercial-opportunities.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import { createCommercialLeadsCrmSection } from './commercial-leads-crm.js';
+import { commercialWorkspaceService } from '../services/commercial-workspace.service.js';
 
 const PRIORIDAD_CLASS = { alta: 'opp-prio--alta', media: 'opp-prio--media', baja: 'opp-prio--baja' };
 
@@ -16,6 +17,7 @@ export const oportunidadesView = ({
   commercialIntelContext,
   integrationStatus,
 } = {}) => {
+  const propuestasAll = Array.isArray(data?.commercialPropuestas) ? data.commercialPropuestas : [];
   const section = document.createElement('section');
   section.className = 'opp-module hnf-op-view hnf-op-view--comercial';
 
@@ -68,6 +70,72 @@ export const oportunidadesView = ({
     navigateToView,
     onFeedback: (type, msg) => showFb(type, msg),
   });
+
+  const cwsBox = document.createElement('div');
+  cwsBox.className = 'tarjeta opp-cws';
+  const cwsH = document.createElement('h2');
+  cwsH.className = 'opp-ot-comercial__title';
+  cwsH.textContent = 'Carpeta comercial · propuestas y borradores';
+  const cwsSub = document.createElement('p');
+  cwsSub.className = 'muted small';
+  cwsSub.innerHTML =
+    'Jarvis puede <strong>preparar</strong> texto y sugerir adjuntos; el envío de correo queda manual hasta aprobación explícita en esta fase.';
+  const borradores = propuestasAll.filter((p) => String(p.tipo) === 'borrador_correo_jarvis');
+  const propuestas = propuestasAll.filter((p) => String(p.tipo) !== 'borrador_correo_jarvis');
+  const ulP = document.createElement('ul');
+  ulP.className = 'muted small';
+  for (const p of propuestas.slice(0, 12)) {
+    const li = document.createElement('li');
+    li.textContent = `${p.id} · ${p.titulo} · ${p.estado || ''}`;
+    ulP.append(li);
+  }
+  if (!propuestas.length) {
+    const li = document.createElement('li');
+    li.textContent = 'Sin propuestas registradas.';
+    ulP.append(li);
+  }
+  const ulB = document.createElement('ul');
+  ulB.className = 'muted small';
+  for (const p of borradores.slice(0, 12)) {
+    const li = document.createElement('li');
+    li.textContent = `${p.id} · ${p.titulo} · ${p.estado || ''}${p.jarvisPreparado ? ' (Jarvis)' : ''}`;
+    ulB.append(li);
+  }
+  if (!borradores.length) {
+    const li = document.createElement('li');
+    li.textContent = 'Sin borradores de correo.';
+    ulB.append(li);
+  }
+  const jarvisForm = document.createElement('div');
+  jarvisForm.className = 'opp-cws__form';
+  jarvisForm.innerHTML = `<p class="small"><strong>Preparar borrador (Jarvis / manual)</strong></p>
+    <input type="text" class="opp-filter" data-j="titulo" placeholder="Título" style="width:100%;max-width:420px;margin:0.25rem 0" />
+    <input type="text" class="opp-filter" data-j="asunto" placeholder="Asunto sugerido" style="width:100%;max-width:420px;margin:0.25rem 0" />
+    <textarea class="opp-filter" data-j="cuerpo" placeholder="Cuerpo del correo (Jarvis puede completar en fases siguientes)" rows="3" style="width:100%;max-width:520px;margin:0.25rem 0"></textarea>
+    <button type="button" class="primary-button" data-j-go>Guardar borrador (lista revisión)</button>`;
+  jarvisForm.querySelector('[data-j-go]')?.addEventListener('click', async () => {
+    if (integrationStatus === 'sin conexión') {
+      showFb('error', 'Sin conexión.');
+      return;
+    }
+    const titulo = jarvisForm.querySelector('[data-j="titulo"]')?.value?.trim() || 'Borrador correo';
+    const asuntoSugerido = jarvisForm.querySelector('[data-j="asunto"]')?.value?.trim() || '';
+    const cuerpoTexto = jarvisForm.querySelector('[data-j="cuerpo"]')?.value?.trim() || '';
+    try {
+      await commercialWorkspaceService.postBorradorJarvis({ titulo, asuntoSugerido, cuerpoTexto });
+      showFb('success', 'Borrador guardado (no enviado).');
+      await runReload();
+    } catch (e) {
+      showFb('error', e?.message || 'Error');
+    }
+  });
+  const labP = document.createElement('p');
+  labP.className = 'small';
+  labP.textContent = 'Propuestas:';
+  const labB = document.createElement('p');
+  labB.className = 'small';
+  labB.textContent = 'Borradores correo:';
+  cwsBox.append(cwsH, cwsSub, labP, ulP, labB, ulB, jarvisForm);
 
   const live = data?.hnfAdn?.commercialLive || data?.commercialLive;
   const radar = document.createElement('div');
@@ -355,7 +423,7 @@ export const oportunidadesView = ({
   bDash.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('jarvis'));
   back.append(bDash);
 
-  section.append(header, flowStrip, crmSection, radar, draftSlot, feedback, otComercialBox, back, toolbar, tableWrap);
+  section.append(header, flowStrip, crmSection, cwsBox, radar, draftSlot, feedback, otComercialBox, back, toolbar, tableWrap);
   renderTable();
 
   function escapeHtml(s) {

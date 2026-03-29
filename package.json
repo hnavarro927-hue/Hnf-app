@@ -20,6 +20,6 @@
     "start:backend": "npm run dev --prefix backend",
     "start:all": "node scripts/start-all.mjs",
     "dev:jarvis": "node scripts/hnf-auto-deploy.mjs",
-    "postinstall": "npm install --prefix frontend"
+    "postinstall": "npm install --prefix frontend && npm install --prefix backend"
   }
 }

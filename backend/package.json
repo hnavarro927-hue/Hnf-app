@@ -2,6 +2,9 @@
   "name": "hnf-backend",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "pdf-parse": "^1.1.1"
+  },
   "scripts": {
     "dev": "node src/server.js",
     "check": "node ../scripts/hnf-check-syntax-dir.mjs backend/src"

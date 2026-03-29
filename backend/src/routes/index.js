@@ -22,6 +22,9 @@ import { maestroRoutes } from './maestro.routes.js';
 import { operativoBandejaRoutes } from './operativoBandeja.routes.js';
 import { intakeRoutes } from './intake.routes.js';
 import { finanzasRoutes } from './finanzas.routes.js';
+import { ocPurchaseOrderRoutes } from './ocPurchaseOrder.routes.js';
+import { commercialWorkspaceRoutes } from './commercialWorkspace.routes.js';
+import { rbacRoutes } from './rbac.routes.js';
 
 export const routes = [
   ...healthRoutes,
@@ -48,4 +51,7 @@ export const routes = [
   ...maestroRoutes,
   ...operativoBandejaRoutes,
   ...finanzasRoutes,
+  ...ocPurchaseOrderRoutes,
+  ...commercialWorkspaceRoutes,
+  ...rbacRoutes,
 ];

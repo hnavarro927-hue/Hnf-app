@@ -37,4 +37,11 @@ export const apiEndpoints = {
   intakeExterno: '/intake/externo',
   finanzasTiendas: '/finanzas/tiendas',
   finanzasCierresMensuales: '/finanzas/cierres-mensuales',
+  documentosOc: '/documentos-oc',
+  documentosOcCargaPdf: '/documentos-oc/carga/pdf',
+  commercialPropuestas: '/commercial/propuestas',
+  commercialBorradoresCorreo: '/commercial/borradores-correo',
+  commercialBorradorJarvis: '/commercial/borradores-correo/jarvis',
+  rbacMe: '/rbac/me',
+  auditRecent: '/audit/recent',
 };

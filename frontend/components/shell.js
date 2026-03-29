@@ -26,6 +26,7 @@ const NAV_TECH_ACCENT = {
   planificacion: 'clima',
   flota: 'flota',
   oportunidades: 'flota',
+  'ordenes-compra': 'matrix',
   'control-gerencial': 'matrix',
   finanzas: 'matrix',
   equipo: 'matrix',
