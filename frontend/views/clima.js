@@ -259,22 +259,30 @@ const attachChecklistUI = (parent, checklistRef, readOnly) => {
   lb.className = 'form-field__label';
   lb.textContent = 'Checklist técnico HVAC (obligatorio al cerrar la OT)';
   wrap.append(lb);
+  const tiles = document.createElement('div');
+  tiles.className = 'ot-checklist-tiles';
+  wrap.append(tiles);
   const rerender = () => {
-    wrap.querySelectorAll('.ot-checklist-row').forEach((n) => n.remove());
+    tiles.replaceChildren();
     checklistRef.forEach((item, idx) => {
-      const row = document.createElement('label');
-      row.className = 'ot-checklist-row';
+      const tile = document.createElement('label');
+      tile.className = `ot-checklist-tile ${item.realizado ? 'is-on' : ''}`;
+      if (readOnly) tile.classList.add('is-readonly');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
+      cb.className = 'ot-checklist-tile__cb';
       cb.checked = item.realizado;
       cb.disabled = readOnly;
-      cb.addEventListener('change', () => {
-        checklistRef[idx].realizado = cb.checked;
-      });
       const span = document.createElement('span');
+      span.className = 'ot-checklist-tile__text';
       span.textContent = item.label;
-      row.append(cb, span);
-      wrap.append(row);
+      const sync = () => {
+        checklistRef[idx].realizado = cb.checked;
+        tile.classList.toggle('is-on', cb.checked);
+      };
+      cb.addEventListener('change', sync);
+      tile.append(cb, span);
+      tiles.append(tile);
     });
   };
   parent.append(wrap);
@@ -617,6 +625,7 @@ const buildOtExecutiveSummaryCard = (ot, { economicsSaved = false } = {}) => {
     row('Texto técnico (resumen)', truncateExec(ot.resumenTrabajo, 220)),
     row('Observaciones / cierre', truncateExec(ot.observaciones, 220)),
     row('Validación de cierre', validacionCierre),
+    row('Meta informe (SLA docs.)', '≤ 2 días hábiles desde solicitud'),
     row('Economía informada', economicsSaved ? 'Guardada en sesión' : 'Pendiente de guardar (informe)')
   );
 
@@ -1126,6 +1135,7 @@ const createEvidenceSection = (title, items = []) => {
 
 const mountClimaOtDetailFlow = (
   detailCard,
+  contextRail,
   {
     selectedOT,
     actions,
@@ -1140,9 +1150,12 @@ const mountClimaOtDetailFlow = (
   const storageKey = detailStageStorageKey(selectedOT.id);
   let detailStageIdx = readStoredStageIndex(storageKey, CLIMA_OT_FLOW_STAGES.length - 1);
 
+  detailCard.replaceChildren();
+  contextRail.replaceChildren();
+
   detailCard.classList.add('ot-flow-app', 'ot-flow-app--detail');
   const flowRoot = document.createElement('div');
-  flowRoot.className = 'ot-flow-app__inner ot-flow-app__inner--command';
+  flowRoot.className = 'ot-flow-app__inner ot-flow-app__inner--workspace';
 
   const compactHeader = document.createElement('header');
   compactHeader.className = 'ot-saas-sticky ot-flow-compact-header';
@@ -1173,7 +1186,7 @@ const mountClimaOtDetailFlow = (
   progressNav.setAttribute('aria-label', 'Etapas de la OT');
 
   const jarvisAside = document.createElement('aside');
-  jarvisAside.className = 'ot-flow-jarvis';
+  jarvisAside.className = 'ot-flow-jarvis ot-flow-jarvis--rail';
   const jt = document.createElement('h4');
   jt.className = 'ot-flow-jarvis__title';
   jt.textContent = 'Jarvis · esta etapa';
@@ -1184,7 +1197,7 @@ const mountClimaOtDetailFlow = (
   jarvisAside.append(jt, jarvisUl, jarvisNext);
 
   const execSummaryAside = document.createElement('aside');
-  execSummaryAside.className = 'ot-flow-exec-summary';
+  execSummaryAside.className = 'ot-flow-exec-summary ot-flow-exec-summary--rail';
   execSummaryAside.setAttribute('aria-label', 'Resumen ejecutivo de la orden');
 
   const progressWrap = document.createElement('div');
@@ -1583,7 +1596,7 @@ const mountClimaOtDetailFlow = (
 
   stageBody.append(p0, p1, p2, p3, p4, p5);
 
-  stageRow.append(jarvisAside, stageBody);
+  stageRow.append(stageBody);
 
   const footer = document.createElement('div');
   footer.className = 'ot-flow-footer';
@@ -1649,12 +1662,18 @@ const mountClimaOtDetailFlow = (
     detailStageIdx = n;
     writeStoredStageIndex(storageKey, n);
     panels.forEach((p, i) => {
-      p.hidden = i !== n;
+      const show = i === n;
+      p.hidden = !show;
+      if (show) {
+        p.classList.remove('ot-flow-stage-panel--enter');
+        void p.offsetWidth;
+        p.classList.add('ot-flow-stage-panel--enter');
+      }
     });
     progressNav.querySelectorAll('.ot-flow-progress__step').forEach((btn, i) => {
       btn.classList.toggle('is-active', i === n);
       btn.classList.toggle('is-done', i < n);
-      btn.disabled = !ro && i > n;
+      btn.disabled = !ro && i > n + 1;
     });
     const pct = ((n + 1) / CLIMA_OT_FLOW_STAGES.length) * 100;
     progressFill.style.width = `${pct}%`;
@@ -1696,7 +1715,15 @@ const mountClimaOtDetailFlow = (
     btn.className = 'ot-flow-progress__step';
     btn.innerHTML = `<span class="ot-flow-progress__dot">${i + 1}</span><span class="ot-flow-progress__label">${st.label}</span>`;
     btn.addEventListener('click', () => {
-      if (i <= detailStageIdx) setDetailStage(i);
+      if (i <= detailStageIdx) {
+        setDetailStage(i);
+        return;
+      }
+      if (ro) {
+        setDetailStage(i);
+        return;
+      }
+      if (i === detailStageIdx + 1) btnNext.click();
     });
     progressNav.append(btn);
   });
@@ -1746,7 +1773,12 @@ const mountClimaOtDetailFlow = (
     stageRow,
     footer
   );
-  flowRoot.append(execSummaryAside, mainColumn);
+  const contextStack = document.createElement('div');
+  contextStack.className = 'ot-flow-context-rail';
+  contextStack.append(execSummaryAside, jarvisAside);
+  contextRail.append(contextStack);
+
+  flowRoot.append(mainColumn);
   detailCard.append(flowRoot);
   setDetailStage(detailStageIdx);
 };
@@ -2243,12 +2275,12 @@ export const climaView = ({
   formCard.append(formHeader, createProgress, createJarvis, createStageBody, createFooter);
 
   const overview = document.createElement('div');
-  overview.className = 'ot-overview';
+  overview.className = 'hnf-cc-split-pane hnf-cc-split-pane--clima';
 
   const listCard = document.createElement('article');
-  listCard.className = 'ot-list-card';
+  listCard.className = 'ot-list-card ot-list-card--split-rail hnf-cc-split-pane__rail hnf-cc-split-pane__rail--left';
   listCard.innerHTML =
-    '<div class="ot-list-card__header"><h3>Visitas / OT</h3><p class="muted">Paso 2 · Tocá una fila para ver el detalle y cargar evidencias.</p></div>';
+    '<div class="ot-list-card__header"><h3>OT activas</h3><p class="muted">Panel izquierdo · Urgencias 4h RM / 12h regiones. Centro: flujo por etapas. Derecha: resumen + Jarvis.</p></div>';
 
   const hasIntelFilter = intelFilterActiveKeys(intelListFilter).length > 0;
   const hasIntelGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
@@ -2322,7 +2354,7 @@ export const climaView = ({
   }
 
   const list = document.createElement('div');
-  list.className = 'ot-list';
+  list.className = 'ot-list ot-list--split-pane';
 
   if (opRole === 'flota') {
     const empty = document.createElement('p');
@@ -2349,7 +2381,7 @@ export const climaView = ({
       const button = document.createElement('button');
       button.type = 'button';
       const isTarget = intelGuidance?.recordLabel && item.id === intelGuidance.recordLabel;
-      button.className = `ot-list__item ${selectedOT?.id === item.id ? 'is-active' : ''} ${
+      button.className = `ot-list__item hnf-ot-mini-card ${selectedOT?.id === item.id ? 'is-active' : ''} ${
         isTarget ? 'is-intel-target' : ''
       }`.trim();
       const slaTier = computeOtSlaTierForClimaListItem(item);
@@ -2375,14 +2407,23 @@ export const climaView = ({
     t?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   });
 
+  const contextRail = document.createElement('aside');
+  contextRail.className = 'hnf-cc-split-pane__rail hnf-cc-split-pane__rail--right ot-context-rail';
+  contextRail.setAttribute('aria-label', 'Resumen ejecutivo y copiloto Jarvis');
+
   const detailCard = document.createElement('article');
-  detailCard.className = 'ot-detail-card ot-saas-dashboard';
+  detailCard.className = 'ot-detail-card ot-saas-dashboard ot-detail-card--split-workspace hnf-cc-split-pane__center';
 
   if (!selectedOT) {
     detailCard.innerHTML =
-      '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado del medio.</p>';
+      '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado a la izquierda.</p>';
+    const emptyCtx = document.createElement('p');
+    emptyCtx.className = 'ot-context-rail__empty';
+    emptyCtx.textContent =
+      'Seleccioná una OT para ver cliente, meta de informe (2 días hábiles), estado PDF y sugerencias Jarvis.';
+    contextRail.append(emptyCtx);
   } else {
-    mountClimaOtDetailFlow(detailCard, {
+    mountClimaOtDetailFlow(detailCard, contextRail, {
       selectedOT,
       actions,
       ro: isOtEstadoCerradaUi(selectedOT.estado),
@@ -2394,7 +2435,7 @@ export const climaView = ({
     });
   }
 
-  overview.append(listCard, detailCard);
+  overview.append(listCard, detailCard, contextRail);
 
   const offlineBanner =
     integrationStatus === 'sin conexión'

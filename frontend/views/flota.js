@@ -58,6 +58,55 @@ const buildFlotaIntelChecklist = (sel, guidance) => {
   return items;
 };
 
+const buildFlotaTraceBubbles = (sel) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'flota-trace-bubbles';
+  const h = document.createElement('h4');
+  h.className = 'flota-trace-bubbles__title';
+  h.textContent = 'Trazabilidad 360° · Unidad';
+  const grid = document.createElement('div');
+  grid.className = 'flota-trace-bubbles__grid';
+  const idx = FLOTA_ESTADO_CHAIN.indexOf(sel.estado);
+  const ix = (id) => {
+    const j = FLOTA_ESTADO_CHAIN.indexOf(id);
+    return j < 0 ? 999 : j;
+  };
+  const neumOk = idx >= ix('programada');
+  const motorOk = round2(sel.costoCombustible) > 0 || idx >= ix('en_ruta');
+  const frenosOk = idx >= ix('completada');
+  const motorWarn = !motorOk && idx >= ix('evaluacion');
+  const mk = (emoji, title, tier, sub) => {
+    const b = document.createElement('div');
+    b.className = `flota-trace-bubble flota-trace-bubble--${tier}`;
+    b.setAttribute('role', 'img');
+    b.setAttribute('aria-label', `${title}: ${sub}`);
+    const orb = document.createElement('span');
+    orb.className = 'flota-trace-bubble__orb';
+    orb.textContent = emoji;
+    const body = document.createElement('div');
+    body.className = 'flota-trace-bubble__body';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    const small = document.createElement('small');
+    small.textContent = sub;
+    body.append(strong, small);
+    b.append(orb, body);
+    return b;
+  };
+  grid.append(
+    mk('🛞', 'Neumáticos', neumOk ? 'ok' : 'pending', neumOk ? 'Listo para ruta' : 'Revisar asignación'),
+    mk(
+      '⚙',
+      'Motor',
+      motorOk ? 'ok' : motorWarn ? 'warn' : 'pending',
+      motorOk ? 'Energía / combustible OK' : motorWarn ? 'Registrar combustible' : 'En espera'
+    ),
+    mk('🛑', 'Frenos', frenosOk ? 'ok' : 'pending', frenosOk ? 'Cierre operativo' : 'Pendiente etapa')
+  );
+  wrap.append(h, grid);
+  return wrap;
+};
+
 const round2 = (v) => {
   const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
   if (!Number.isFinite(n)) return 0;
@@ -409,18 +458,22 @@ export const flotaView = ({
   }
 
   const overview = document.createElement('div');
-  overview.className = 'ot-overview';
+  overview.className = 'hnf-cc-split-pane hnf-cc-split-pane--flota';
 
   const listCard = document.createElement('article');
-  listCard.className = 'ot-list-card';
+  listCard.className = 'ot-list-card ot-list-card--split-rail hnf-cc-split-pane__rail hnf-cc-split-pane__rail--left';
   listCard.innerHTML =
     '<div class="ot-list-card__header"><h3>Solicitudes</h3><p class="muted">Elegí una fila para editar costos y avanzar el estado.</p></div>';
 
   const list = document.createElement('div');
-  list.className = 'ot-list';
+  list.className = 'ot-list ot-list--split-pane';
+
+  const contextRail = document.createElement('aside');
+  contextRail.className = 'hnf-cc-split-pane__rail hnf-cc-split-pane__rail--right';
+  contextRail.setAttribute('aria-label', 'Pipeline, contexto y trazabilidad');
 
   const detailCard = document.createElement('article');
-  detailCard.className = 'ot-detail-card';
+  detailCard.className = 'ot-detail-card ot-detail-card--split-workspace hnf-cc-split-pane__center';
 
   const rowsMatchIntel = (() => {
     let r = [...solicitudes];
@@ -573,22 +626,27 @@ export const flotaView = ({
   };
 
   const buildDetail = (sel) => {
-    detailCard.innerHTML = '';
+    detailCard.replaceChildren();
+    contextRail.replaceChildren();
+    detailCard.classList.remove('is-intel-detail-focus');
 
     if (!sel) {
       detailCard.innerHTML =
         integrationStatus === 'sin conexión' && !solicitudes.length
           ? '<h3>Detalle</h3><p class="muted">Sin datos del servidor. No se puede mostrar el detalle hasta reconectar.</p>'
-          : '<h3>Detalle</h3><p class="muted">Creá una solicitud o elegí una del listado.</p>';
+          : '<h3>Detalle</h3><p class="muted">Creá una solicitud o elegí una del listado a la izquierda.</p>';
+      const emptyR = document.createElement('p');
+      emptyR.className = 'flota-context-rail__empty';
+      emptyR.textContent = 'Seleccioná una solicitud para ver pipeline, trazabilidad y contexto operativo.';
+      contextRail.append(emptyR);
       return;
     }
 
     const titleRow = document.createElement('div');
     titleRow.className = 'ot-detail-card__header';
     const titleBlock = document.createElement('div');
-    titleBlock.innerHTML = `<p class="muted">Detalle · ${sel.id}</p><h3>${sel.cliente}</h3>`;
+    titleBlock.innerHTML = `<p class="muted">Espacio de trabajo · ${sel.id}</p><h3>${sel.cliente}</h3>`;
     titleRow.append(titleBlock, createEstadoBadge(sel.estado));
-    detailCard.append(titleRow);
     if (intelGuidance?.recordLabel && sel.id === intelGuidance.recordLabel) {
       detailCard.classList.add('is-intel-detail-focus');
     }
@@ -618,7 +676,6 @@ export const flotaView = ({
       ? new Date(sel.updatedAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
       : '—';
     flotaMeta.textContent = `Última actualización en servidor: ${ua} · Alta por: ${sel.creadoPor || '—'} · Último cambio por: ${sel.actualizadoPor || '—'}`;
-    detailCard.append(pipeWrap, flotaMeta);
 
     const fBrief = buildFlotaOperationalBrief(sel);
     const opCtx = document.createElement('div');
@@ -657,7 +714,13 @@ export const flotaView = ({
         opCtx.append(ul);
       }
     }
-    detailCard.append(opCtx);
+
+    const ctxStack = document.createElement('div');
+    ctxStack.className = 'flota-context-rail';
+    ctxStack.append(pipeWrap, flotaMeta, opCtx, buildFlotaTraceBubbles(sel));
+    contextRail.append(ctxStack);
+
+    detailCard.append(titleRow);
 
     const formDetail = document.createElement('form');
     formDetail.className = 'flota-detail-form';
@@ -928,7 +991,7 @@ export const flotaView = ({
   };
 
   listCard.append(list);
-  overview.append(listCard, detailCard);
+  overview.append(listCard, detailCard, contextRail);
 
   fCliente.addEventListener('input', () => {
     renderList();

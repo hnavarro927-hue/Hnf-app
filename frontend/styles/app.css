@@ -95,6 +95,7 @@ body {
     48px 48px,
     auto;
   background-position: center top, center, center, center, center, center;
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
@@ -930,9 +931,163 @@ select option {
   align-items: start;
 }
 
+/* Command Center · split-pane 3 columnas (Clima / Flota) */
+.hnf-cc-split-pane {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(300px, 1.5fr) minmax(240px, 1fr);
+  gap: 16px 18px;
+  align-items: stretch;
+  min-height: min(78vh, 860px);
+}
+
+.hnf-cc-split-pane__rail {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(8, 12, 20, 0.45);
+  backdrop-filter: blur(22px) saturate(1.12);
+  -webkit-backdrop-filter: blur(22px) saturate(1.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 20px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.hnf-cc-split-pane__rail--right {
+  padding: 12px 14px 14px;
+}
+
+.hnf-cc-split-pane__center {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ot-context-rail__empty,
+.flota-context-rail__empty {
+  margin: 0;
+  padding: 16px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+}
+
+.ot-flow-context-rail,
+.flota-context-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.ot-flow-exec-summary--rail,
+.ot-flow-jarvis--rail {
+  position: relative;
+  top: auto;
+  max-height: none;
+  flex-shrink: 0;
+}
+
+.ot-detail-card--split-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 14, 22, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 28px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.hnf-cc-split-pane__center .flota-detail-form {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+}
+
+.ot-flow-app__inner--workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+
+.ot-flow-app__inner--workspace .ot-flow-command-main {
+  flex: 1;
+  min-height: 0;
+}
+
+.ot-flow-app__inner--workspace .ot-flow-stage-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.ot-list--split-pane {
+  flex: 1;
+  max-height: none;
+  margin-top: 8px;
+  padding-right: 4px;
+}
+
+.hnf-cc-split-pane .hnf-ot-mini-card {
+  flex-wrap: wrap;
+}
+
+.ot-list-card--split-rail .ot-list-card__header {
+  flex-shrink: 0;
+  padding: 12px 14px 0;
+}
+
+.ot-list-card--split-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+@media (max-width: 1200px) {
+  .hnf-cc-split-pane {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: 0;
+  }
+
+  .hnf-cc-split-pane__rail--right {
+    grid-column: 1 / -1;
+    max-height: 320px;
+  }
+}
+
 @media (max-width: 960px) {
   .ot-overview {
     grid-template-columns: 1fr;
+  }
+
+  .hnf-cc-split-pane {
+    grid-template-columns: 1fr;
+  }
+
+  .hnf-cc-split-pane__rail--right {
+    max-height: 280px;
   }
 }
 
@@ -2997,6 +3152,153 @@ select option {
 
 .ot-checklist-block {
   grid-column: 1 / -1;
+}
+
+.ot-checklist-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ot-checklist-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 72px;
+  padding: 12px 12px 12px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.22s ease,
+    transform 0.18s ease;
+}
+
+.ot-checklist-tile:hover {
+  border-color: rgba(0, 232, 220, 0.35);
+  box-shadow: 0 0 20px rgba(0, 232, 220, 0.08);
+}
+
+.ot-checklist-tile.is-on {
+  border-color: rgba(52, 199, 89, 0.45);
+  background: rgba(52, 199, 89, 0.1);
+  box-shadow: 0 0 18px rgba(52, 199, 89, 0.15);
+}
+
+.ot-checklist-tile.is-readonly {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.ot-checklist-tile__cb {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--hnf-neon-cerrado);
+}
+
+.ot-checklist-tile__text {
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.flota-trace-bubbles {
+  border-radius: 14px;
+  border: 1px solid rgba(59, 116, 245, 0.28);
+  padding: 12px 12px 14px;
+  background: rgba(8, 14, 28, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.flota-trace-bubbles__title {
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.flota-trace-bubbles__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.flota-trace-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 92px;
+  padding: 10px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  text-align: center;
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.flota-trace-bubble--ok {
+  border-color: rgba(52, 199, 89, 0.45);
+  box-shadow: 0 0 20px rgba(52, 199, 89, 0.25);
+}
+
+.flota-trace-bubble--warn {
+  border-color: rgba(255, 149, 0, 0.5);
+  box-shadow: 0 0 18px rgba(255, 149, 0, 0.22);
+}
+
+.flota-trace-bubble--pending {
+  border-color: rgba(148, 163, 184, 0.25);
+  opacity: 0.88;
+}
+
+.flota-trace-bubble__orb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.flota-trace-bubble__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.flota-trace-bubble__body strong {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.flota-trace-bubble__body small {
+  font-size: 9px;
+  line-height: 1.25;
+  color: var(--muted);
 }
 
 .ot-checklist-row {
@@ -20905,14 +21207,31 @@ body.hnf-op-command .hnf-cap-control__k {
 }
 
 .ot-flow-progress__step.is-active {
-  border-color: rgba(0, 242, 255, 0.45);
-  box-shadow: 0 0 18px rgba(0, 242, 255, 0.12);
-  color: var(--accent-clima);
+  border-color: rgba(255, 149, 0, 0.5);
+  box-shadow: 0 0 22px rgba(255, 149, 0, 0.22);
+  color: #ffcc80;
 }
 
 .ot-flow-progress__step.is-done {
-  border-color: rgba(0, 255, 157, 0.35);
-  color: var(--accent-flota);
+  border-color: rgba(52, 199, 89, 0.42);
+  color: #86efac;
+  box-shadow: 0 0 16px rgba(52, 199, 89, 0.12);
+}
+
+.ot-flow-progress__step.is-active .ot-flow-progress__dot {
+  background: rgba(255, 149, 0, 0.2);
+  box-shadow: 0 0 14px rgba(255, 149, 0, 0.65);
+  color: #ffb020;
+}
+
+.ot-flow-progress__step.is-done .ot-flow-progress__dot {
+  background: rgba(52, 199, 89, 0.22);
+  box-shadow: 0 0 12px rgba(52, 199, 89, 0.55);
+  color: var(--hnf-neon-cerrado);
+}
+
+.ot-flow-progress__step:not(.is-done):not(.is-active) .ot-flow-progress__dot {
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.15);
 }
 
 .ot-flow-progress__dot {
@@ -20924,6 +21243,27 @@ body.hnf-op-command .hnf-cap-control__k {
   border-radius: 50%;
   font-size: 11px;
   background: rgba(255, 255, 255, 0.06);
+}
+
+@keyframes ot-split-pane-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ot-flow-stage-panel.ot-flow-stage-panel--enter {
+  animation: ot-split-pane-fade 0.34s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ot-flow-stage-panel.ot-flow-stage-panel--enter {
+    animation: none;
+  }
 }
 
 .ot-flow-progress__arrow {
@@ -21300,7 +21640,7 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
   line-height: 1.45;
 }
 
-/* —— Clima · layout comando OT + resumen ejecutivo —— */
+/* —— Clima · layout comando OT + resumen ejecutivo (legado: resumen ahora en rail derecho) —— */
 .ot-flow-app__inner--command {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -21329,6 +21669,10 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 14px;
   align-items: start;
+}
+
+.ot-flow-app__inner--workspace .ot-flow-command-stage-row {
+  display: block;
 }
 
 .ot-flow-progress-bar-wrap {
