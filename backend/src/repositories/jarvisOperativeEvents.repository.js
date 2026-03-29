@@ -73,7 +73,26 @@ export const jarvisOperativeEventsRepository = {
 };
 
 function sanitizeExtra(payload) {
-  const allow = ['generaIngreso', 'generaRiesgo', 'generaOportunidad', 'vinculoSugerido', 'kind'];
+  const allow = [
+    'generaIngreso',
+    'generaRiesgo',
+    'generaOportunidad',
+    'vinculoSugerido',
+    'kind',
+    'origen_detectado',
+    'area_sugerida',
+    'confianza_jarvis',
+    'contacto_detectado',
+    'duplicado_probable',
+    'bandeja_destino',
+    'estado_revision',
+    'observacion_revision',
+    'actor_revision',
+    'jarvisTrace',
+    'advertencias',
+    'otRelacionada',
+    'notificacion_destino',
+  ];
   const out = {};
   for (const k of allow) {
     if (payload[k] !== undefined) out[k] = payload[k];

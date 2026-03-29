@@ -6,6 +6,7 @@ import { whatsappFeedRoutes } from './whatsappFeed.routes.js';
 import { outlookIntakeRoutes } from './outlookIntake.routes.js';
 import { historicalVaultRoutes } from './historicalVault.routes.js';
 import { jarvisOperativeEventsRoutes } from './jarvisOperativeEvents.routes.js';
+import { jarvisIntakeRoutes } from './jarvisIntake.routes.js';
 import { operationalEventRoutes } from './operationalEvent.routes.js';
 import { otRoutes } from './ot.routes.js';
 import { operationalCalendarRoutes } from './operationalCalendar.routes.js';
@@ -33,6 +34,7 @@ export const routes = [
   ...outlookIntakeRoutes,
   ...historicalVaultRoutes,
   ...jarvisOperativeEventsRoutes,
+  ...jarvisIntakeRoutes,
   ...operationalEventRoutes,
   ...hnfCoreSolicitudRoutes,
   ...hnfOperativoIntegradoRoutes,

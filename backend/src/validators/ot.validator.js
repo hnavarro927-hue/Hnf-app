@@ -84,6 +84,19 @@ export const validateOTPayload = (payload = {}) => {
     errors.push('Origen del pedido: máximo 120 caracteres.');
   }
 
+  if (payload.jarvisIntakeTrace != null) {
+    if (typeof payload.jarvisIntakeTrace !== 'object' || Array.isArray(payload.jarvisIntakeTrace)) {
+      errors.push('jarvisIntakeTrace debe ser un objeto JSON.');
+    } else {
+      try {
+        const s = JSON.stringify(payload.jarvisIntakeTrace);
+        if (s.length > 14000) errors.push('jarvisIntakeTrace excede tamaño permitido.');
+      } catch {
+        errors.push('jarvisIntakeTrace no serializable.');
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,

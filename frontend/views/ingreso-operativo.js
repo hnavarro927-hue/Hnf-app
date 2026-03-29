@@ -16,8 +16,13 @@ import {
   HNF_OT_OPERATION_MODES,
   HNF_OT_TECNICOS_PRESETS,
 } from '../constants/hnf-ot-operation.js';
-import { buildIngresoJarvisBrief } from '../domain/hnf-ingreso-jarvis-brief.js';
+import {
+  buildIngresoJarvisBrief,
+  buildJarvisIntakeTraceForOt,
+  buildJarvisMatchContextFromViewData,
+} from '../domain/hnf-ingreso-jarvis-brief.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
+import { getStoredOperatorName } from '../config/operator.config.js';
 
 const CASO_LABEL = {
   ot: 'OT',
@@ -111,7 +116,7 @@ const resolveTecnicoIngreso = (form) => {
   return preset || 'Por asignar';
 };
 
-const buildOtPayloadFromIngresoForm = (form) => {
+const buildOtPayloadFromIngresoForm = (form, { matchContext = {}, filesMeta = [], actor = 'operador' } = {}) => {
   const cliente = form.elements.cliente?.value?.trim() || '';
   const contacto = form.elements.contacto?.value?.trim() || '';
   const telefono = form.elements.telefono?.value?.trim() || '';
@@ -146,6 +151,24 @@ const buildOtPayloadFromIngresoForm = (form) => {
 
   const observacionesOt = [descripcion, observaciones, metaLines.join('\n')].filter(Boolean).join('\n\n');
 
+  const formLikeJarvis = {
+    origen,
+    tipo,
+    cliente,
+    contacto,
+    telefono,
+    emailCorreo,
+    whatsappNumero: whatsappNum,
+    whatsappNombre: whatsappNom,
+    comuna,
+    direccion,
+    descripcion,
+    observaciones,
+    filesMeta,
+    actorIngreso: actor,
+  };
+  const jarvisIntakeTrace = buildJarvisIntakeTraceForOt(formLikeJarvis, matchContext, actor);
+
   return {
     payload: {
       ...(otManualId ? { id: otManualId } : {}),
@@ -169,6 +192,7 @@ const buildOtPayloadFromIngresoForm = (form) => {
       recomendaciones: '',
       tecnicoAsignado,
       equipos: [],
+      jarvisIntakeTrace,
     },
     snapshot: {
       cliente,
@@ -353,6 +377,8 @@ export const ingresoOperativoView = ({
   };
 
   const nombresClientes = collectClientesNombres(data);
+  const jarvisMatchContext = buildJarvisMatchContextFromViewData(data);
+  let pendingFilesMeta = [];
 
   /* —— A · Origen —— */
   const secA = mkSection(
@@ -635,6 +661,28 @@ export const ingresoOperativoView = ({
   );
   secD.body.append(visitRow);
 
+  const wAdj = document.createElement('label');
+  wAdj.className = 'hnf-cap-ingreso__field hnf-ingreso-adjuntos';
+  const lbAdj = document.createElement('span');
+  lbAdj.className = 'hnf-cap-ingreso__label';
+  lbAdj.textContent = 'Documento adjunto (opcional)';
+  const fileAdj = document.createElement('input');
+  fileAdj.type = 'file';
+  fileAdj.name = 'adjuntosOperativos';
+  fileAdj.multiple = true;
+  fileAdj.className = 'hnf-cap-ingreso__input';
+  fileAdj.setAttribute('accept', '.pdf,.xlsx,.xls,.csv,.doc,.docx,image/png,image/jpeg,image/webp');
+  const hAdj = document.createElement('span');
+  hAdj.className = 'hnf-cap-ingreso__hint muted small';
+  hAdj.textContent =
+    'Jarvis identifica tipo de archivo y deja metadato en borrador; el archivo no se sube al servidor hasta integración de almacenamiento.';
+  fileAdj.addEventListener('change', () => {
+    pendingFilesMeta = Array.from(fileAdj.files || []).map((f) => ({ name: f.name, mimeType: f.type || '' }));
+    updatePreview();
+  });
+  wAdj.append(lbAdj, fileAdj, hAdj);
+  secD.body.append(wAdj);
+
   /* —— E · Control —— */
   const secE = mkSection(
     'E · Control operativo',
@@ -764,16 +812,22 @@ export const ingresoOperativoView = ({
   dl.className = 'hnf-ingreso-cc-preview__dl';
   const jarvisTitle = document.createElement('h4');
   jarvisTitle.className = 'hnf-ingreso-cc-preview__jarvis-title';
-  jarvisTitle.textContent = 'Jarvis · antes de guardar';
+  jarvisTitle.textContent = 'Recomendaciones de Jarvis';
   const jResumen = document.createElement('p');
   jResumen.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jDest = document.createElement('p');
+  jDest.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jDup = document.createElement('p');
+  jDup.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jDocs = document.createElement('p');
+  jDocs.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
   const jImp = document.createElement('p');
   jImp.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
   const jRec = document.createElement('p');
   jRec.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
   const jFalt = document.createElement('p');
   jFalt.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
-  previewInner.append(previewTitle, dl, jarvisTitle, jResumen, jImp, jRec, jFalt);
+  previewInner.append(previewTitle, dl, jarvisTitle, jResumen, jDest, jDup, jDocs, jImp, jRec, jFalt);
   preview.append(previewInner);
 
   const tipoLabel = (v) =>
@@ -816,6 +870,7 @@ export const ingresoOperativoView = ({
     const brief = buildIngresoJarvisBrief({
       formLike: {
         cliente: clienteInp.value,
+        contacto: form.elements.contacto?.value,
         telefono: form.elements.telefono?.value,
         emailCorreo: form.elements.emailCorreo?.value,
         origen: origenSel.value,
@@ -823,12 +878,28 @@ export const ingresoOperativoView = ({
         whatsappNumero: form.elements.whatsappNumero?.value,
         whatsappNombre: form.elements.whatsappNombre?.value,
         comuna: form.elements.comuna?.value,
+        direccion: form.elements.direccion?.value,
+        descripcion: form.elements.descripcion?.value,
+        observaciones: form.elements.observaciones?.value,
+        filesMeta: pendingFilesMeta,
+        actorIngreso: getStoredOperatorName(),
       },
-      clientesConocidos: nombresClientes,
+      matchContext: jarvisMatchContext,
     });
+    const eng = brief.engineBrief;
     jResumen.textContent = `Resumen: ${brief.resumen}`;
+    jDest.textContent = eng
+      ? `Destino sugerido: bandeja «${eng.bandeja_destino}» · avisar a ${eng.notificacion_destino || '—'}`
+      : 'Destino sugerido: —';
+    jDup.textContent = brief.duplicado_probable
+      ? 'Alerta: posible duplicado o coincidencia con OT/cliente — revisá antes de guardar.'
+      : 'Duplicados: sin señal fuerte por ahora.';
+    jDocs.textContent =
+      pendingFilesMeta.length > 0
+        ? `Archivos (metadato borrador): ${pendingFilesMeta.map((f) => f.name).join(', ')}`
+        : 'Documento adjunto: ninguno seleccionado.';
     jImp.textContent = brief.importante ? `Información importante: ${brief.importante}` : 'Información importante: sin alertas.';
-    jRec.textContent = brief.recomendaciones ? `Recomendaciones: ${brief.recomendaciones}` : 'Recomendaciones: —';
+    jRec.textContent = brief.recomendaciones ? `Acción sugerida: ${brief.recomendaciones}` : 'Acción sugerida: —';
     jFalt.textContent = brief.faltantes;
   };
 
@@ -1246,7 +1317,11 @@ export const ingresoOperativoView = ({
       return;
     }
 
-    const { payload, snapshot } = buildOtPayloadFromIngresoForm(form);
+    const { payload, snapshot } = buildOtPayloadFromIngresoForm(form, {
+      matchContext: jarvisMatchContext,
+      filesMeta: pendingFilesMeta,
+      actor: getStoredOperatorName(),
+    });
 
     const errs = [];
     if (!payload.cliente) errs.push('Nombre de cliente / empresa.');
@@ -1291,6 +1366,8 @@ export const ingresoOperativoView = ({
     });
 
     feedback.hidden = true;
+    pendingFilesMeta = [];
+    if (form.elements.adjuntosOperativos) form.elements.adjuntosOperativos.value = '';
     resetFormPartial();
     renderList();
   });

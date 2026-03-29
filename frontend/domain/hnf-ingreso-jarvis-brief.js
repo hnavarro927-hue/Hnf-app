@@ -1,85 +1,113 @@
 /**
- * Textos claros para el panel de ingreso (sin llamadas a servidor).
- * Coincidencias de cliente contra nombres ya vistos en datos cargados.
+ * Brief de ingreso: delega en el motor Jarvis v1 + textos legibles para la vista.
  */
 
-const norm = (s) => String(s || '').trim().toLowerCase();
+import { briefToOtTrace, runJarvisIntakeClassification } from './jarvis-intake-engine.js';
+
+/**
+ * Arma contexto de coincidencias desde datos ya cargados en la app (sin API extra).
+ * @param {object} data - viewData (clients, ots, planOts, vehicles)
+ */
+export function buildJarvisMatchContextFromViewData(data = {}) {
+  const clientes = [];
+  const rawClients = data?.clients?.data ?? data?.clients;
+  if (Array.isArray(rawClients)) {
+    for (const c of rawClients) {
+      clientes.push({
+        id: c.id ?? null,
+        nombre: c.nombre || c.name || c.cliente,
+        contacto: c.contacto,
+        telefono: c.telefono,
+        email: c.email,
+      });
+    }
+  }
+  const otsRaw = data?.planOts ?? data?.ots?.data ?? [];
+  const otsMuestra = (Array.isArray(otsRaw) ? otsRaw : []).slice(0, 120).map((o) => ({
+    cliente: o.cliente,
+    telefonoContacto: o.telefonoContacto,
+    id: o.id,
+  }));
+  const vehRaw = data?.vehicles?.data ?? data?.vehicles;
+  const vehicles = Array.isArray(vehRaw) ? vehRaw : [];
+  return { clientes, otsMuestra, vehicles };
+}
 
 /**
  * @param {object} opts
- * @param {object} opts.formLike — campos del formulario (cliente, telefono, emailCorreo, origen, tipo, whatsappNumero, comuna)
- * @param {string[]} opts.clientesConocidos
+ * @param {object} opts.formLike
+ * @param {object} [opts.matchContext] - resultado de buildJarvisMatchContextFromViewData
  */
-export function buildIngresoJarvisBrief({ formLike = {}, clientesConocidos = [] } = {}) {
-  const cliente = String(formLike.cliente || '').trim();
-  const telefono = String(formLike.telefono || '').trim();
-  const email = String(formLike.emailCorreo || '').trim();
-  const origen = String(formLike.origen || '');
-  const tipo = String(formLike.tipo || '');
-  const wa = String(formLike.whatsappNumero || '').trim();
-  const comuna = String(formLike.comuna || '').trim();
+export function buildIngresoJarvisBrief({ formLike = {}, matchContext = {} } = {}) {
+  const descripcion = String(formLike.descripcion || '').trim();
+  const observaciones = String(formLike.observaciones || '').trim();
+  const brief = runJarvisIntakeClassification(
+    {
+      origen: formLike.origen,
+      tipoServicio: formLike.tipo,
+      tipo: formLike.tipo,
+      cliente: formLike.cliente,
+      contacto: formLike.contacto,
+      telefono: formLike.telefono,
+      emailCorreo: formLike.emailCorreo,
+      whatsappNumero: formLike.whatsappNumero,
+      comuna: formLike.comuna,
+      direccion: formLike.direccion,
+      descripcion,
+      observaciones,
+      filesMeta: Array.isArray(formLike.filesMeta) ? formLike.filesMeta : [],
+      actorIngreso: formLike.actorIngreso || 'operador',
+    },
+    matchContext
+  );
 
-  const resumen = [];
-  if (cliente) resumen.push(`Cliente: ${cliente}`);
-  if (tipo) {
-    const t =
-      tipo === 'flota'
-        ? 'Flota (Gery)'
-        : tipo === 'comercial'
-          ? 'Comercial (Lyn / Hernán)'
-          : tipo === 'administrativo'
-            ? 'Administrativo (Romina)'
-            : 'Clima (Romina)';
-    resumen.push(`Área detectada: ${t}`);
-  }
-  if (origen) resumen.push(`Origen: ${origen}`);
+  const resumen = [
+    brief.area_sugerida && `Área: ${brief.area_sugerida}`,
+    `Destino sugerido: ${brief.bandeja_destino} → ${brief.notificacion_destino || '—'}`,
+    `Confianza Jarvis: ${brief.confianza_jarvis}%`,
+    brief.cliente_detectado?.match &&
+      `Cliente: ${brief.cliente_detectado.match.replace(/_/g, ' ')}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
-  const importante = [];
-  const conocidos = clientesConocidos.map((c) => norm(c)).filter(Boolean);
-  if (cliente && conocidos.includes(norm(cliente))) {
-    importante.push('Cliente detectado: el nombre coincide con un cliente ya cargado. Revisá que no sea un duplicado.');
-  }
-  if (origen === 'whatsapp' && !wa) {
-    importante.push('Falta número de WhatsApp para este origen.');
-  }
-  if (!telefono && origen !== 'whatsapp') {
-    importante.push('Falta número de teléfono: es obligatorio para crear la OT.');
-  }
-  if (!email) {
-    importante.push('Información importante: no hay correo de contacto cargado (opcional pero recomendado).');
-  }
-  if (!comuna) {
-    importante.push('Información importante: falta comuna o ciudad.');
-  }
+  const importante =
+    brief.advertencias?.length ? brief.advertencias.join(' ') : 'Sin alertas críticas en este momento.';
 
-  const recomendaciones = [];
-  if (tipo === 'clima') {
-    recomendaciones.push('Recomendación: al guardar, la OT queda en bandeja Clima para Romina.');
-  }
-  if (tipo === 'flota') {
-    recomendaciones.push('Recomendación: al guardar, la OT queda en bandeja Flota para Gery.');
-  }
-  if (tipo === 'comercial') {
-    recomendaciones.push('Recomendación: revisá el módulo Comercial (Lyn / Hernán) para seguimiento.');
-  }
-  if (tipo === 'administrativo') {
-    recomendaciones.push('Recomendación: trámite interno — priorizar validación con Romina.');
-  }
-  if (!telefono && origen === 'whatsapp' && wa) {
-    recomendaciones.push('Recomendación: completá también el teléfono general si el cliente tiene línea fija.');
-  }
+  const recomendaciones = brief.accion_sugerida || '—';
 
   const faltantes = [];
-  if (!cliente) faltantes.push('Nombre del cliente / empresa');
-  if (!telefono && origen !== 'whatsapp') faltantes.push('Teléfono');
-  if (origen === 'whatsapp' && (!wa || !String(formLike.whatsappNombre || '').trim())) {
+  if (!String(formLike.cliente || '').trim()) faltantes.push('Nombre del cliente / empresa');
+  if (!String(formLike.telefono || '').trim() && formLike.origen !== 'whatsapp') faltantes.push('Teléfono');
+  if (formLike.origen === 'whatsapp' && (!String(formLike.whatsappNumero || '').trim() || !String(formLike.whatsappNombre || '').trim())) {
     faltantes.push('WhatsApp: número y nombre');
   }
+  if (!String(formLike.comuna || '').trim()) faltantes.push('Comuna');
+  if (!descripcion || descripcion.length < 8) faltantes.push('Descripción del pedido');
+
+  const faltantesText = faltantes.length
+    ? `Datos faltantes o incompletos: ${faltantes.join(', ')}.`
+    : 'Sin faltantes críticos visibles.';
 
   return {
-    resumen: resumen.length ? resumen.join(' · ') : 'Completá origen y cliente para ver un resumen.',
-    importante: importante.join(' '),
-    recomendaciones: recomendaciones.join(' '),
-    faltantes: faltantes.length ? `Datos faltantes: ${faltantes.join(', ')}.` : 'Sin faltantes críticos visibles.',
+    resumen: resumen || 'Completá origen, cliente y tipo para ver el resumen de Jarvis.',
+    importante,
+    recomendaciones,
+    faltantes: faltantesText,
+    engineBrief: brief,
+    duplicado_probable: brief.duplicado_probable,
+    bandeja_destino: brief.bandeja_destino,
+    confianza_jarvis: brief.confianza_jarvis,
   };
+}
+
+/**
+ * Trazabilidad para adjuntar al POST de creación de OT.
+ */
+export function buildJarvisIntakeTraceForOt(formLike, matchContext, actor) {
+  const b = buildIngresoJarvisBrief({
+    formLike: { ...formLike, actorIngreso: actor },
+    matchContext,
+  }).engineBrief;
+  return briefToOtTrace(b, { otId: null, actor });
 }

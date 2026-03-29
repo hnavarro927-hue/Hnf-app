@@ -59,6 +59,8 @@ export const otModel = {
     'fotografiasAntes',
     'fotografiasDurante',
     'fotografiasDespues',
+    /** Trazabilidad Motor Jarvis Operativo v1 (objeto JSON, backward compatible) */
+    'jarvisIntakeTrace',
   ],
   statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada'],
   origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],

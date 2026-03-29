@@ -585,6 +585,22 @@ export function createHnfJarvisPremiumCommand({
   compactHint.textContent =
     'Prioridad, riesgo y atajos están en el asistente flotante (esquina inferior derecha), sin ocupar el tablero.';
 
+  const engineLines = Array.isArray(liveCmdModel?.operativeEngineLines) ? liveCmdModel.operativeEngineLines : [];
+  const opEngine = document.createElement('div');
+  opEngine.className = 'hnf-jarvis-hq-core__op-engine';
+  opEngine.setAttribute('aria-label', 'Motor Jarvis operativo v1');
+  const opH = document.createElement('h3');
+  opH.className = 'hnf-jarvis-hq-core__op-engine-title';
+  opH.textContent = 'Motor operativo · colas y trazabilidad';
+  const opUl = document.createElement('ul');
+  opUl.className = 'hnf-jarvis-hq-core__op-engine-ul';
+  for (const line of engineLines.slice(0, 8)) {
+    const li = document.createElement('li');
+    li.textContent = line;
+    opUl.append(li);
+  }
+  opEngine.append(opH, opUl);
+
   const btnEjecutarMando = document.createElement('button');
   btnEjecutarMando.type = 'button';
   btnEjecutarMando.id = 'hnf-ejecutar-propuesta-mando';
@@ -592,7 +608,7 @@ export function createHnfJarvisPremiumCommand({
   btnEjecutarMando.textContent = ctaFromAccion(nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion);
   btnEjecutarMando.addEventListener('click', runExec);
 
-  jarvisIa.append(hqTop, compactLede, compactHint, btnEjecutarMando);
+  jarvisIa.append(hqTop, compactLede, compactHint, opEngine, btnEjecutarMando);
 
   /* —— Tres portales de módulo (grandes) —— */
   const modulePortals = document.createElement('div');

@@ -104,6 +104,8 @@ const ensureDefaults = (item) => {
     fotografiasAntes: Array.isArray(item.fotografiasAntes) ? item.fotografiasAntes : [],
     fotografiasDurante: Array.isArray(item.fotografiasDurante) ? item.fotografiasDurante : [],
     fotografiasDespues: Array.isArray(item.fotografiasDespues) ? item.fotografiasDespues : [],
+    jarvisIntakeTrace:
+      item.jarvisIntakeTrace && typeof item.jarvisIntakeTrace === 'object' ? item.jarvisIntakeTrace : null,
     costoMateriales: item.costoMateriales ?? 0,
     costoManoObra: item.costoManoObra ?? 0,
     costoTraslado: item.costoTraslado ?? 0,
@@ -163,9 +165,19 @@ export const otRepository = {
 
     const { id: _dropId, ...rest } = data;
     const mode = normalizeOperationMode(rest.operationMode);
+    let jarvisIntakeTrace =
+      rest.jarvisIntakeTrace && typeof rest.jarvisIntakeTrace === 'object' ? { ...rest.jarvisIntakeTrace } : null;
+    if (jarvisIntakeTrace) {
+      jarvisIntakeTrace.otId = id;
+    }
+    const jNote =
+      jarvisIntakeTrace?.confianza_jarvis != null
+        ? ` · Jarvis v1: ${jarvisIntakeTrace.confianza_jarvis}% → bandeja ${jarvisIntakeTrace.bandeja_destino || '—'}`
+        : '';
     const item = ensureDefaults({
       id,
       ...rest,
+      jarvisIntakeTrace,
       operationMode: mode,
       estado: rest.estado != null ? rest.estado : undefined,
       creadoEn: rest.creadoEn || now,
@@ -176,7 +188,7 @@ export const otRepository = {
       historial: appendHistorial(
         {},
         'alta',
-        `OT creada · ${normalizeOtEstadoStored(rest.estado)} · modo ${mode}`,
+        `OT creada · ${normalizeOtEstadoStored(rest.estado)} · modo ${mode}${jNote}`,
         actor
       ),
     });

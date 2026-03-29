@@ -1,6 +1,12 @@
 import { HVAC_CHECKLIST_TEMPLATE } from '../constants/hvacChecklist.js';
 import { bandejaFromTipoServicio, notificacionAsignadaFromBandeja } from '../domain/hnf-ot-bandeja.js';
+import {
+  JARVIS_INTAKE_ENGINE_VERSION,
+  briefToOtTrace,
+  runJarvisIntakeClassification,
+} from '../domain/jarvis-intake-engine.js';
 import { suggestTechnicianAutomatic } from '../domain/jarvisOtAssignment.stub.js';
+import { jarvisIntakeService } from './jarvisIntake.service.js';
 import {
   normalizeEvidenceItem,
   normalizeFiles,
@@ -84,6 +90,36 @@ const formatCloseEvidenceMessage = (gaps) => {
         : `En «${g.equipo}» falta al menos una foto en el bloque ${g.blockLabel}.`
     )
     .join(' ');
+};
+
+const resolveJarvisIntakeTraceForCreate = (data, actor) => {
+  const serverBrief = runJarvisIntakeClassification(
+    {
+      origen: data.origenSolicitud,
+      tipoServicio: data.tipoServicio,
+      cliente: data.cliente,
+      contacto: data.contactoTerreno,
+      telefono: data.telefonoContacto,
+      emailCorreo: '',
+      whatsappNumero: data.whatsappContactoNumero,
+      comuna: data.comuna,
+      direccion: data.direccion,
+      descripcion: data.observaciones,
+      observaciones: data.observaciones,
+      filesMeta: [],
+      actorIngreso: actor,
+    },
+    {}
+  );
+  const client = data.jarvisIntakeTrace;
+  if (client && typeof client === 'object' && client.engineVersion === JARVIS_INTAKE_ENGINE_VERSION) {
+    return {
+      ...client,
+      otId: null,
+      actorIngreso: client.actorIngreso || actor,
+    };
+  }
+  return briefToOtTrace(serverBrief, { otId: null, actor });
 };
 
 const mergeEquipoChecklist = (raw) => {
@@ -243,10 +279,12 @@ export const otService = {
     const bBandeja = bandejaFromTipoServicio(data.tipoServicio);
     const estadoInicial = tecnico !== 'Por asignar' ? 'asignada' : 'nueva';
     const optionalId = data.id != null ? String(data.id).trim() : '';
+    const jarvisIntakeTrace = resolveJarvisIntakeTraceForCreate(data, actor);
 
     const created = await otRepository.create(
       {
         ...(optionalId ? { id: optionalId } : {}),
+        jarvisIntakeTrace,
         cliente: data.cliente || null,
         direccion: data.direccion || '',
         comuna: data.comuna || '',
@@ -289,6 +327,13 @@ export const otService = {
 
     if (created?.error === 'DUPLICATE_ID') {
       return { errors: [`Ya existe una OT con el identificador «${created.id}».`] };
+    }
+
+    const trace = created.jarvisIntakeTrace;
+    if (trace && typeof trace === 'object') {
+      Promise.resolve()
+        .then(() => jarvisIntakeService.appendEventFromOtTrace(trace, { otId: created.id, actor }))
+        .catch(() => {});
     }
 
     return created;

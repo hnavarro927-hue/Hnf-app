@@ -588,6 +588,42 @@ export function buildJarvisLiveCommandBrief(ctx) {
 
   const jarvisLayers = { detecta, recomienda, urge, pierde, dispara };
 
+  const expensesRaw = data.expenses?.data ?? data.expenses;
+  const expensesList = Array.isArray(expensesRaw) ? expensesRaw : [];
+
+  const operativeEngineLines = [];
+  for (const je of jEvents.filter((e) => e.tipoClasificado === 'jarvis_intake_v1').slice(0, 6)) {
+    const dup = je.duplicado_probable ? ' · posible duplicado' : '';
+    const otRef = je.otRelacionada || '—';
+    operativeEngineLines.push(
+      `Ingesta ${otRef} → bandeja ${je.bandeja_destino || '—'} · confianza ${je.confianza_jarvis ?? '—'}%${dup}`
+    );
+  }
+  for (const ex of expensesList.filter((e) => String(e.estadoAprobacion || '').toLowerCase() === 'registrado').slice(0, 5)) {
+    operativeEngineLines.push(
+      `Gasto registrado (aprobación Lyn/Hernán): ${ex.concepto || ex.descripcion || ex.motivo || ex.id || '—'}`
+    );
+  }
+  for (const ex of expensesList.filter((e) => String(e.estadoAprobacion || '').toLowerCase() === 'observado').slice(0, 4)) {
+    operativeEngineLines.push(`Gasto observado — devolver o completar: ${ex.concepto || ex.id || '—'}`);
+  }
+  for (const o of planOts.filter((x) => x.jarvisIntakeTrace?.duplicado_probable).slice(0, 4)) {
+    operativeEngineLines.push(`OT ${o.id}: posible duplicado detectado en ingesta Jarvis`);
+  }
+  const pendDoc = jEvents.filter(
+    (e) =>
+      e.tipoClasificado === 'jarvis_intake_v1' &&
+      String(e.estado_revision || '').includes('pendiente')
+  ).length;
+  if (pendDoc) {
+    operativeEngineLines.push(`${pendDoc} ítem(s) ingesta con revisión pendiente (centro de ingesta / eventos).`);
+  }
+  if (!operativeEngineLines.length) {
+    operativeEngineLines.push(
+      'Motor v1: sin cola crítica en este snapshot — las nuevas OT desde Ingreso generan trazabilidad automática.'
+    );
+  }
+
   const streamLine = dayTimelineEnriched
     .slice(0, 4)
     .map((r) => `${r.timeHm} ${r.channelAbbr}`)
@@ -656,5 +692,6 @@ export function buildJarvisLiveCommandBrief(ctx) {
     otStaleCounts: { h24: otStale24, h48: otStale48, h72: otStale72 },
     memoryGrid,
     cerebroPulse,
+    operativeEngineLines,
   };
 }
