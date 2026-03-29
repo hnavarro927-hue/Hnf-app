@@ -23341,6 +23341,14 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
 .hnf-bandeja-maestro__row {
   margin-bottom: 0.5rem;
 }
+.hnf-bandeja-maestro__row--sla-riesgo {
+  border-inline-start: 3px solid #d4a017;
+  padding-inline-start: 0.45rem;
+}
+.hnf-bandeja-maestro__row--sla-urgente {
+  border-inline-start: 3px solid #c62828;
+  padding-inline-start: 0.45rem;
+}
 .hnf-bandeja-maestro__act {
   display: flex;
   flex-wrap: wrap;

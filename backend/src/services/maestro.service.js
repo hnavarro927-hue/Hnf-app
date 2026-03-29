@@ -33,6 +33,16 @@ import {
   inferTipoSolicitudFromText,
   RESPUESTA_AUTOMATICA_INTAKE_FASE1,
 } from '../domain/jarvis-intake-externo.engine.js';
+import {
+  computeSlaIndicador,
+  emojiSlaIndicador,
+  hayDocumentoPendienteSinGestionMasHoras,
+  ingestionBlockHorasEnv,
+  patchSlaPersistFromEval,
+  responsableAutoPorDestino,
+  slaMaxCierreMin,
+  slaMaxPrimeraMin,
+} from '../domain/maestro-documento-sla.engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_ROOT = path.resolve(__dirname, '../../data');
@@ -93,12 +103,47 @@ function aplicarDestinoJarvisNuevo(moduloSugerido) {
 }
 
 function tiempoHastaGestionSegundos(doc) {
-  const a = doc?.intake_fecha_ingreso;
+  const a = doc?.intake_fecha_ingreso || doc?.fecha_subida || doc?.createdAt;
   const b = doc?.intake_fecha_primera_gestion;
   if (!a || !b) return null;
   const ms = new Date(b).getTime() - new Date(a).getTime();
   return Number.isFinite(ms) && ms >= 0 ? Math.round(ms / 1000) : null;
 }
+
+function mergeSlaCamposNuevoDocumento(row) {
+  return {
+    ...row,
+    sla_max_primera_gestion_minutos: row.sla_max_primera_gestion_minutos ?? 15,
+    sla_max_cierre_minutos: row.sla_max_cierre_minutos !== undefined ? row.sla_max_cierre_minutos : null,
+    sla_urgente: row.sla_urgente ?? false,
+    alertas_enviadas: Array.isArray(row.alertas_enviadas) ? row.alertas_enviadas : [],
+  };
+}
+
+function mergeAutoResponsableSiClimaFlota(row) {
+  const dest = row.destino_final || normalizeDestinoModulo(row.modulo_destino_sugerido);
+  const auto = responsableAutoPorDestino(dest);
+  if (!auto) return { ...row, responsable_auto_asignado: Boolean(row.responsable_auto_asignado) };
+  return { ...row, ...auto };
+}
+
+function enrichDocumentoSlaVista(d) {
+  const ind = computeSlaIndicador(d);
+  return {
+    sla_indicador: ind.indicador,
+    sla_indicador_emoji: emojiSlaIndicador(ind.indicador),
+    sla_codigo: ind.codigo,
+    minutos_sin_primera_gestion: ind.minutos_sin_primera_gestion,
+    sla_max_primera_gestion_minutos: slaMaxPrimeraMin(d),
+    sla_max_cierre_minutos_resuelto: slaMaxCierreMin(d),
+    sla_urgente: Boolean(d.sla_urgente),
+    responsable_auto_asignado: Boolean(d.responsable_auto_asignado),
+    alertas_enviadas_count: Array.isArray(d.alertas_enviadas) ? d.alertas_enviadas.length : 0,
+  };
+}
+
+let _slaSweepAt = 0;
+const SLA_SWEEP_INTERVAL_MS = 45000;
 
 function appendHistorialRevision(cur, tipo, detalle, usuario) {
   const h = Array.isArray(cur?.historial_revision) ? [...cur.historial_revision] : [];
@@ -844,6 +889,7 @@ export const maestroService = {
   },
 
   async listDocumentosVista() {
+    await this.sweepSlaSiCorresponde();
     const all = await this.listDocumentos();
     return all.map((d) => {
       const c = computeDestinoFieldsForDocument(d);
@@ -854,8 +900,38 @@ export const maestroService = {
         revision_manual_sugerida: documentoTieneRevisionManualSugerida(d),
         tiene_archivo: Boolean(ruta_interna),
         tiempo_hasta_gestion_segundos: tiempoHastaGestionSegundos(d),
+        ...enrichDocumentoSlaVista(d),
       };
     });
+  },
+
+  async sweepSlaSiCorresponde() {
+    const t = Date.now();
+    if (t - _slaSweepAt < SLA_SWEEP_INTERVAL_MS) return;
+    _slaSweepAt = t;
+    const all = await maestroDocumentoRepository.findAll();
+    const now = Date.now();
+    for (const d of all) {
+      const patch = patchSlaPersistFromEval(d, now);
+      if (!patch) continue;
+      await maestroDocumentoRepository.update(d.id, patch, 'sla_sweep');
+    }
+  },
+
+  async assertIngestionNoBloqueado(body) {
+    const horas = ingestionBlockHorasEnv();
+    if (!horas) return null;
+    const b = body && typeof body === 'object' ? body : {};
+    if (b.omitir_bloqueo_sla === true || b.force === true) return null;
+    const all = await maestroDocumentoRepository.findAll();
+    if (hayDocumentoPendienteSinGestionMasHoras(all, horas)) {
+      return {
+        errors: [
+          `Ingreso restringido: documentos pendientes sin 1.ª gestión > ${horas} h. Gestioná la bandeja o usá omitir_bloqueo_sla en el cuerpo.`,
+        ],
+      };
+    }
+    return null;
   },
 
   async getDocumento(id) {
@@ -871,6 +947,8 @@ export const maestroService = {
    * Ingesta: base64 por archivo. Guarda en disco + fila pendiente de revisión (no escribe base maestra sola).
    */
   async ingestArchivosBase64(body, actor) {
+    const bloqueo = await this.assertIngestionNoBloqueado(body);
+    if (bloqueo?.errors) return bloqueo;
     const files = Array.isArray(body.files) ? body.files : [];
     if (!files.length) return { errors: ['files[] vacío'] };
     if (files.length > MAX_FILES) return { errors: [`Máximo ${MAX_FILES} archivos por envío`] };
@@ -914,46 +992,48 @@ export const maestroService = {
         actor
       );
 
-      const row = {
-        nombre_archivo: name,
-        tipo_archivo: mime,
-        categoria_detectada: jarvis.categoria_detectada,
-        entidad_relacionada_tipo: body.entidad_relacionada_tipo || null,
-        entidad_relacionada_id: body.entidad_relacionada_id || null,
-        clasificado_por_jarvis: true,
-        confianza_jarvis: jarvis.confianza_clasificacion,
-        estado_revision: 'pendiente_revision',
-        etiquetas: Array.isArray(body.etiquetas) ? body.etiquetas : [],
-        fecha_subida: new Date().toISOString(),
-        subido_por: actor,
-        url_storage: null,
-        ruta_interna: fileRel,
-        hash_archivo: hash,
-        resumen_jarvis: jarvis.resumen_breve,
-        datos_detectados: jarvis.datos_detectados,
-        modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
-        cliente_probable: jarvis.cliente_probable,
-        contacto_probable: jarvis.contacto_probable,
-        tecnico_probable: jarvis.tecnico_probable,
-        patente_probable: jarvis.patente_probable,
-        ot_probable: jarvis.ot_probable,
-        jarvis_advertencias: jarvis.advertencias,
-        observacion_revision: '',
-        actor_revision: null,
-        engine_version: jarvis.version,
-        relational_engine_version: vinc.version,
-        jarvis_vinculacion: vinc,
-        cliente_id: vinc.autoClienteId,
-        contacto_id: vinc.autoContactoId,
-        vehiculo_id: vinc.autoVehiculoId,
-        tecnico_id: vinc.autoTecnicoId,
-        historial_revision,
-        texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
-        estado_operativo: 'pendiente',
-        responsable_asignado: null,
-        ot_id_vinculada: null,
-        ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
-      };
+      const row = mergeAutoResponsableSiClimaFlota(
+        mergeSlaCamposNuevoDocumento({
+          nombre_archivo: name,
+          tipo_archivo: mime,
+          categoria_detectada: jarvis.categoria_detectada,
+          entidad_relacionada_tipo: body.entidad_relacionada_tipo || null,
+          entidad_relacionada_id: body.entidad_relacionada_id || null,
+          clasificado_por_jarvis: true,
+          confianza_jarvis: jarvis.confianza_clasificacion,
+          estado_revision: 'pendiente_revision',
+          etiquetas: Array.isArray(body.etiquetas) ? body.etiquetas : [],
+          fecha_subida: new Date().toISOString(),
+          subido_por: actor,
+          url_storage: null,
+          ruta_interna: fileRel,
+          hash_archivo: hash,
+          resumen_jarvis: jarvis.resumen_breve,
+          datos_detectados: jarvis.datos_detectados,
+          modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
+          cliente_probable: jarvis.cliente_probable,
+          contacto_probable: jarvis.contacto_probable,
+          tecnico_probable: jarvis.tecnico_probable,
+          patente_probable: jarvis.patente_probable,
+          ot_probable: jarvis.ot_probable,
+          jarvis_advertencias: jarvis.advertencias,
+          observacion_revision: '',
+          actor_revision: null,
+          engine_version: jarvis.version,
+          relational_engine_version: vinc.version,
+          jarvis_vinculacion: vinc,
+          cliente_id: vinc.autoClienteId,
+          contacto_id: vinc.autoContactoId,
+          vehiculo_id: vinc.autoVehiculoId,
+          tecnico_id: vinc.autoTecnicoId,
+          historial_revision,
+          texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
+          estado_operativo: 'pendiente',
+          responsable_asignado: null,
+          ot_id_vinculada: null,
+          ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
+        })
+      );
 
       const created = await maestroDocumentoRepository.create(row, actor);
       created.url_descarga = `/maestro/documentos/${encodeURIComponent(created.id)}/descarga`;
@@ -968,6 +1048,8 @@ export const maestroService = {
    * Fase 1: respuesta automática solo como texto sugerido en JSON (sin envío por API externa).
    */
   async ingestExternoCanal(body, actor) {
+    const bloqueo = await this.assertIngestionNoBloqueado(body);
+    if (bloqueo?.errors) return bloqueo;
     const canal = String(body?.canal || '').toLowerCase().trim();
     if (!['whatsapp', 'correo'].includes(canal)) return { errors: ['canal debe ser whatsapp|correo'] };
     const origen = String(body?.origen || '').trim().slice(0, 320);
@@ -1049,55 +1131,57 @@ export const maestroService = {
         actor
       );
 
-      const row = {
-        nombre_archivo: it.name,
-        tipo_archivo: it.mime,
-        categoria_detectada: jarvis.categoria_detectada,
-        entidad_relacionada_tipo: null,
-        entidad_relacionada_id: null,
-        clasificado_por_jarvis: true,
-        confianza_jarvis: jarvis.confianza_clasificacion,
-        estado_revision: 'pendiente_revision',
-        etiquetas: ['intake_externo', canal],
-        fecha_subida: now,
-        subido_por: actor,
-        url_storage: null,
-        ruta_interna: fileRel,
-        hash_archivo: hash,
-        resumen_jarvis: jarvis.resumen_breve,
-        datos_detectados: jarvis.datos_detectados,
-        modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
-        cliente_probable: jarvis.cliente_probable,
-        contacto_probable: jarvis.contacto_probable,
-        tecnico_probable: jarvis.tecnico_probable,
-        patente_probable: jarvis.patente_probable,
-        ot_probable: jarvis.ot_probable,
-        jarvis_advertencias: jarvis.advertencias,
-        observacion_revision: '',
-        actor_revision: null,
-        engine_version: jarvis.version,
-        relational_engine_version: vinc.version,
-        jarvis_vinculacion: vinc,
-        cliente_id: vinc.autoClienteId,
-        contacto_id: vinc.autoContactoId,
-        vehiculo_id: vinc.autoVehiculoId,
-        tecnico_id: vinc.autoTecnicoId,
-        historial_revision,
-        texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
-        estado_operativo: 'pendiente',
-        responsable_asignado: null,
-        ot_id_vinculada: null,
-        intake_canal: canal,
-        intake_origen: origen,
-        mensaje_original: mensaje.slice(0, 8000),
-        intake_fecha_ingreso: now,
-        intake_fecha_primera_gestion: null,
-        tipo_solicitud_inferida: tipoSol,
-        intake_batch_id: intakeBatchId,
-        intake_adjunto_total: total,
-        intake_indice_adjunto: idx,
-        ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
-      };
+      const row = mergeAutoResponsableSiClimaFlota(
+        mergeSlaCamposNuevoDocumento({
+          nombre_archivo: it.name,
+          tipo_archivo: it.mime,
+          categoria_detectada: jarvis.categoria_detectada,
+          entidad_relacionada_tipo: null,
+          entidad_relacionada_id: null,
+          clasificado_por_jarvis: true,
+          confianza_jarvis: jarvis.confianza_clasificacion,
+          estado_revision: 'pendiente_revision',
+          etiquetas: ['intake_externo', canal],
+          fecha_subida: now,
+          subido_por: actor,
+          url_storage: null,
+          ruta_interna: fileRel,
+          hash_archivo: hash,
+          resumen_jarvis: jarvis.resumen_breve,
+          datos_detectados: jarvis.datos_detectados,
+          modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
+          cliente_probable: jarvis.cliente_probable,
+          contacto_probable: jarvis.contacto_probable,
+          tecnico_probable: jarvis.tecnico_probable,
+          patente_probable: jarvis.patente_probable,
+          ot_probable: jarvis.ot_probable,
+          jarvis_advertencias: jarvis.advertencias,
+          observacion_revision: '',
+          actor_revision: null,
+          engine_version: jarvis.version,
+          relational_engine_version: vinc.version,
+          jarvis_vinculacion: vinc,
+          cliente_id: vinc.autoClienteId,
+          contacto_id: vinc.autoContactoId,
+          vehiculo_id: vinc.autoVehiculoId,
+          tecnico_id: vinc.autoTecnicoId,
+          historial_revision,
+          texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
+          estado_operativo: 'pendiente',
+          responsable_asignado: null,
+          ot_id_vinculada: null,
+          intake_canal: canal,
+          intake_origen: origen,
+          mensaje_original: mensaje.slice(0, 8000),
+          intake_fecha_ingreso: now,
+          intake_fecha_primera_gestion: null,
+          tipo_solicitud_inferida: tipoSol,
+          intake_batch_id: intakeBatchId,
+          intake_adjunto_total: total,
+          intake_indice_adjunto: idx,
+          ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
+        })
+      );
 
       const created = await maestroDocumentoRepository.create(row, actor);
       created.url_descarga = `/maestro/documentos/${encodeURIComponent(created.id)}/descarga`;
@@ -1425,6 +1509,11 @@ export const maestroService = {
       next.bandeja_destino = rMan.bandeja_destino;
       next.clasificacion_fuente = 'manual';
     }
+    if (String(cur.clasificacion_fuente || 'jarvis') !== 'manual') {
+      const auto = responsableAutoPorDestino(next.destino_final);
+      if (auto) Object.assign(next, auto);
+      else next.responsable_auto_asignado = false;
+    }
     return maestroDocumentoRepository.update(id, next, actor);
   },
 
@@ -1453,6 +1542,9 @@ export const maestroService = {
     }).slice(0, 1950);
     const historial_revision = appendHistorialRevision(cur, 'correccion_destino_jarvis', detalle, actorEff);
 
+    const autoResp = responsableAutoPorDestino(nuevo);
+    const responsableSlaPatch = autoResp || { responsable_auto_asignado: false };
+
     const updated = await maestroDocumentoRepository.update(
       id,
       {
@@ -1466,6 +1558,7 @@ export const maestroService = {
         corrected_at: now,
         corrected_by: actorEff,
         historial_revision,
+        ...responsableSlaPatch,
       },
       actorEff
     );
@@ -1475,6 +1568,7 @@ export const maestroService = {
   async listBandejaResponsable(slug, query = {}) {
     const key = String(slug || '').toLowerCase();
     if (!['romina', 'gery', 'lyn', 'admin'].includes(key)) return { errors: ['bandeja inválida'] };
+    await this.sweepSlaSiCorresponde();
     const all = await maestroDocumentoRepository.findAll();
     const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 300);
     const offset = Math.max(Number(query.offset) || 0, 0);
@@ -1528,6 +1622,7 @@ export const maestroService = {
         intake_fecha_primera_gestion: rest.intake_fecha_primera_gestion || null,
         tiempo_hasta_gestion_segundos: tiempoHastaGestionSegundos(rest),
         intake_batch_id: rest.intake_batch_id || null,
+        ...enrichDocumentoSlaVista(d),
       };
     });
 
@@ -1543,13 +1638,20 @@ export const maestroService = {
       rows = rows.filter((d) => String(d.estado_revision || '').toLowerCase() === 'aprobado');
     }
 
-    rows.sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+    const slaOrden = { urgente: 0, riesgo: 1, normal: 2 };
+    rows.sort((a, b) => {
+      const pa = slaOrden[String(a.sla_indicador || '').toLowerCase()] ?? 2;
+      const pb = slaOrden[String(b.sla_indicador || '').toLowerCase()] ?? 2;
+      if (pa !== pb) return pa - pb;
+      return String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt));
+    });
     const total = rows.length;
     const slice = rows.slice(offset, offset + limit);
     return { total, limit, offset, documentos: slice };
   },
 
   async getResumenIntakeMaestroDocumentos() {
+    await this.sweepSlaSiCorresponde();
     const all = await maestroDocumentoRepository.findAll();
     const ots = await otRepository.findAll();
     const otById = new Map(ots.map((o) => [o.id, o]));
@@ -1560,6 +1662,8 @@ export const maestroService = {
     const ejemplos = [];
     let operativo_pendientes_reales = 0;
     let operativo_en_proceso = 0;
+    let operativo_vencidos_sla = 0;
+    const segundosGestionMuestra = [];
     const idsCerradosHoy = new Set();
 
     for (const d of all) {
@@ -1581,7 +1685,10 @@ export const maestroService = {
         const eo = String(d.estado_operativo || 'pendiente').toLowerCase();
         if (eo === 'pendiente') operativo_pendientes_reales += 1;
         else if (eo === 'en_proceso') operativo_en_proceso += 1;
+        if (computeSlaIndicador(d).indicador === 'urgente') operativo_vencidos_sla += 1;
       }
+      const tg = tiempoHastaGestionSegundos(d);
+      if (tg != null) segundosGestionMuestra.push(tg);
       const eo2 = String(d.estado_operativo || '').toLowerCase();
       if (eo2 === 'cerrado' && String(d.updatedAt || '').slice(0, 10) === today) {
         idsCerradosHoy.add(d.id);
@@ -1614,6 +1721,10 @@ export const maestroService = {
       }
     }
 
+    const sumSeg = segundosGestionMuestra.reduce((acc, n) => acc + n, 0);
+    const nG = segundosGestionMuestra.length;
+    const tiempo_promedio_gestion_segundos = nG ? Math.round(sumSeg / nG) : null;
+
     return {
       pendientes_romina: pend.romina,
       pendientes_gery: pend.gery,
@@ -1623,6 +1734,8 @@ export const maestroService = {
       ejemplos_correccion: ejemplos,
       operativo_pendientes_reales: operativo_pendientes_reales,
       operativo_en_proceso: operativo_en_proceso,
+      operativo_vencidos_sla,
+      tiempo_promedio_gestion_segundos,
       operativo_cerrados_hoy: idsCerradosHoy.size,
     };
   },

@@ -23,6 +23,17 @@ import { createHnfEnvironmentContinuityPanel } from '../components/hnf-environme
 import { createHnfJarvisPremiumCommand } from '../components/hnf-jarvis-premium.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
 
+function fmtPromedioGestionSeg(s) {
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0) return '—';
+  if (n < 60) return `${Math.round(n)} s`;
+  const min = Math.round(n / 60);
+  if (min < 120) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const rm = min % 60;
+  return `${h} h ${rm} min`;
+}
+
 function buildMaestroIntakeOperativoStrip(io) {
   if (!io || typeof io !== 'object') return null;
   const wrap = document.createElement('div');
@@ -39,6 +50,8 @@ function buildMaestroIntakeOperativoStrip(io) {
     `Pendientes Lyn: ${io.pendientes_lyn ?? '—'}`,
     `Pendientes operativos (documentos): ${io.operativo_pendientes_reales ?? '—'}`,
     `En proceso (documentos): ${io.operativo_en_proceso ?? '—'}`,
+    `Vencidos SLA (🔴): ${io.operativo_vencidos_sla ?? '—'}`,
+    `Tiempo promedio hasta 1.ª gestión: ${fmtPromedioGestionSeg(io.tiempo_promedio_gestion_segundos)}`,
     `Cerrados hoy (documento / OT vinculada): ${io.operativo_cerrados_hoy ?? '—'}`,
     `Documentos con destino corregido hoy: ${io.documentos_destino_corregido_hoy ?? '—'}`,
     `Revisión manual sugerida: ${io.revision_manual_sugerida ?? '—'}`,

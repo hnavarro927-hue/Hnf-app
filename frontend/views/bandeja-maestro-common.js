@@ -58,19 +58,32 @@ function section(title) {
   return h;
 }
 
+function ordenSlaDoc(a, b) {
+  const o = { urgente: 0, riesgo: 1, normal: 2 };
+  const pa = o[String(a.sla_indicador || '').toLowerCase()] ?? 2;
+  const pb = o[String(b.sla_indicador || '').toLowerCase()] ?? 2;
+  if (pa !== pb) return pa - pb;
+  return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''));
+}
+
 function renderDocRow(d, { offline, showFb, navigateToView, reloadApp, onChanged }) {
   const row = document.createElement('article');
   row.className = 'tarjeta hnf-bandeja-maestro__row';
   row.dataset.docId = d.id;
+  const sla = String(d.sla_indicador || 'normal').toLowerCase();
+  row.dataset.slaIndicador = sla;
+  if (sla === 'urgente') row.classList.add('hnf-bandeja-maestro__row--sla-urgente');
+  else if (sla === 'riesgo') row.classList.add('hnf-bandeja-maestro__row--sla-riesgo');
   const st = String(d.estado_revision || '');
   const tipo = d.tipo_archivo || d.categoria_detectada || '—';
+  const slaEmoji = d.sla_indicador_emoji ? `${d.sla_indicador_emoji} ` : '';
   const extOrigen =
     d.intake_canal === 'whatsapp'
       ? ` · WhatsApp ${esc(d.intake_origen || '')}`
       : d.intake_canal === 'correo'
         ? ` · Correo ${esc(d.intake_origen || '')}`
         : '';
-  row.innerHTML = `<header class="hnf-bandeja-maestro__hdr"><strong>${esc(d.nombre_archivo)}</strong>
+  row.innerHTML = `<header class="hnf-bandeja-maestro__hdr"><strong>${slaEmoji}${esc(d.nombre_archivo)}</strong>
     <span class="muted small">${esc(st)} · ${esc(tipo)} · ${esc(d.destino_final || '—')} → bandeja ${esc(d.bandeja_destino || '—')}${extOrigen}</span></header>
     <p class="small muted">Cliente: ${esc(probLabel(d.cliente_probable))} · Contacto: ${esc(probLabel(d.contacto_probable))} · Patente: ${esc(d.patente_probable || '—')} · Técnico: ${esc(probLabel(d.tecnico_probable))}</p>`;
 
@@ -293,7 +306,9 @@ export function createBandejaMaestroView({ slug, title, subtitle }) {
         const docs = Array.isArray(r?.documentos) ? r.documentos : [];
         host.replaceChildren();
 
-        const pend = docs.filter((x) => String(x.estado_revision).toLowerCase() !== 'aprobado');
+        const pend = docs
+          .filter((x) => String(x.estado_revision).toLowerCase() !== 'aprobado')
+          .sort(ordenSlaDoc);
         const hoy = new Date().toISOString().slice(0, 10);
         const aprHoy = docs.filter(
           (x) => String(x.estado_revision).toLowerCase() === 'aprobado' && String(x.updatedAt || '').startsWith(hoy)

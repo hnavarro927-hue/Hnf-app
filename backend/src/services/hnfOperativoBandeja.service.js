@@ -209,6 +209,7 @@ export const hnfOperativoBandejaService = {
 
     const patch = {
       responsable_asignado: responsable,
+      responsable_auto_asignado: false,
       historial_revision,
       ...intakePrimeraGestionPatch(doc),
     };

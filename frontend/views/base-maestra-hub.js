@@ -577,12 +577,20 @@ export const baseMaestraHubView = ({
     barReparar.append(rowRep);
     w.append(barReparar);
 
-    for (const d of list.slice(0, 40)) {
+    const listSla = [...list].sort((a, b) => {
+      const o = { urgente: 0, riesgo: 1, normal: 2 };
+      const pa = o[String(a.sla_indicador || '').toLowerCase()] ?? 2;
+      const pb = o[String(b.sla_indicador || '').toLowerCase()] ?? 2;
+      if (pa !== pb) return pa - pb;
+      return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''));
+    });
+    for (const d of listSla.slice(0, 40)) {
       const card = document.createElement('article');
       card.className = 'tarjeta hnf-maestro-doc-card';
       const st = ESTADO_DOC[d.estado_revision] || d.estado_revision;
       const ind = indicadorRevisionDocumento(d);
-      card.innerHTML = `<header><strong>${esc(d.nombre_archivo)}</strong> <span class="muted small">${esc(st)} · confianza ${esc(d.confianza_jarvis)}%</span></header>
+      const slaPre = d.sla_indicador_emoji ? `${d.sla_indicador_emoji} ` : '';
+      card.innerHTML = `<header><strong>${slaPre}${esc(d.nombre_archivo)}</strong> <span class="muted small">${esc(st)} · confianza ${esc(d.confianza_jarvis)}%</span></header>
         <p class="hnf-maestro-doc-ind small"><span class="hnf-maestro-doc-ind__tag">${esc(ind)}</span></p>
         <p class="small">${esc(d.resumen_jarvis || '—')}</p>
         <p class="muted small">Módulo sugerido: ${esc(d.modulo_destino_sugerido || '—')} · categoría ${esc(d.categoria_detectada || '—')}</p>`;
