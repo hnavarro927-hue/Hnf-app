@@ -17,6 +17,22 @@ const statusCopy = (integrationStatus) => {
 
 import { isTabletMode } from '../domain/jarvis-ui.js';
 
+/** Gancho visual Tech-Rebirth: acento lateral / glow en nav (sin lógica de negocio). */
+const NAV_TECH_ACCENT = {
+  jarvis: 'jarvis',
+  'ingreso-operativo': 'matrix',
+  'bandeja-canal': 'matrix',
+  clima: 'clima',
+  planificacion: 'clima',
+  flota: 'flota',
+  oportunidades: 'flota',
+  'control-gerencial': 'matrix',
+  finanzas: 'matrix',
+  equipo: 'matrix',
+  'hnf-core': 'neutral',
+  'documentos-tecnicos': 'jarvis',
+};
+
 const statusModifiers = (integrationStatus) => {
   if (integrationStatus === 'conectado') return 'shell-status--ok';
   if (integrationStatus === 'sin conexión') return 'shell-status--bad';
@@ -142,6 +158,7 @@ export const createShell = ({
     main.className = 'nav-item__label';
     main.textContent = item.label;
     button.append(icon, main);
+    button.dataset.techAccent = NAV_TECH_ACCENT[item.id] || 'neutral';
     if (item.id === activeView) {
       button.classList.add('active');
       button.setAttribute('aria-current', 'page');

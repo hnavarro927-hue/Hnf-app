@@ -24,6 +24,9 @@
   --accent-matrix-muted: rgba(255, 193, 7, 0.16);
   --accent-jarvis: #7000ff;
   --accent-jarvis-muted: rgba(112, 0, 255, 0.2);
+  --hnf-rebirth-shadow-card: 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  --hnf-nav-accent: rgba(255, 255, 255, 0.35);
+  --hnf-nav-accent-glow: rgba(255, 255, 255, 0.12);
   --accent-plan: #7000ff;
   --accent-plan-muted: var(--accent-jarvis-muted);
   --accent-admin: #7c8aa0;
@@ -20349,4 +20352,291 @@ body.hnf-op-command.hnf-op-theme--neutral #app .shell.hnf-tech-rebirth .content:
   background:
     radial-gradient(ellipse 70% 44% at 10% 0%, rgba(225, 225, 225, 0.06), transparent 56%),
     radial-gradient(ellipse 48% 36% at 92% 20%, rgba(0, 242, 255, 0.05), transparent 50%);
+}
+
+/* =============================================================================
+   HNF TECH-REBIRTH · FORCED UI (alta especificidad · solo presentación)
+   ============================================================================= */
+
+body .shell.hnf-tech-rebirth .sidebar {
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 242, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando[data-tech-accent='clima'] {
+  --hnf-nav-accent: var(--accent-clima);
+  --hnf-nav-accent-glow: rgba(0, 242, 255, 0.22);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando[data-tech-accent='flota'] {
+  --hnf-nav-accent: var(--accent-flota);
+  --hnf-nav-accent-glow: rgba(0, 255, 157, 0.2);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando[data-tech-accent='matrix'] {
+  --hnf-nav-accent: var(--accent-matrix);
+  --hnf-nav-accent-glow: rgba(255, 193, 7, 0.22);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando[data-tech-accent='jarvis'] {
+  --hnf-nav-accent: var(--accent-jarvis);
+  --hnf-nav-accent-glow: rgba(112, 0, 255, 0.28);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando[data-tech-accent='neutral'] {
+  --hnf-nav-accent: rgba(225, 225, 225, 0.55);
+  --hnf-nav-accent-glow: rgba(255, 255, 255, 0.1);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando {
+  position: relative !important;
+  border-width: 1px !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(8, 11, 18, 0.55) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  box-shadow: none;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+  pointer-events: none;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando .nav-item__icon {
+  transition:
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(12, 16, 26, 0.75) !important;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando:hover .nav-item__icon {
+  color: var(--hnf-nav-accent);
+  border-color: color-mix(in srgb, var(--hnf-nav-accent) 35%, transparent);
+  box-shadow: 0 0 18px var(--hnf-nav-accent-glow);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando.active {
+  border-color: color-mix(in srgb, var(--hnf-nav-accent) 45%, rgba(255, 255, 255, 0.08)) !important;
+  background: color-mix(in srgb, var(--hnf-nav-accent) 8%, rgba(8, 11, 18, 0.85)) !important;
+  box-shadow:
+    0 0 32px var(--hnf-nav-accent-glow),
+    inset 0 0 0 1px color-mix(in srgb, var(--hnf-nav-accent) 15%, transparent) !important;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando.active::before {
+  background: var(--hnf-nav-accent);
+  box-shadow: 0 0 22px var(--hnf-nav-accent-glow);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando.active .nav-item__icon {
+  color: var(--hnf-nav-accent);
+  border-color: color-mix(in srgb, var(--hnf-nav-accent) 40%, transparent);
+  box-shadow: 0 0 20px var(--hnf-nav-accent-glow);
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando .nav-item__label {
+  color: var(--text) !important;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item--mando.active .nav-item__label {
+  color: var(--text) !important;
+}
+
+body.hnf-op-command #app .shell.hnf-tech-rebirth .content {
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: var(--hnf-rebirth-shadow-card) !important;
+}
+
+body.hnf-op-command .hnf-op-view--clima .hnf-clima__stats .card,
+body.hnf-op-command .hnf-op-view--clima .hnf-clima__stats .card.hnf-live-card {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-top: 3px solid var(--accent-clima) !important;
+  box-shadow: var(--hnf-rebirth-shadow-card) !important;
+}
+
+body.hnf-op-command .hnf-op-view--flota .hnf-flota__hero .card,
+body.hnf-op-command .hnf-op-view--flota .hnf-flota__hero .card.hnf-live-card {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-top: 3px solid var(--accent-flota) !important;
+  box-shadow: var(--hnf-rebirth-shadow-card) !important;
+}
+
+body.hnf-op-command .hnf-op-view--control .hnf-cap-control__kpi {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-top: 3px solid var(--accent-matrix) !important;
+  box-shadow: var(--hnf-rebirth-shadow-card) !important;
+}
+
+body.hnf-op-command .module-header h2,
+body.hnf-op-command .hnf-cap-control__title {
+  font-weight: 800 !important;
+  color: var(--text) !important;
+}
+
+body.hnf-op-command .form-field__label,
+body.hnf-op-command .shell-api__label,
+body.hnf-op-command .hnf-cap-control__k {
+  font-weight: 400 !important;
+  color: var(--label-faint) !important;
+  opacity: 0.85;
+}
+
+.shell-brand__name {
+  font-weight: 800 !important;
+  color: var(--text) !important;
+}
+
+.shell-brand__product {
+  font-weight: 500 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  font-size: 10px !important;
+  color: var(--label-faint) !important;
+}
+
+.primary-button,
+.secondary-button {
+  border-radius: 8px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+}
+
+.status-badge:not(.status-badge--mode) {
+  position: relative;
+  gap: 8px;
+  padding-left: 13px !important;
+}
+
+.status-badge:not(.status-badge--mode)::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: hnf-rebirth-pulse-dot 2s ease-in-out infinite;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.status-badge--pendiente::before,
+.status-badge--nueva::before,
+.status-badge--asignada::before {
+  background: #fb923c;
+  color: #fb923c;
+}
+
+.status-badge--en-proceso::before,
+.status-badge--en_proceso::before {
+  background: var(--accent-clima);
+  color: var(--accent-clima);
+}
+
+.status-badge--pendiente_validacion::before {
+  background: var(--accent-matrix);
+  color: var(--accent-matrix);
+}
+
+.status-badge--completado::before,
+.status-badge--terminado::before,
+.status-badge--cerrada::before {
+  background: var(--accent-flota);
+  color: var(--accent-flota);
+  animation: hnf-rebirth-pulse-dot 3.2s ease-in-out infinite;
+}
+
+.status-badge--critico::before {
+  background: #f87171;
+  color: #f87171;
+}
+
+.hnf-jarvis-premium__ot-badge {
+  position: relative;
+  gap: 6px;
+  padding-left: 14px !important;
+  border-radius: 8px !important;
+}
+
+.hnf-jarvis-premium__ot-badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: hnf-rebirth-pulse-dot 2.1s ease-in-out infinite;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hnf-jarvis-premium__ot-badge--nueva::before {
+  background: var(--accent-matrix);
+  color: var(--accent-matrix);
+}
+
+.hnf-jarvis-premium__ot-badge--proceso::before {
+  background: var(--accent-clima);
+  color: var(--accent-clima);
+}
+
+.hnf-jarvis-premium__ot-badge--terminada::before {
+  background: var(--accent-flota);
+  color: var(--accent-flota);
+}
+
+.hnf-jarvis-premium__ot-badge--urgente::before {
+  background: #f87171;
+  color: #f87171;
+}
+
+.hnf-jarvis-premium__hero-headline {
+  font-weight: 800 !important;
+  background: linear-gradient(
+    155deg,
+    #f8fafc 0%,
+    #94a3b8 28%,
+    #00f2ff 42%,
+    #e2e8f0 58%,
+    #cbd5e1 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  filter: drop-shadow(0 0 28px rgba(0, 242, 255, 0.18)) drop-shadow(0 2px 20px rgba(112, 0, 255, 0.12)) !important;
+}
+
+.hnf-jarvis-premium__hero-sub {
+  letter-spacing: 0.28em !important;
+  font-weight: 400 !important;
+}
+
+@supports not (color: color-mix(in srgb, white 50%, black)) {
+  #app .shell.hnf-tech-rebirth .nav-item--mando.active {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  #app .shell.hnf-tech-rebirth .nav-item--mando:hover .nav-item__icon,
+  #app .shell.hnf-tech-rebirth .nav-item--mando.active .nav-item__icon {
+    box-shadow: 0 0 16px rgba(0, 242, 255, 0.25);
+  }
 }
