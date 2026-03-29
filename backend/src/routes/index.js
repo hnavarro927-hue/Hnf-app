@@ -18,6 +18,7 @@ import { vehicleRoutes } from './vehicle.routes.js';
 import { hnfCoreSolicitudRoutes } from './hnfCoreSolicitud.routes.js';
 import { hnfOperativoIntegradoRoutes } from './hnfOperativoIntegrado.routes.js';
 import { maestroRoutes } from './maestro.routes.js';
+import { operativoBandejaRoutes } from './operativoBandeja.routes.js';
 
 export const routes = [
   ...healthRoutes,
@@ -40,4 +41,5 @@ export const routes = [
   ...hnfCoreSolicitudRoutes,
   ...hnfOperativoIntegradoRoutes,
   ...maestroRoutes,
+  ...operativoBandejaRoutes,
 ];

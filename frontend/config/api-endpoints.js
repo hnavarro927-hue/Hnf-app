@@ -30,4 +30,7 @@ export const apiEndpoints = {
   maestroDocumentosRepararVinculos: '/maestro/documentos/reparar-vinculos',
   maestroBandeja: '/maestro/bandeja',
   maestroIntakeOperativoResumen: '/maestro/intake-operativo/resumen',
+  operativoCrearOtDesdeDocumento: '/operativo/crear-ot-desde-documento',
+  operativoAsignar: '/operativo/asignar',
+  operativoMarcarGestionado: '/operativo/marcar-gestionado',
 };

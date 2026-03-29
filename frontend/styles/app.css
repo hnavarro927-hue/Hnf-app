@@ -23357,6 +23357,16 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
   align-items: center;
   margin-top: 0.35rem;
 }
+.hnf-bandeja-maestro__op-meta {
+  margin: 0.35rem 0 0.15rem;
+}
+.hnf-bandeja-maestro__op {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0.25rem 0 0.5rem;
+}
 .jarvis-hq__maestro-intake {
   margin-bottom: 0.65rem;
   padding: 0.65rem 0.85rem;

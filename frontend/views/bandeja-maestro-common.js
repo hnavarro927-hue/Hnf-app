@@ -4,6 +4,7 @@
 
 import { getStoredOperatorName } from '../config/operator.config.js';
 import { maestroService } from '../services/maestro.service.js';
+import { operativoBandejaService } from '../services/operativo-bandeja.service.js';
 
 const esc = (s) =>
   String(s ?? '')
@@ -34,6 +35,22 @@ function probLabel(x) {
   return x.nombre || x.nombre_contacto || x.patente || x.id || '—';
 }
 
+function labelEstadoOp(eo) {
+  const m = {
+    pendiente: 'Pendiente',
+    en_proceso: 'En proceso',
+    gestionado: 'Gestionado',
+    cerrado: 'Cerrado',
+  };
+  return m[String(eo || 'pendiente').toLowerCase()] || eo || '—';
+}
+
+function labelRespAsignado(r) {
+  if (!r) return '—';
+  const m = { romina: 'Romina', gery: 'Gery', lyn: 'Lyn' };
+  return m[String(r).toLowerCase()] || r;
+}
+
 function section(title) {
   const h = document.createElement('h3');
   h.className = 'hnf-bandeja-maestro__h';
@@ -50,6 +67,90 @@ function renderDocRow(d, { offline, showFb, navigateToView, reloadApp, onChanged
   row.innerHTML = `<header class="hnf-bandeja-maestro__hdr"><strong>${esc(d.nombre_archivo)}</strong>
     <span class="muted small">${esc(st)} · ${esc(tipo)} · ${esc(d.destino_final || '—')} → bandeja ${esc(d.bandeja_destino || '—')}</span></header>
     <p class="small muted">Cliente: ${esc(probLabel(d.cliente_probable))} · Contacto: ${esc(probLabel(d.contacto_probable))} · Patente: ${esc(d.patente_probable || '—')} · Técnico: ${esc(probLabel(d.tecnico_probable))}</p>`;
+
+  const eo = String(d.estado_operativo || 'pendiente').toLowerCase();
+  const opMeta = document.createElement('p');
+  opMeta.className = 'small hnf-bandeja-maestro__op-meta';
+  opMeta.innerHTML = `Estado operativo: <strong>${esc(labelEstadoOp(eo))}</strong> · Responsable asignado: <strong>${esc(labelRespAsignado(d.responsable_asignado))}</strong> · OT vinculada: <strong>${esc(d.ot_id_vinculada || '—')}</strong>`;
+  row.querySelector('.hnf-bandeja-maestro__hdr')?.after(opMeta);
+
+  const opAct = document.createElement('div');
+  opAct.className = 'hnf-bandeja-maestro__op';
+
+  const mk = (label, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'secondary-button';
+    b.textContent = label;
+    b.disabled = offline;
+    b.addEventListener('click', fn);
+    return b;
+  };
+
+  const bOt = mk('Crear OT', async () => {
+    try {
+      const r = await operativoBandejaService.crearOtDesdeDocumento(d.id);
+      const otId = r?.ot?.id;
+      showFb(otId ? `OT ${otId} creada y vinculada al documento.` : 'OT creada.');
+      await reloadApp?.();
+      await onChanged?.();
+      if (otId && typeof navigateToView === 'function') navigateToView('clima', { otId });
+    } catch (e) {
+      showFb(e.message || 'Error', true);
+    }
+  });
+  bOt.disabled = offline || Boolean(d.ot_id_vinculada);
+
+  const assignSel = document.createElement('select');
+  assignSel.className = 'hnf-cap-ingreso__input';
+  assignSel.setAttribute('aria-label', 'Responsable a asignar');
+  for (const x of [
+    { v: 'romina', l: 'Romina' },
+    { v: 'gery', l: 'Gery' },
+    { v: 'lyn', l: 'Lyn' },
+  ]) {
+    const o = document.createElement('option');
+    o.value = x.v;
+    o.textContent = x.l;
+    assignSel.append(o);
+  }
+  const ra = String(d.responsable_asignado || '').toLowerCase();
+  if (['romina', 'gery', 'lyn'].includes(ra)) assignSel.value = ra;
+
+  const bAsig = mk('Asignar responsable', async () => {
+    try {
+      await operativoBandejaService.asignarDocumento({
+        documento_id: d.id,
+        responsable: assignSel.value,
+      });
+      showFb('Responsable asignado.');
+      await reloadApp?.();
+      await onChanged?.();
+    } catch (e) {
+      showFb(e.message || 'Error', true);
+    }
+  });
+
+  const bGest = mk('Marcar como gestionado', async () => {
+    try {
+      await operativoBandejaService.marcarGestionado(d.id);
+      showFb('Documento marcado como gestionado.');
+      await reloadApp?.();
+      await onChanged?.();
+    } catch (e) {
+      showFb(e.message || 'Error', true);
+    }
+  });
+  bGest.disabled = offline || eo === 'gestionado' || eo === 'cerrado';
+
+  opAct.append(
+    document.createTextNode('Acciones: '),
+    bOt,
+    assignSel,
+    bAsig,
+    bGest
+  );
+  opMeta.after(opAct);
 
   const corr = document.createElement('div');
   corr.className = 'hnf-bandeja-maestro__corr muted small';
@@ -98,16 +199,6 @@ function renderDocRow(d, { offline, showFb, navigateToView, reloadApp, onChanged
 
   const act = document.createElement('div');
   act.className = 'hnf-bandeja-maestro__act';
-
-  const mk = (label, fn) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'secondary-button';
-    b.textContent = label;
-    b.disabled = offline;
-    b.addEventListener('click', fn);
-    return b;
-  };
 
   act.append(
     mk('Abrir Base maestra', () => navigateToView?.('base-maestra')),

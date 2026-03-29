@@ -37,6 +37,9 @@ function buildMaestroIntakeOperativoStrip(io) {
     `Pendientes Romina: ${io.pendientes_romina ?? '—'}`,
     `Pendientes Gery: ${io.pendientes_gery ?? '—'}`,
     `Pendientes Lyn: ${io.pendientes_lyn ?? '—'}`,
+    `Pendientes operativos (documentos): ${io.operativo_pendientes_reales ?? '—'}`,
+    `En proceso (documentos): ${io.operativo_en_proceso ?? '—'}`,
+    `Cerrados hoy (documento / OT vinculada): ${io.operativo_cerrados_hoy ?? '—'}`,
     `Documentos con destino corregido hoy: ${io.documentos_destino_corregido_hoy ?? '—'}`,
     `Revisión manual sugerida: ${io.revision_manual_sugerida ?? '—'}`,
   ];

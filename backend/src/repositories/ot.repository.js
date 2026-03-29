@@ -106,6 +106,15 @@ const ensureDefaults = (item) => {
     fotografiasDespues: Array.isArray(item.fotografiasDespues) ? item.fotografiasDespues : [],
     jarvisIntakeTrace:
       item.jarvisIntakeTrace && typeof item.jarvisIntakeTrace === 'object' ? item.jarvisIntakeTrace : null,
+    estadoOperativo: (() => {
+      const e = String(item.estadoOperativo || '').toLowerCase().trim();
+      if (['pendiente', 'en_proceso', 'gestionado', 'cerrado'].includes(e)) return e;
+      return null;
+    })(),
+    maestroDocumentoOrigenId:
+      item.maestroDocumentoOrigenId != null && String(item.maestroDocumentoOrigenId).trim()
+        ? String(item.maestroDocumentoOrigenId).trim()
+        : null,
     costoMateriales: item.costoMateriales ?? 0,
     costoManoObra: item.costoManoObra ?? 0,
     costoTraslado: item.costoTraslado ?? 0,
@@ -382,6 +391,36 @@ export const otRepository = {
     if (next.length === items.length) return null;
     await saveStore(next);
     return true;
+  },
+
+  async patchEstadoOperativoYDocumentoOrigen(id, fields, actor = 'sistema') {
+    const items = await loadStore();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    let updated = { ...ensureDefaults(items[index]) };
+    const allowed = ['pendiente', 'en_proceso', 'gestionado', 'cerrado'];
+    if (fields && fields.estadoOperativo != null) {
+      const e = String(fields.estadoOperativo).toLowerCase().trim();
+      if (allowed.includes(e)) {
+        updated.estadoOperativo = e;
+      }
+    }
+    if (fields && fields.maestroDocumentoOrigenId != null) {
+      const m = String(fields.maestroDocumentoOrigenId || '').trim();
+      updated.maestroDocumentoOrigenId = m || null;
+    }
+    updated = touch(
+      updated,
+      'bandeja_maestro',
+      `Estado operativo / vínculo documento: ${JSON.stringify(fields || {}).slice(0, 200)}`,
+      actor
+    );
+    updated = ensureDefaults(updated);
+    const next = [...items];
+    next[index] = updated;
+    await saveStore(next);
+    return updated;
   },
 
   async patchCore(id, patch, actor = 'sistema') {

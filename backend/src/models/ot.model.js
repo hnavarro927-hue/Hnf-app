@@ -61,6 +61,10 @@ export const otModel = {
     'fotografiasDespues',
     /** Trazabilidad Motor Jarvis Operativo v1 (objeto JSON, backward compatible) */
     'jarvisIntakeTrace',
+    /** Bandeja Base Maestra: pendiente | en_proceso | gestionado | cerrado */
+    'estadoOperativo',
+    /** Documento MDOC-* que originó la OT (si aplica) */
+    'maestroDocumentoOrigenId',
   ],
   statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada'],
   origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],

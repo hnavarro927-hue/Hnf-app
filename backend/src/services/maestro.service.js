@@ -14,6 +14,7 @@ import { hnfInternalDirectoryRepository } from '../repositories/hnfInternalDirec
 import { maestroConductorRepository } from '../repositories/maestroConductor.repository.js';
 import { maestroContactoRepository } from '../repositories/maestroContacto.repository.js';
 import { maestroDocumentoRepository } from '../repositories/maestroDocumento.repository.js';
+import { otRepository } from '../repositories/ot.repository.js';
 import { maestroTecnicoRepository } from '../repositories/maestroTecnico.repository.js';
 import { maestroVehiculoRepository } from '../repositories/maestroVehiculo.repository.js';
 import {
@@ -26,6 +27,7 @@ import {
   resolveBandejaFinal,
 } from '../domain/maestro-document-destino.engine.js';
 import { hnfOperativoIntegradoService } from './hnfOperativoIntegrado.service.js';
+import { isOtCerrada } from '../utils/otEstado.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_ROOT = path.resolve(__dirname, '../../data');
@@ -933,6 +935,9 @@ export const maestroService = {
         tecnico_id: vinc.autoTecnicoId,
         historial_revision,
         texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
+        estado_operativo: 'pendiente',
+        responsable_asignado: null,
+        ot_id_vinculada: null,
         ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
       };
 
@@ -1345,6 +1350,9 @@ export const maestroService = {
         aprobado_hoy:
           String(rest.estado_revision || '').toLowerCase() === 'aprobado' &&
           String(rest.updatedAt || '').slice(0, 10) === today,
+        estado_operativo: String(rest.estado_operativo || 'pendiente').toLowerCase(),
+        responsable_asignado: rest.responsable_asignado || null,
+        ot_id_vinculada: rest.ot_id_vinculada || null,
       };
     });
 
@@ -1368,11 +1376,16 @@ export const maestroService = {
 
   async getResumenIntakeMaestroDocumentos() {
     const all = await maestroDocumentoRepository.findAll();
+    const ots = await otRepository.findAll();
+    const otById = new Map(ots.map((o) => [o.id, o]));
     const today = new Date().toISOString().slice(0, 10);
     const pend = { romina: 0, gery: 0, lyn: 0 };
     let revision_manual_sugerida = 0;
     const idsCorregidosHoy = new Set();
     const ejemplos = [];
+    let operativo_pendientes_reales = 0;
+    let operativo_en_proceso = 0;
+    const idsCerradosHoy = new Set();
 
     for (const d of all) {
       const c = computeDestinoFieldsForDocument(d);
@@ -1386,6 +1399,24 @@ export const maestroService = {
         if (b === 'romina') pend.romina += 1;
         else if (b === 'gery') pend.gery += 1;
         else if (b === 'lyn') pend.lyn += 1;
+      }
+
+      const er = String(d.estado_revision || '').toLowerCase();
+      if (er !== 'archivado') {
+        const eo = String(d.estado_operativo || 'pendiente').toLowerCase();
+        if (eo === 'pendiente') operativo_pendientes_reales += 1;
+        else if (eo === 'en_proceso') operativo_en_proceso += 1;
+      }
+      const eo2 = String(d.estado_operativo || '').toLowerCase();
+      if (eo2 === 'cerrado' && String(d.updatedAt || '').slice(0, 10) === today) {
+        idsCerradosHoy.add(d.id);
+      }
+      const oid = d.ot_id_vinculada;
+      if (oid) {
+        const ot = otById.get(oid);
+        if (ot && isOtCerrada(ot.estado) && String(ot.cerradoEn || '').slice(0, 10) === today) {
+          idsCerradosHoy.add(d.id);
+        }
       }
     }
 
@@ -1415,6 +1446,9 @@ export const maestroService = {
       documentos_destino_corregido_hoy: idsCorregidosHoy.size,
       revision_manual_sugerida,
       ejemplos_correccion: ejemplos,
+      operativo_pendientes_reales: operativo_pendientes_reales,
+      operativo_en_proceso: operativo_en_proceso,
+      operativo_cerrados_hoy: idsCerradosHoy.size,
     };
   },
 };
