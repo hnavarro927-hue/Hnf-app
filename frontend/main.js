@@ -129,7 +129,7 @@ import {
   classifyOutlookMessage,
 } from './domain/outlook-intelligence.js';
 import { createHnfAutoDeployIndicator } from './components/hnf-auto-deploy-indicator.js';
-import { mountHnfJarvisOperationalRail } from './components/hnf-jarvis-operational-rail.js';
+import { mountHnfJarvisFloatingAgent } from './components/hnf-jarvis-floating-agent.js';
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   window.__HNF_DEV_CONSOLE_ERRORS__ = window.__HNF_DEV_CONSOLE_ERRORS__ || [];
@@ -154,6 +154,9 @@ const getHnfDeployIndicatorElement = () => {
   }
   return hnfDeployIndicatorCtl.element;
 };
+
+/** Persiste en document.body: no se borra cuando #app se vacía en cada render. */
+let hnfJarvisFloatingAgentSingleton = null;
 
 const exposeIntelGlobals = () => {
   window.getOperationalSnapshot = getOperationalSnapshot;
@@ -1638,14 +1641,17 @@ const render = () => {
         vp2.append(fall);
       }
 
-      if (shell.rail) {
-        mountHnfJarvisOperationalRail(shell.rail, {
+      if (typeof document !== 'undefined' && document.body) {
+        if (!hnfJarvisFloatingAgentSingleton) {
+          hnfJarvisFloatingAgentSingleton = mountHnfJarvisFloatingAgent(document.body);
+        }
+        hnfJarvisFloatingAgentSingleton.update({
           activeView: state.activeView,
           data: state.viewData,
           integrationStatus: state.integrationStatus,
-          lastDataRefreshAt: state.lastSuccessfulFetchAt,
-          navigateToView,
           selectedOTId: state.selectedOTId,
+          navigateToView,
+          intelNavigate,
         });
       }
 

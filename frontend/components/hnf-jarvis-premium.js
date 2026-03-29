@@ -428,8 +428,6 @@ export function createHnfJarvisPremiumCommand({
         });
 
   const nucleo = adn.jarvisLiveOrbit?.nucleo || {};
-  const traffic = adn.traffic || { bloqueos: 0, pendientes: 0, ok: 0, totalOt: 0 };
-  const alertas = adn.alertas || {};
 
   const estado = mapEstadoGlobal(alienDecision?.estadoGlobal);
   const level = Number(liveCmdModel?.level) || 0;
@@ -441,7 +439,6 @@ export function createHnfJarvisPremiumCommand({
 
   const alerts = Array.isArray(exec.alertasEjecutivas) ? exec.alertasEjecutivas : [];
 
-  const sinRespuestaCliente = Number(alertas.noEnviadasCliente) || 0;
   const ccMetrics = computeCommandCenterMetrics(raw, { hnfAdn: adn });
 
   const runExec = () => {
@@ -542,8 +539,8 @@ export function createHnfJarvisPremiumCommand({
   main.className = 'hnf-jarvis-premium__main';
 
   const jarvisIa = document.createElement('section');
-  jarvisIa.className = 'hnf-jarvis-hq-core';
-  jarvisIa.setAttribute('aria-label', 'Centro Jarvis · inteligencia operativa');
+  jarvisIa.className = 'hnf-jarvis-hq-core hnf-jarvis-hq-core--compact';
+  jarvisIa.setAttribute('aria-label', 'Centro Jarvis · resumen');
 
   const hqTop = document.createElement('div');
   hqTop.className = 'hnf-jarvis-hq-core__top';
@@ -553,7 +550,7 @@ export function createHnfJarvisPremiumCommand({
   iaH.textContent = 'Centro Jarvis';
   const iaSub = document.createElement('p');
   iaSub.className = 'hnf-jarvis-hq-core__subtitle';
-  iaSub.textContent = 'IA operativa · lectura del corte actual de datos';
+  iaSub.textContent = 'Resumen en portada · prioridad y riesgo en el asistente flotante';
   hqTitles.append(iaH, iaSub);
   const iaSync = document.createElement('button');
   iaSync.type = 'button';
@@ -570,127 +567,29 @@ export function createHnfJarvisPremiumCommand({
   });
   hqTop.append(hqTitles, iaSync);
 
-  const signals = document.createElement('div');
-  signals.className = 'hnf-jarvis-hq-core__signals';
-  const bloqueosN = Number(traffic.bloqueos) || ccMetrics.alertasOperativas || 0;
-  const mkSignal = (tone, label, value, hint) => {
-    const el = document.createElement('div');
-    el.className = `hnf-jarvis-hq-core__signal hnf-jarvis-hq-core__signal--${tone}`;
-    const v = document.createElement('span');
-    v.className = 'hnf-jarvis-hq-core__signal-value';
-    v.textContent = String(value);
-    const lb = document.createElement('span');
-    lb.className = 'hnf-jarvis-hq-core__signal-label';
-    lb.textContent = label;
-    const hi = document.createElement('span');
-    hi.className = 'hnf-jarvis-hq-core__signal-hint';
-    hi.textContent = hint;
-    el.append(v, lb, hi);
-    return el;
-  };
-  signals.append(
-    mkSignal('danger', 'OT en riesgo', String(ccMetrics.otEnRiesgo), 'atraso / criticidad'),
-    mkSignal('amber', 'Sin evidencia', String(ccMetrics.otSinEvidenciaCompleta), 'fotos incompletas'),
-    mkSignal('neutral', 'Bloqueos / alertas', String(bloqueosN), 'presión operativa')
+  const compactLede = document.createElement('p');
+  compactLede.className = 'hnf-jarvis-hq-core__compact-lede';
+  compactLede.textContent = truncate(
+    nucleo.siguienteAccion ||
+      exec.recomendacion ||
+      adn.recomendacion ||
+      liveCmdModel?.headline ||
+      'Operación monitoreada. Abrí el asistente flotante para prioridad, riesgo y acciones.',
+    240
   );
+  const compactHint = document.createElement('p');
+  compactHint.className = 'hnf-jarvis-hq-core__compact-hint';
+  compactHint.textContent =
+    'Prioridad, riesgo y atajos están en el asistente flotante (esquina inferior derecha), sin ocupar el tablero.';
 
-  const prioH = document.createElement('h3');
-  prioH.className = 'hnf-jarvis-hq-core__h';
-  prioH.textContent = 'Prioridades del día';
-  const prioUl = document.createElement('ul');
-  prioUl.className = 'hnf-jarvis-hq-core__priorities';
-  const prioCandidates = [];
-  if (ccMetrics.otEnRiesgo > 0) {
-    prioCandidates.push({ tone: 'danger', text: `${ccMetrics.otEnRiesgo} OT en riesgo o atraso · revisar en Clima` });
-  }
-  if (ccMetrics.otSinEvidenciaCompleta > 0) {
-    prioCandidates.push({ tone: 'amber', text: `${ccMetrics.otSinEvidenciaCompleta} OT sin evidencia completa` });
-  }
-  if (ccMetrics.otPendientesCierre > 0) {
-    prioCandidates.push({ tone: 'amber', text: `${ccMetrics.otPendientesCierre} pendiente(s) de validación` });
-  }
-  if (sinRespuestaCliente > 0) {
-    prioCandidates.push({ tone: 'amber', text: `${sinRespuestaCliente} caso(s) sin respuesta al cliente` });
-  }
-  if (ccMetrics.solicitudesNuevasHoy > 0) {
-    prioCandidates.push({ tone: 'ok', text: `${ccMetrics.solicitudesNuevasHoy} solicitud(es) flota nuevas hoy` });
-  }
-  if (!prioCandidates.length) {
-    prioCandidates.push({ tone: 'ok', text: 'Operación estable · monitoreo activo' });
-  }
-  for (const p of prioCandidates.slice(0, 3)) {
-    const li = document.createElement('li');
-    li.className = `hnf-jarvis-hq-core__priority hnf-jarvis-hq-core__priority--${p.tone}`;
-    li.textContent = p.text;
-    prioUl.append(li);
-  }
+  const btnEjecutarMando = document.createElement('button');
+  btnEjecutarMando.type = 'button';
+  btnEjecutarMando.id = 'hnf-ejecutar-propuesta-mando';
+  btnEjecutarMando.className = 'hnf-jarvis-hq-core__compact-exec';
+  btnEjecutarMando.textContent = ctaFromAccion(nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion);
+  btnEjecutarMando.addEventListener('click', runExec);
 
-  const nextWrap = document.createElement('div');
-  nextWrap.className = 'hnf-jarvis-hq-core__next-wrap';
-  const nextK = document.createElement('span');
-  nextK.className = 'hnf-jarvis-hq-core__next-k';
-  nextK.textContent = 'Siguiente acción sugerida';
-  const nextP = document.createElement('p');
-  nextP.className = 'hnf-jarvis-hq-core__next';
-  nextP.textContent = truncate(
-    nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion || liveCmdModel?.headline || 'Revisá Clima y la bandeja según prioridades arriba.',
-    140
-  );
-  nextWrap.append(nextK, nextP);
-
-  const bn = adn.bottleneck;
-  const riskLine = bn
-    ? truncate(typeof bn === 'string' ? bn : bn.label || bn.detalle || bn.titulo || '', 120)
-    : traffic.pendientes
-      ? `${traffic.pendientes} OT en tráfico pendiente`
-      : nucleo.dineroRiesgoFmt ||
-        (adn.dineroEnRiesgo
-          ? `Exposición ~$${Math.round(adn.dineroEnRiesgo).toLocaleString('es-CL')}`
-          : 'Sin riesgo principal destacado en este corte');
-  const riskWrap = document.createElement('div');
-  riskWrap.className = 'hnf-jarvis-hq-core__risk-wrap';
-  const riskK = document.createElement('span');
-  riskK.className = 'hnf-jarvis-hq-core__risk-k';
-  riskK.textContent = 'Riesgo principal detectado';
-  const riskP = document.createElement('p');
-  riskP.className = 'hnf-jarvis-hq-core__risk';
-  riskP.textContent = riskLine;
-  riskWrap.append(riskK, riskP);
-
-  const ctaRow = document.createElement('div');
-  ctaRow.className = 'hnf-jarvis-hq-core__ctas';
-  const mkCta = (label, className, fn) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = className;
-    b.textContent = label;
-    b.addEventListener('click', fn);
-    return b;
-  };
-  ctaRow.append(
-    mkCta('Abrir Clima', 'hnf-jarvis-hq-core__cta hnf-jarvis-hq-core__cta--primary', () => {
-      emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, { source: 'hq-core', view: 'clima', label: 'Abrir Clima' });
-      navigateToView?.('clima');
-    }),
-    mkCta('Revisar OT', 'hnf-jarvis-hq-core__cta hnf-jarvis-hq-core__cta--secondary', () => {
-      emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, { source: 'hq-core', view: 'clima', label: 'Revisar OT' });
-      if (typeof intelNavigate === 'function') intelNavigate({ view: 'clima' });
-      else navigateToView?.('clima');
-    }),
-    mkCta('Ver pendientes', 'hnf-jarvis-hq-core__cta hnf-jarvis-hq-core__cta--secondary', () => {
-      emitPremium(JARVIS_PREMIUM_EVENTS.MODULE_NAV, { source: 'hq-core', view: 'bandeja-canal', label: 'Ver pendientes' });
-      navigateToView?.('bandeja-canal');
-    })
-  );
-  const btnRevisar = document.createElement('button');
-  btnRevisar.type = 'button';
-  btnRevisar.id = 'hnf-ejecutar-propuesta-mando';
-  btnRevisar.className = 'hnf-jarvis-hq-core__cta hnf-jarvis-hq-core__cta--ghost';
-  btnRevisar.textContent = ctaFromAccion(nucleo.siguienteAccion || exec.recomendacion || adn.recomendacion);
-  btnRevisar.addEventListener('click', runExec);
-  ctaRow.append(btnRevisar);
-
-  jarvisIa.append(hqTop, signals, prioH, prioUl, nextWrap, riskWrap, ctaRow);
+  jarvisIa.append(hqTop, compactLede, compactHint, btnEjecutarMando);
 
   /* —— Tres portales de módulo (grandes) —— */
   const modulePortals = document.createElement('div');

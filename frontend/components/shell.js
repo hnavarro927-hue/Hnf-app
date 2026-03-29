@@ -206,12 +206,8 @@ export const createShell = ({
   viewport.setAttribute('role', 'region');
   viewport.setAttribute('aria-label', 'Contenido principal');
 
-  const rail = document.createElement('aside');
-  rail.className = 'hnf-jarvis-operational-rail';
-  rail.setAttribute('aria-label', 'Jarvis operativo');
-
-  content.append(viewport, rail);
+  content.append(viewport);
   element.append(sidebar, content);
 
-  return { element, content, viewport, rail };
+  return { element, content, viewport };
 };
