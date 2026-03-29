@@ -169,7 +169,7 @@ export const hnfCoreHubView = ({
         statEl: spanFlota,
         btns: [
           b('LOGÍSTICA', () => navigateToView?.('flota')),
-          b('LEGAL', () => navigateToView?.('flota')),
+          b('LEGA', () => navigateToView?.('flota')),
           b('TRACKING', () => navigateToView?.('flota')),
         ],
       }),
@@ -534,41 +534,28 @@ export const hnfCoreHubView = ({
   };
 
   const renderLista = () => {
-    const table = document.createElement('div');
-    table.className = 'hnf-core-list tarjeta';
+    const host = document.createElement('div');
+    host.className = 'hnf-core-list hnf-core-list--cards';
     if (!filtered.length) {
-      table.innerHTML = '<p class="muted">No hay solicitudes en tu bandeja.</p>';
-      return table;
+      const p = document.createElement('p');
+      p.className = 'muted hnf-core-list--empty';
+      p.textContent = 'No hay solicitudes en tu bandeja.';
+      host.append(p);
+      return host;
     }
-    const tb = document.createElement('table');
-    tb.className = 'hnf-core-list__table';
-    tb.innerHTML = `<thead><tr><th>ID</th><th>Cliente</th><th>Tipo</th><th>Estado</th><th>Resp.</th><th>%</th><th></th></tr></thead>`;
-    const bodyT = document.createElement('tbody');
-    for (const s of filtered) {
-      const tr = document.createElement('tr');
-      const next = nextEstadoSugerido(s);
-      tr.innerHTML = `<td>${esc(s.id)}</td><td>${esc(s.cliente)}</td><td>${esc(s.tipo)}</td><td>${esc(labelEstadoSolicitud(s.estado))}</td><td>${esc(s.responsable)}</td><td>${solicitudProgressPct(s)}%</td><td class="hnf-core-list__act"></td>`;
-      const td = tr.querySelector('.hnf-core-list__act');
-      if (next) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'secondary-button';
-        b.textContent = 'Avanzar';
-        b.addEventListener('click', async () => {
-          try {
-            await patchRemote(s.id, { estado: next });
-            showFb('Listo.');
-          } catch (e) {
-            showFb(e.message || 'Error', true);
-          }
-        });
-        td.append(b);
-      }
-      bodyT.append(tr);
-    }
-    tb.append(bodyT);
-    table.append(tb);
-    return table;
+    const head = document.createElement('p');
+    head.className = 'hnf-core-list--intro muted small';
+    head.textContent =
+      'Bandeja inteligente en cards: pipeline, semáforo y acciones iguales que en Kanban — orden por llegada en tu rol.';
+    host.append(head);
+    const grid = document.createElement('div');
+    grid.className = 'hnf-core-list__grid';
+    const sorted = [...filtered].sort((a, b) =>
+      String(a.id || '').localeCompare(String(b.id || ''), 'es', { numeric: true })
+    );
+    for (const s of sorted) grid.append(renderCard(s));
+    host.append(grid);
+    return host;
   };
 
   const renderSolicitudes = () => {

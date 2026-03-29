@@ -16723,6 +16723,52 @@ body.hnf-view--control-operativo #app {
   text-decoration: underline;
 }
 
+.hnf-core-list--cards {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 10, 18, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-core-list--intro {
+  margin: 0 0 12px;
+  max-width: 56ch;
+  line-height: 1.45;
+}
+
+.hnf-core-list--empty {
+  margin: 0;
+  padding: 1rem 0;
+}
+
+.hnf-core-list__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.hnf-core-list__grid .hnf-core-card {
+  min-height: 100%;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.25s ease,
+    border-color 0.22s ease;
+}
+
+.hnf-core-list__grid .hnf-core-card:hover {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hnf-core-list__grid .hnf-core-card:hover {
+    transform: none;
+  }
+}
+
 .hnf-core-list__table {
   width: 100%;
   border-collapse: collapse;
