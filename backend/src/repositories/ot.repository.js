@@ -120,6 +120,12 @@ const ensureDefaults = (item) => {
     costoTraslado: item.costoTraslado ?? 0,
     costoOtros: item.costoOtros ?? 0,
     montoCobrado: item.montoCobrado ?? 0,
+    montoEstimado: round2(item.montoEstimado ?? 0),
+    margenEstimado: (() => {
+      if (item.margenEstimado == null || item.margenEstimado === '') return null;
+      const n = Number.parseFloat(String(item.margenEstimado).replace(',', '.'));
+      return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+    })(),
   };
   return computeOtEconomics(base);
 };

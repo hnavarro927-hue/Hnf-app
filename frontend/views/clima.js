@@ -45,10 +45,12 @@ const OT_STATUS_OPTIONS = [
   { value: 'en_proceso', label: 'En proceso' },
   { value: 'pendiente_validacion', label: 'Pendiente validación' },
   { value: 'cerrada', label: 'Cerrada' },
+  { value: 'finalizada', label: 'Finalizada' },
+  { value: 'facturada', label: 'Facturada' },
 ];
 
 const isOtEstadoCerradaUi = (e) =>
-  ['terminado', 'cerrada', 'cerrado'].includes(String(e || '').toLowerCase());
+  ['terminado', 'cerrada', 'cerrado', 'finalizada', 'facturada'].includes(String(e || '').toLowerCase());
 
 const MAX_EQUIPOS = 12;
 const EQ_ESTADOS = ['operativo', 'mantenimiento', 'falla'];

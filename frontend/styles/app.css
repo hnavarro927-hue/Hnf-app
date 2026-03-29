@@ -23368,6 +23368,10 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
 .hnf-bandeja-maestro__op-meta {
   margin: 0.35rem 0 0.15rem;
 }
+.hnf-bandeja-maestro__ot-ok {
+  color: var(--success, #2e7d32);
+  font-weight: 600;
+}
 .hnf-bandeja-maestro__op {
   display: flex;
   flex-wrap: wrap;

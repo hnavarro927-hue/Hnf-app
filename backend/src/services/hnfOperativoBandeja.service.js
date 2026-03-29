@@ -2,7 +2,12 @@
  * Acciones operativas desde bandeja Base Maestra: OT desde documento, asignación, estado operativo.
  */
 
-import { normalizeDestinoModulo } from '../domain/maestro-document-destino.engine.js';
+import {
+  otAutoDesdeDocumentoHabilitado,
+  subtipoServicioDesdeTipoSolicitud,
+  tipoServicioOtDesdeTipoSolicitudInferida,
+  valorizacionOtDesdeTipoSolicitud,
+} from '../domain/maestro-documento-ot-valorizacion.engine.js';
 import { hnfExtendedClientRepository } from '../repositories/hnfExtendedClient.repository.js';
 import { maestroContactoRepository } from '../repositories/maestroContacto.repository.js';
 import { maestroDocumentoRepository } from '../repositories/maestroDocumento.repository.js';
@@ -26,14 +31,6 @@ function appendHistorialRevision(cur, tipo, detalle, usuario) {
     usuario: usuario || null,
   });
   return h.length > 250 ? h.slice(-250) : h;
-}
-
-function subtipoPorTipoServicio(tipo) {
-  const t = String(tipo || '').toLowerCase();
-  if (t === 'flota') return 'Revisión / seguimiento flota';
-  if (t === 'comercial') return 'Visita / gestión comercial';
-  if (t === 'administrativo') return 'Gestión administrativa';
-  return 'Visita técnica clima';
 }
 
 async function resolverContextoDesdeDocumento(doc) {
@@ -101,7 +98,112 @@ async function resolverContextoDesdeDocumento(doc) {
   };
 }
 
+/**
+ * Payload estándar para alta de OT desde documento (manual o automático).
+ */
+export function buildOtPayloadFromDocumento(doc, ctx, opts = {}) {
+  const tipoSol = doc.tipo_solicitud_inferida || 'otro';
+  const tipoServicio = tipoServicioOtDesdeTipoSolicitudInferida(
+    tipoSol,
+    doc.destino_final || doc.modulo_destino_sugerido
+  );
+  const subtipoServicio = subtipoServicioDesdeTipoSolicitud(tipoSol);
+  const { montoEstimado, margenEstimado } = valorizacionOtDesdeTipoSolicitud(tipoSol);
+
+  const now = new Date();
+  const fecha = now.toISOString().slice(0, 10);
+  const hora = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const obsLines = [
+    `OT generada desde documento Base Maestra ${doc.id}.`,
+    `Archivo: ${doc.nombre_archivo || '—'}`,
+    doc.resumen_jarvis ? `Resumen Jarvis: ${String(doc.resumen_jarvis).slice(0, 500)}` : '',
+    String(tipoSol) && String(tipoSol).toLowerCase() !== 'otro' ? `Tipo solicitud inferida: ${tipoSol}` : '',
+  ].filter(Boolean);
+
+  const origenPedido = opts.origenPedido || 'documento_maestro';
+  const operationMode = opts.operationMode || 'manual';
+
+  return {
+    cliente: ctx.payloadCliente,
+    clienteRelacionado: ctx.clienteRelacionado,
+    vehiculoRelacionado: ctx.vehiculoRelacionado,
+    direccion: ctx.direccion,
+    comuna: ctx.comuna,
+    contactoTerreno: ctx.contactoTerreno,
+    telefonoContacto: ctx.telefonoContacto,
+    tipoServicio,
+    subtipoServicio,
+    origenSolicitud: 'interno',
+    origenPedido,
+    prioridadOperativa: 'media',
+    fecha,
+    hora,
+    observaciones: obsLines.join('\n'),
+    operationMode,
+    montoEstimado,
+    margenEstimado,
+    estadoCoreOverride: opts.estadoCoreOverride,
+  };
+}
+
+async function tryAutoCrearOtParaDocumento(documentoId, actor, motivo) {
+  if (!otAutoDesdeDocumentoHabilitado()) {
+    return { skipped: true, reason: 'deshabilitado' };
+  }
+  const id = String(documentoId || '').trim();
+  const doc = await maestroDocumentoRepository.findById(id);
+  if (!doc) return { skipped: true, reason: 'no_doc' };
+  if (doc.ot_id_vinculada) return { skipped: true, reason: 'ya_vinculada' };
+
+  const ctx = await resolverContextoDesdeDocumento(doc);
+  if (!ctx.payloadCliente && !ctx.clienteRelacionado) {
+    return { skipped: true, reason: 'sin_cliente' };
+  }
+
+  const otPayload = buildOtPayloadFromDocumento(doc, ctx, {
+    origenPedido: 'jarvis',
+    operationMode: 'automatic',
+    estadoCoreOverride: 'pendiente',
+  });
+
+  const created = await otService.create(otPayload, actor);
+  if (created.errors) {
+    return { skipped: true, reason: 'create_error', errors: created.errors };
+  }
+
+  await otRepository.patchEstadoOperativoYDocumentoOrigen(
+    created.id,
+    { estadoOperativo: 'en_proceso', maestroDocumentoOrigenId: doc.id },
+    actor
+  );
+
+  const cur = await maestroDocumentoRepository.findById(id);
+  if (!cur) return { skipped: true, reason: 'no_doc' };
+
+  const historial_revision = appendHistorialRevision(
+    cur,
+    'ot_auto_jarvis',
+    JSON.stringify({ ot_id: created.id, actor, motivo, montoEstimado: created.montoEstimado }).slice(0, 1950),
+    actor
+  );
+
+  const eo = String(cur.estado_operativo || 'pendiente').toLowerCase();
+  const patchDoc = {
+    ot_id_vinculada: created.id,
+    historial_revision,
+    ...intakePrimeraGestionPatch(cur),
+  };
+  if (eo === 'pendiente') patchDoc.estado_operativo = 'en_proceso';
+
+  const updatedDoc = await maestroDocumentoRepository.update(id, patchDoc, actor);
+
+  return { ok: true, ot: created, documento: updatedDoc };
+}
+
 export const hnfOperativoBandejaService = {
+  buildOtPayloadFromDocumento,
+
   async crearOtDesdeDocumento(documentoId, actor = 'sistema') {
     const id = String(documentoId || '').trim();
     if (!id) return { errors: ['documento_id obligatorio'] };
@@ -125,35 +227,10 @@ export const hnfOperativoBandejaService = {
       };
     }
 
-    const tipoServicio = normalizeDestinoModulo(doc.destino_final || doc.modulo_destino_sugerido);
-    const now = new Date();
-    const fecha = now.toISOString().slice(0, 10);
-    const hora = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const obsLines = [
-      `OT generada desde documento Base Maestra ${doc.id}.`,
-      `Archivo: ${doc.nombre_archivo || '—'}`,
-      doc.resumen_jarvis ? `Resumen Jarvis: ${String(doc.resumen_jarvis).slice(0, 500)}` : '',
-    ].filter(Boolean);
-
-    const otPayload = {
-      cliente: ctx.payloadCliente,
-      clienteRelacionado: ctx.clienteRelacionado,
-      vehiculoRelacionado: ctx.vehiculoRelacionado,
-      direccion: ctx.direccion,
-      comuna: ctx.comuna,
-      contactoTerreno: ctx.contactoTerreno,
-      telefonoContacto: ctx.telefonoContacto,
-      tipoServicio,
-      subtipoServicio: subtipoPorTipoServicio(tipoServicio),
-      origenSolicitud: 'interno',
+    const otPayload = buildOtPayloadFromDocumento(doc, ctx, {
       origenPedido: 'documento_maestro',
-      prioridadOperativa: 'media',
-      fecha,
-      hora,
-      observaciones: obsLines.join('\n'),
       operationMode: 'manual',
-    };
+    });
 
     const created = await otService.create(otPayload, actor);
     if (created.errors) return { errors: created.errors };
@@ -217,7 +294,11 @@ export const hnfOperativoBandejaService = {
     if (eo === 'pendiente') patch.estado_operativo = 'en_proceso';
 
     const updated = await maestroDocumentoRepository.update(documento_id, patch, actor);
-    return { ok: true, documento: updated };
+
+    const auto = await tryAutoCrearOtParaDocumento(documento_id, actor, 'asignacion_responsable');
+    const documento = auto.ok && auto.documento ? auto.documento : updated;
+
+    return { ok: true, documento, ot_auto: auto.ok ? { ot: auto.ot } : undefined };
   },
 
   async marcarEstadoOperativoDocumento(documentoId, estado_operativo, actor = 'sistema') {
@@ -245,14 +326,17 @@ export const hnfOperativoBandejaService = {
 
     const updated = await maestroDocumentoRepository.update(id, patchDoc, actor);
 
-    if (doc.ot_id_vinculada) {
-      await otRepository.patchEstadoOperativoYDocumentoOrigen(
-        doc.ot_id_vinculada,
-        { estadoOperativo: eo },
-        actor
-      );
+    let documento = updated;
+    if (eo === 'en_proceso') {
+      const auto = await tryAutoCrearOtParaDocumento(id, actor, 'estado_en_proceso');
+      if (auto.ok && auto.documento) documento = auto.documento;
     }
 
-    return { ok: true, documento: updated };
+    const otId = documento.ot_id_vinculada || doc.ot_id_vinculada;
+    if (otId) {
+      await otRepository.patchEstadoOperativoYDocumentoOrigen(otId, { estadoOperativo: eo }, actor);
+    }
+
+    return { ok: true, documento };
   },
 };

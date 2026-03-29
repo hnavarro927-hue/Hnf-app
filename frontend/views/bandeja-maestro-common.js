@@ -98,7 +98,19 @@ function renderDocRow(d, { offline, showFb, navigateToView, reloadApp, onChanged
   const eo = String(d.estado_operativo || 'pendiente').toLowerCase();
   const opMeta = document.createElement('p');
   opMeta.className = 'small hnf-bandeja-maestro__op-meta';
-  opMeta.innerHTML = `Estado operativo: <strong>${esc(labelEstadoOp(eo))}</strong> · Responsable asignado: <strong>${esc(labelRespAsignado(d.responsable_asignado))}</strong> · OT vinculada: <strong>${esc(d.ot_id_vinculada || '—')}</strong>`;
+  const ors = d.ot_resumen;
+  let otExtra = '';
+  if (ors?.ot_creada && ors.ot_id) {
+    const m = Number(ors.monto_estimado || 0);
+    const mFmt = Number.isFinite(m) ? m.toLocaleString('es-CL', { maximumFractionDigits: 0 }) : '—';
+    const stOt = ors.estado_etiqueta || ors.estado || '—';
+    otExtra = ` · <span class="hnf-bandeja-maestro__ot-ok">OT creada ✔</span> <strong>${esc(ors.ot_id)}</strong> · Monto est. <strong>$${esc(mFmt)}</strong> · Estado OT: <strong>${esc(stOt)}</strong>`;
+  } else if (d.ot_id_vinculada) {
+    otExtra = ` · OT: <strong>${esc(d.ot_id_vinculada)}</strong>`;
+  } else {
+    otExtra = ' · OT vinculada: <strong>—</strong>';
+  }
+  opMeta.innerHTML = `Estado operativo: <strong>${esc(labelEstadoOp(eo))}</strong> · Responsable asignado: <strong>${esc(labelRespAsignado(d.responsable_asignado))}</strong>${otExtra}`;
   row.querySelector('.hnf-bandeja-maestro__hdr')?.after(opMeta);
 
   const opAct = document.createElement('div');

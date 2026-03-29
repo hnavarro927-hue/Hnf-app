@@ -65,8 +65,11 @@ export const otModel = {
     'estadoOperativo',
     /** Documento MDOC-* que originó la OT (si aplica) */
     'maestroDocumentoOrigenId',
+    /** Valorización automática Jarvis / intake (CLP, estimado) */
+    'montoEstimado',
+    'margenEstimado',
   ],
-  statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada'],
+  statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada', 'finalizada', 'facturada'],
   origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],
   prioridadOperativaOptions: ['alta', 'media', 'baja'],
   operationModes: ['manual', 'automatic'],

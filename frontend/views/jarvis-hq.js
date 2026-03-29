@@ -34,6 +34,12 @@ function fmtPromedioGestionSeg(s) {
   return `${h} h ${rm} min`;
 }
 
+function fmtCLP(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return '—';
+  return `$${Math.round(x).toLocaleString('es-CL', { maximumFractionDigits: 0 })}`;
+}
+
 function buildMaestroIntakeOperativoStrip(io) {
   if (!io || typeof io !== 'object') return null;
   const wrap = document.createElement('div');
@@ -52,6 +58,10 @@ function buildMaestroIntakeOperativoStrip(io) {
     `En proceso (documentos): ${io.operativo_en_proceso ?? '—'}`,
     `Vencidos SLA (🔴): ${io.operativo_vencidos_sla ?? '—'}`,
     `Tiempo promedio hasta 1.ª gestión: ${fmtPromedioGestionSeg(io.tiempo_promedio_gestion_segundos)}`,
+    `Ingresos estimados hoy (OT vinc. documento): ${fmtCLP(io.gerencial_ot_ingresos_estimados_hoy_clp)}`,
+    `Ingresos en proceso (monto est. OT abiertas): ${fmtCLP(io.gerencial_ot_ingresos_en_proceso_clp)}`,
+    `Ingresos cerrados hoy (OT): ${fmtCLP(io.gerencial_ot_ingresos_cerrados_hoy_clp)}`,
+    `Ticket promedio (OT estimada): ${fmtCLP(io.gerencial_ot_ticket_promedio_clp)}`,
     `Cerrados hoy (documento / OT vinculada): ${io.operativo_cerrados_hoy ?? '—'}`,
     `Documentos con destino corregido hoy: ${io.documentos_destino_corregido_hoy ?? '—'}`,
     `Revisión manual sugerida: ${io.revision_manual_sugerida ?? '—'}`,

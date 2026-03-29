@@ -27,7 +27,7 @@ import {
   resolveBandejaFinal,
 } from '../domain/maestro-document-destino.engine.js';
 import { hnfOperativoIntegradoService } from './hnfOperativoIntegrado.service.js';
-import { isOtCerrada } from '../utils/otEstado.js';
+import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
 import {
   aplicarModuloPorTipoSolicitud,
   inferTipoSolicitudFromText,
@@ -125,6 +125,26 @@ function mergeAutoResponsableSiClimaFlota(row) {
   const auto = responsableAutoPorDestino(dest);
   if (!auto) return { ...row, responsable_auto_asignado: Boolean(row.responsable_auto_asignado) };
   return { ...row, ...auto };
+}
+
+function enrichOtBandejaVista(ot) {
+  if (!ot) return null;
+  const n = normalizeOtEstadoStored(ot.estado);
+  let estado_etiqueta = n;
+  if (n === 'nueva' || n === 'asignada') estado_etiqueta = 'pendiente';
+  else if (n === 'en_proceso' || n === 'pendiente_validacion') estado_etiqueta = 'en_proceso';
+  else if (n === 'cerrada' || n === 'finalizada') estado_etiqueta = 'finalizada';
+  else if (n === 'facturada') estado_etiqueta = 'facturada';
+  return {
+    ot_creada: true,
+    ot_id: ot.id,
+    monto_estimado: ot.montoEstimado ?? 0,
+    margen_estimado: ot.margenEstimado ?? null,
+    estado: ot.estado,
+    estado_etiqueta,
+    estado_operativo: ot.estadoOperativo ?? null,
+    monto_cobrado: ot.montoCobrado ?? 0,
+  };
 }
 
 function enrichDocumentoSlaVista(d) {
@@ -1647,7 +1667,20 @@ export const maestroService = {
     });
     const total = rows.length;
     const slice = rows.slice(offset, offset + limit);
-    return { total, limit, offset, documentos: slice };
+    const otIds = [...new Set(slice.map((r) => r.ot_id_vinculada).filter(Boolean))];
+    const otById = new Map();
+    for (const oid of otIds) {
+      const o = await otRepository.findById(oid);
+      if (o) otById.set(oid, o);
+    }
+    const documentos = slice.map((row) => {
+      const oid = row.ot_id_vinculada;
+      if (!oid) return { ...row, ot_resumen: null };
+      const ot = otById.get(oid);
+      if (!ot) return { ...row, ot_resumen: { ot_creada: false, ot_id: oid } };
+      return { ...row, ot_resumen: enrichOtBandejaVista(ot) };
+    });
+    return { total, limit, offset, documentos };
   },
 
   async getResumenIntakeMaestroDocumentos() {
@@ -1725,6 +1758,37 @@ export const maestroService = {
     const nG = segundosGestionMuestra.length;
     const tiempo_promedio_gestion_segundos = nG ? Math.round(sumSeg / nG) : null;
 
+    const roundClp = (x) => {
+      const n = Number(x);
+      if (!Number.isFinite(n)) return 0;
+      return Math.round(Math.max(0, n));
+    };
+    const linkedOts = ots.filter((o) => o.maestroDocumentoOrigenId && String(o.maestroDocumentoOrigenId).trim());
+    let gerencial_ot_ingresos_estimados_hoy_clp = 0;
+    let gerencial_ot_ingresos_en_proceso_clp = 0;
+    let gerencial_ot_ingresos_cerrados_hoy_clp = 0;
+    const ticketsEstimados = [];
+    for (const o of linkedOts) {
+      const createdDay = String(o.createdAt || o.creadoEn || '').slice(0, 10);
+      const mEst = roundClp(o.montoEstimado);
+      if (createdDay === today) gerencial_ot_ingresos_estimados_hoy_clp += mEst;
+      if (!isOtCerrada(o.estado)) {
+        gerencial_ot_ingresos_en_proceso_clp += mEst;
+      }
+      if (isOtCerrada(o.estado)) {
+        const cerrDay = String(o.cerradoEn || o.updatedAt || '').slice(0, 10);
+        if (cerrDay === today) {
+          const cob = roundClp(o.montoCobrado);
+          gerencial_ot_ingresos_cerrados_hoy_clp += cob > 0 ? cob : mEst;
+        }
+      }
+      if (mEst > 0) ticketsEstimados.push(mEst);
+    }
+    const gerencial_ot_ticket_promedio_clp =
+      ticketsEstimados.length > 0
+        ? Math.round(ticketsEstimados.reduce((a, b) => a + b, 0) / ticketsEstimados.length)
+        : null;
+
     return {
       pendientes_romina: pend.romina,
       pendientes_gery: pend.gery,
@@ -1737,6 +1801,10 @@ export const maestroService = {
       operativo_vencidos_sla,
       tiempo_promedio_gestion_segundos,
       operativo_cerrados_hoy: idsCerradosHoy.size,
+      gerencial_ot_ingresos_estimados_hoy_clp,
+      gerencial_ot_ingresos_en_proceso_clp,
+      gerencial_ot_ingresos_cerrados_hoy_clp,
+      gerencial_ot_ticket_promedio_clp,
     };
   },
 };

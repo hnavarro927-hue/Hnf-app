@@ -14,7 +14,7 @@ import {
 import { otModel } from '../models/ot.model.js';
 import { otRepository } from '../repositories/ot.repository.js';
 import { isAdminActor } from '../utils/hnfActor.js';
-import { isOtCerrada, normalizeIncomingEstadoPatch } from '../utils/otEstado.js';
+import { isOtCierreEstricto, normalizeIncomingEstadoPatch, normalizeOtEstadoStored } from '../utils/otEstado.js';
 import {
   validateEconomicsPatch,
   validateEquiposPatchBody,
@@ -277,9 +277,26 @@ export const otService = {
     const entradaExterna = origenSolicitud === 'whatsapp';
     const pendienteRespuestaCliente = origenSolicitud === 'whatsapp';
     const bBandeja = bandejaFromTipoServicio(data.tipoServicio);
-    const estadoInicial = tecnico !== 'Por asignar' ? 'asignada' : 'nueva';
+    let estadoCore = tecnico !== 'Por asignar' ? 'asignada' : 'nueva';
+    if (data.estadoCoreOverride != null && String(data.estadoCoreOverride).trim()) {
+      const normalized = normalizeOtEstadoStored(data.estadoCoreOverride);
+      const permitidos = ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion'];
+      if (permitidos.includes(normalized)) {
+        estadoCore = normalized;
+      }
+    }
     const optionalId = data.id != null ? String(data.id).trim() : '';
     const jarvisIntakeTrace = resolveJarvisIntakeTraceForCreate(data, actor);
+
+    const montoEst = roundMoney(data.montoEstimado);
+    const margenRaw = data.margenEstimado;
+    const margenEst =
+      margenRaw != null && margenRaw !== ''
+        ? (() => {
+            const n = Number.parseFloat(String(margenRaw).replace(',', '.'));
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+          })()
+        : null;
 
     const created = await otRepository.create(
       {
@@ -307,7 +324,9 @@ export const otService = {
         pendienteRespuestaCliente,
         asignadoPor,
         responsableActual,
-        estado: estadoInicial,
+        estado: estadoCore,
+        montoEstimado: montoEst > 0 ? montoEst : 0,
+        margenEstimado: margenEst,
         fecha: data.fecha,
         hora: data.hora || '',
         observaciones: data.observaciones || '',
@@ -357,7 +376,7 @@ export const otService = {
       return { error: 'Estado inválido.' };
     }
 
-    if (isOtCerrada(estadoN)) {
+    if (isOtCierreEstricto(estadoN)) {
       const current = await otRepository.findById(id);
       if (!current) {
         return { error: 'OT no encontrada.' };

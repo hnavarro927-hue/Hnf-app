@@ -6,6 +6,8 @@ export const OT_STATUS_CANONICAL = [
   'en_proceso',
   'pendiente_validacion',
   'cerrada',
+  'finalizada',
+  'facturada',
 ];
 
 export const normalizeOtEstadoStored = (e) => {
@@ -18,6 +20,8 @@ export const normalizeOtEstadoStored = (e) => {
   if (x === 'en_proceso' || x === 'proceso') return 'en_proceso';
   if (x === 'pendiente_validacion' || x === 'pendiente_validación') return 'pendiente_validacion';
   if (x === 'terminado' || x === 'cerrada' || x === 'cerrado') return 'cerrada';
+  if (x === 'finalizada' || x === 'finalizado') return 'finalizada';
+  if (x === 'facturada' || x === 'facturado') return 'facturada';
   if (OT_STATUS_CANONICAL.includes(x)) return x;
   return 'nueva';
 };
@@ -28,4 +32,11 @@ export const normalizeIncomingEstadoPatch = (e) => {
   return normalizeOtEstadoStored(e);
 };
 
-export const isOtCerrada = (estado) => normalizeOtEstadoStored(estado) === 'cerrada';
+/** Incluye cierre operativo y etapas de facturación. */
+export const isOtCerrada = (estado) => {
+  const n = normalizeOtEstadoStored(estado);
+  return n === 'cerrada' || n === 'finalizada' || n === 'facturada';
+};
+
+/** Solo «cerrada» dispara checklist estricto (evidencias / economía) al cerrar. */
+export const isOtCierreEstricto = (estado) => normalizeOtEstadoStored(estado) === 'cerrada';
