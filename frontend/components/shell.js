@@ -103,7 +103,7 @@ export const createShell = ({
   brandName.textContent = 'HNF Servicios Integrales';
   const brandProduct = document.createElement('span');
   brandProduct.className = 'shell-brand__product';
-  brandProduct.textContent = 'HNF SISTEMAS V1.0 · Servicios integrales';
+  brandProduct.textContent = 'HNF SISTEMAS — Gestión de Activos V1.0';
   brandText.append(brandName, brandProduct);
   brand.append(mark, brandText);
 

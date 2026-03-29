@@ -11,6 +11,7 @@ import { hnfOperativoIntegradoService } from '../services/hnf-operativo-integrad
 import { otService } from '../services/ot.service.js';
 import { computeCommandCenterMetrics } from '../domain/hnf-command-center-metrics.js';
 import { createJarvisAssistantPanel } from './jarvis-assistant-panel.js';
+import { computeOtSlaTierForOperativeOt } from '../domain/hnf-ot-sla-presentation.js';
 
 let __hnfJarvisPrimaryActionFn = null;
 if (typeof window !== 'undefined' && !window.__hnfJarvisPrimaryActionWired) {
@@ -329,6 +330,7 @@ function buildOtLiveRows(raw, cards, nowMs = Date.now()) {
     const informeLabel = String(ot?.pdfUrl || '').trim() ? 'Generado' : 'Pendiente';
 
     const { ms: requestMs } = resolveOtRequestTiming(ot);
+    const slaTier = computeOtSlaTierForOperativeOt(ot, requestMs, nowMs);
     const { line: elapsedLine, minutes: elapsedMinutes } = formatElapsedSince(requestMs, nowMs);
     const solicitudLine = formatSolicitudLine(requestMs);
 
@@ -361,6 +363,7 @@ function buildOtLiveRows(raw, cards, nowMs = Date.now()) {
       elapsedLine,
       trace,
       traceabilityHook,
+      slaTier,
     };
   });
 
@@ -724,6 +727,7 @@ export function createHnfJarvisPremiumCommand({
       if (row.status.key === 'urgente') {
         article.classList.add('hnf-jarvis-premium__ot-row--urgente');
       }
+      if (row.slaTier) article.dataset.hnfSlaTier = row.slaTier;
       article.tabIndex = 0;
       article.setAttribute('role', 'button');
       article.dataset.otId = row.id;

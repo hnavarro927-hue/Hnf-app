@@ -37,6 +37,7 @@ import {
   labelOrigenSolicitud,
   labelPrioridadOperativa,
 } from '../constants/hnf-ot-operation.js';
+import { computeOtSlaTierForClimaListItem } from '../domain/hnf-ot-sla-presentation.js';
 
 const OT_STATUS_OPTIONS = [
   { value: 'nueva', label: 'Nueva' },
@@ -2351,6 +2352,8 @@ export const climaView = ({
       button.className = `ot-list__item ${selectedOT?.id === item.id ? 'is-active' : ''} ${
         isTarget ? 'is-intel-target' : ''
       }`.trim();
+      const slaTier = computeOtSlaTierForClimaListItem(item);
+      if (slaTier) button.dataset.hnfSlaTier = slaTier;
       const opMode = item.operationMode === 'automatic' ? 'automatic' : 'manual';
       button.innerHTML = `
         <div>
