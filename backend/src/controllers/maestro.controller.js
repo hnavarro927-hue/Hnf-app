@@ -133,6 +133,14 @@ export const patchMaestroDocumento = async (request, response) => {
   sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'patch' });
 };
 
+export const postMaestroDocumentoAprobar = async (request, response) => {
+  const actor = getRequestActor(request);
+  const r = await maestroService.aprobarDocumentoMaestro(request.params?.id, request.body || {}, actor);
+  if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
+  if (r.error) return sendError(response, 404, r.error);
+  sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'aprobar' });
+};
+
 export const postMaestroDocumentoReclasificar = async (request, response) => {
   const actor = getRequestActor(request);
   const r = await maestroService.reclasificarDocumento(request.params?.id, actor);

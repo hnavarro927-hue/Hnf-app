@@ -37,6 +37,10 @@ export const maestroService = {
     httpClient
       .post(`${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}/crear-entidad`, body)
       .then(data),
+  postAprobarDocumento: (id, body) =>
+    httpClient
+      .post(`${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}/aprobar`, body || {})
+      .then(data),
 
   async downloadDocumentoBlob(id) {
     const path = `${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}/descarga`;

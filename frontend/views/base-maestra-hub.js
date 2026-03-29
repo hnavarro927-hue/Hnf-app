@@ -51,6 +51,18 @@ function etiquetaEstadoVinculo(estado) {
 
 /** Indicador operativo por documento (UI Base Maestra). */
 function indicadorRevisionDocumento(d) {
+  if (String(d.estado_revision || '').toLowerCase() === 'aprobado') {
+    const u = d.ultima_aprobacion_jarvis;
+    if (u?.resumen) {
+      const creados = ['cliente', 'contacto', 'vehiculo', 'tecnico'].filter(
+        (k) => u.resumen[k]?.accion === 'creado'
+      ).length;
+      if (creados) return `Aprobado · creado por Jarvis (${creados})`;
+    }
+    const h = Array.isArray(d.historial_revision) ? d.historial_revision : [];
+    if (h.some((e) => e.tipo === 'aprobacion_documento_jarvis')) return 'Aprobado · vinculado';
+    return 'Aprobado';
+  }
   const v = d.jarvis_vinculacion || {};
   const blocks = [v.cliente, v.contacto, v.vehiculo, v.tecnico];
   if (blocks.some((b) => b?.estado === 'revision_manual_sugerida')) return 'Revisión manual sugerida';
@@ -59,6 +71,25 @@ function indicadorRevisionDocumento(d) {
   const h = Array.isArray(d.historial_revision) ? d.historial_revision : [];
   if (h.some((e) => e.tipo === 'reparacion_historica_jarvis')) return 'Reparado por Jarvis';
   return 'Pendiente';
+}
+
+function textoResumenUltimaAprobacion(d) {
+  const u = d.ultima_aprobacion_jarvis;
+  if (!u?.resumen) return '';
+  const keys = [
+    ['cliente', 'Cliente'],
+    ['contacto', 'Contacto'],
+    ['vehiculo', 'Vehículo'],
+    ['tecnico', 'Técnico'],
+  ];
+  return keys
+    .map(([k, lab]) => {
+      const r = u.resumen[k];
+      if (!r?.accion) return '';
+      return `${lab}: ${r.accion}${r.id ? ` (${r.id})` : ''}`;
+    })
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function readFileBase64(file) {
@@ -538,6 +569,13 @@ export const baseMaestraHubView = ({
       mkDetBlock('Vehículo detectado', vinc.vehiculo);
       mkDetBlock('Técnico detectado', vinc.tecnico);
       card.append(relWrap);
+      const sumApr = textoResumenUltimaAprobacion(d);
+      if (sumApr) {
+        const pSum = document.createElement('p');
+        pSum.className = 'small hnf-maestro-apr-sum';
+        pSum.textContent = `Última aprobación Jarvis: ${sumApr}`;
+        card.append(pSum);
+      }
 
       const fkRow = document.createElement('div');
       fkRow.className = 'hnf-maestro-doc-fk muted small';
@@ -733,6 +771,50 @@ export const baseMaestraHubView = ({
               origen: 'accion_usuario',
             });
             showFb('Reparación aplicada a este documento.');
+            await refresh();
+          } catch (e) {
+            showFb(e.message || 'Error', true);
+          }
+        }),
+        mkBtn('Aprobar y crear entidades', async () => {
+          try {
+            const r = await maestroService.postAprobarDocumento(d.id, {
+              auto_crear: true,
+              modo: 'seguro',
+            });
+            const rs = r?.resumen;
+            const line = rs
+              ? ['Cliente', 'Contacto', 'Vehículo', 'Técnico']
+                  .map((lab, i) => {
+                    const key = ['cliente', 'contacto', 'vehiculo', 'tecnico'][i];
+                    const x = rs[key];
+                    return `${lab}: ${x?.accion || '—'}${x?.id ? ` (${x.id})` : ''}`;
+                  })
+                  .join(' · ')
+              : '';
+            showFb(`Aprobación lista. ${line}`);
+            await refresh();
+          } catch (e) {
+            showFb(e.message || 'Error', true);
+          }
+        }),
+        mkBtn('Aprobar (agresivo)', async () => {
+          try {
+            const r = await maestroService.postAprobarDocumento(d.id, {
+              auto_crear: true,
+              modo: 'agresivo',
+            });
+            const rs = r?.resumen;
+            const line = rs
+              ? ['Cliente', 'Contacto', 'Vehículo', 'Técnico']
+                  .map((lab, i) => {
+                    const key = ['cliente', 'contacto', 'vehiculo', 'tecnico'][i];
+                    const x = rs[key];
+                    return `${lab}: ${x?.accion || '—'}${x?.id ? ` (${x.id})` : ''}`;
+                  })
+                  .join(' · ')
+              : '';
+            showFb(`Aprobación agresiva lista. ${line}`);
             await refresh();
           } catch (e) {
             showFb(e.message || 'Error', true);

@@ -6,6 +6,7 @@ import { classifyDocumentBuffer } from '../domain/jarvis-document-intake.engine.
 import {
   normalizePatenteChile,
   normalizePhoneChile,
+  normalizeRutChile,
   resolveRelationalLinks,
 } from '../domain/jarvis-relational-intake.engine.js';
 import { hnfExtendedClientRepository } from '../repositories/hnfExtendedClient.repository.js';
@@ -241,6 +242,403 @@ function mergeRepairVinculosConservador(cur, vinc) {
   };
 
   return { before, nextFk, jarvis_vinculacion, after };
+}
+
+const normTxtSimple = (s) =>
+  String(s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+
+/**
+ * Aprobación: valida/vincula FK existentes, busca por RUT/correo/tel/patente, y opcionalmente crea entidades (anti-duplicados).
+ * No pisa FK ya válidas ni crea en tipo con revisión manual sugerida (modo seguro).
+ */
+async function procesarAprobacionDocumento(documentoId, body, actor) {
+  const autoCrear = body?.auto_crear !== false;
+  const modo = String(body?.modo || 'seguro').toLowerCase() === 'agresivo' ? 'agresivo' : 'seguro';
+  const forzar = Boolean(body?.forzar_reprocesar);
+
+  let doc = await maestroDocumentoRepository.findById(documentoId);
+  if (!doc) return { error: 'No encontrado' };
+  if (String(doc.estado_revision || '').toLowerCase() === 'aprobado' && !forzar) {
+    return { errors: ['Documento ya aprobado. Usá forzar_reprocesar para repetir.'] };
+  }
+
+  const vincPrev = doc.jarvis_vinculacion && typeof doc.jarvis_vinculacion === 'object' ? doc.jarvis_vinculacion : {};
+  const datos = doc.datos_detectados && typeof doc.datos_detectados === 'object' ? doc.datos_detectados : {};
+  const ctx = await buildMaestroJarvisContext();
+  const hints = resolveRelationalLinks(buildSyntheticClassifyFromStoredDoc(doc), ctx);
+
+  const clientesAll = [...(await hnfExtendedClientRepository.findAll())];
+  const contactosAll = [...(await maestroContactoRepository.findAll())];
+  const vehiculosAll = [...(await maestroVehiculoRepository.findAll())];
+  const tecnicosAll = [...(await maestroTecnicoRepository.findAll())];
+  const personalAll = await hnfInternalDirectoryRepository.findAll();
+
+  const entidades_creadas = [];
+  const entidades_vinculadas = [];
+  const resumen = {
+    cliente: { accion: 'omitido', id: null, detalle: '' },
+    contacto: { accion: 'omitido', id: null, detalle: '' },
+    vehiculo: { accion: 'omitido', id: null, detalle: '' },
+    tecnico: { accion: 'omitido', id: null, detalle: '' },
+  };
+
+  const skipCreate = (bloque) => modo === 'seguro' && bloque?.estado === 'revision_manual_sugerida';
+
+  let cliente_id = String(doc.cliente_id || '').trim();
+  let contacto_id = String(doc.contacto_id || '').trim();
+  let vehiculo_id = String(doc.vehiculo_id || '').trim();
+  let tecnico_id = String(doc.tecnico_id || '').trim();
+  const patenteDocRaw =
+    datos.patentes?.[0] || doc.patente_probable || vincPrev.vehiculo?.patente_sugerida || '';
+
+  /* —— Cliente —— */
+  if (cliente_id) {
+    const ex = clientesAll.find((c) => c.id === cliente_id);
+    if (ex) {
+      entidades_vinculadas.push({ tipo: 'cliente', id: cliente_id, razon: 'fk_existente_validada' });
+      resumen.cliente = { accion: 'vinculado', id: cliente_id, detalle: 'FK ya asignada y válida' };
+    } else {
+      resumen.cliente = { accion: 'omitido', id: cliente_id, detalle: 'FK conservada (ID no hallado en base; no se sobrescribe)' };
+    }
+  } else {
+    const rutRaw = datos.ruts?.[0] || vincPrev.cliente?.rut_sugerido || '';
+    const rutKey = rutRaw ? normalizeRutChile(rutRaw) : '';
+    const byRut =
+      rutKey.length > 7 ? clientesAll.find((c) => normalizeRutChile(c.rut) === rutKey) : null;
+    if (byRut) {
+      cliente_id = byRut.id;
+      entidades_vinculadas.push({ tipo: 'cliente', id: byRut.id, razon: 'por_rut' });
+      resumen.cliente = { accion: 'vinculado', id: byRut.id, detalle: 'Coincidencia por RUT' };
+    } else if (autoCrear && !skipCreate(vincPrev.cliente) && rutKey.length > 7) {
+      const nombre = String(
+        datos.nombre_cliente_inferido || doc.cliente_probable?.nombre || vincPrev.cliente?.nombre_sugerido || ''
+      ).trim();
+      const sugCrear = vincPrev.cliente?.estado === 'crear_sugerido' || hints.cliente?.estado === 'crear_sugerido';
+      if (nombre.length > 2 && (sugCrear || modo === 'agresivo')) {
+        const r = await hnfOperativoIntegradoService.createExtendedClient(
+          {
+            nombre,
+            rut: rutRaw || '',
+            correo: datos.emails?.[0] || '',
+            telefono: datos.telefonos?.[0] || '',
+          },
+          actor
+        );
+        if (r.errors) {
+          resumen.cliente = { accion: 'omitido', id: null, detalle: r.errors.join('; ') };
+        } else {
+          cliente_id = r.id;
+          clientesAll.push(r);
+          entidades_creadas.push({ tipo: 'cliente', id: r.id });
+          resumen.cliente = { accion: 'creado', id: r.id, detalle: 'Alta cliente extendido' };
+        }
+      } else {
+        resumen.cliente = {
+          accion: 'omitido',
+          id: null,
+          detalle: 'Falta nombre o sugerencia crear_sugerido (modo seguro exige ambos con RUT)',
+        };
+      }
+    } else {
+      if (!autoCrear) {
+        resumen.cliente = { accion: 'omitido', id: null, detalle: 'auto_crear false' };
+      } else if (skipCreate(vincPrev.cliente)) {
+        resumen.cliente = {
+          accion: 'omitido',
+          id: null,
+          detalle: 'revisión manual sugerida (seguro): no se crea cliente',
+        };
+      } else if (rutKey.length <= 7) {
+        resumen.cliente = {
+          accion: 'omitido',
+          id: null,
+          detalle: 'Sin RUT válido en documento: no se crea cliente (anti-duplicados)',
+        };
+      } else {
+        resumen.cliente = { accion: 'omitido', id: null, detalle: 'Sin acción de creación' };
+      }
+    }
+  }
+
+  /* —— Contacto (después de cliente) —— */
+  if (contacto_id) {
+    const ex = contactosAll.find((c) => c.id === contacto_id);
+    if (ex) {
+      entidades_vinculadas.push({ tipo: 'contacto', id: contacto_id, razon: 'fk_existente_validada' });
+      resumen.contacto = { accion: 'vinculado', id: contacto_id, detalle: 'FK ya asignada y válida' };
+    } else {
+      resumen.contacto = { accion: 'omitido', id: contacto_id, detalle: 'FK conservada (ID no hallado)' };
+    }
+  } else {
+    const email = String(datos.emails?.[0] || vincPrev.contacto?.correo_sugerido || '')
+      .toLowerCase()
+      .trim();
+    const telRaw = datos.telefonos?.[0] || vincPrev.contacto?.telefono_sugerido || '';
+    const tel = normalizePhoneChile(telRaw);
+    let by = email ? contactosAll.find((c) => String(c.correo || '').toLowerCase().trim() === email) : null;
+    if (!by && tel.length >= 8) {
+      by = contactosAll.find(
+        (c) =>
+          normalizePhoneChile(c.telefono) === tel || normalizePhoneChile(c.whatsapp) === tel
+      );
+    }
+    if (by) {
+      contacto_id = by.id;
+      entidades_vinculadas.push({ tipo: 'contacto', id: by.id, razon: email ? 'por_correo' : 'por_telefono' });
+      resumen.contacto = { accion: 'vinculado', id: by.id, detalle: 'Coincidencia correo/tel' };
+    } else if (autoCrear && !skipCreate(vincPrev.contacto)) {
+      const nombre = String(
+        datos.nombre_contacto_inferido || vincPrev.contacto?.nombre_sugerido || ''
+      ).trim();
+      const sug = vincPrev.contacto?.estado === 'crear_sugerido' || hints.contacto?.estado === 'crear_sugerido';
+      const canal = email ? 'correo' : 'telefono';
+      if ((email || tel.length >= 8) && nombre.length > 2 && (sug || modo === 'agresivo')) {
+        const r = await createContactoWithChecks(
+          {
+            nombre_contacto: nombre,
+            correo: email,
+            telefono: telRaw || '',
+            cliente_id: cliente_id || '',
+            canal_preferido: canal,
+            activo: true,
+          },
+          actor
+        );
+        if (r.errors) {
+          resumen.contacto = { accion: 'omitido', id: null, detalle: r.errors.join('; ') };
+        } else {
+          contacto_id = r.id;
+          contactosAll.push(r);
+          entidades_creadas.push({ tipo: 'contacto', id: r.id });
+          resumen.contacto = { accion: 'creado', id: r.id, detalle: 'Alta contacto maestro' };
+        }
+      } else {
+        resumen.contacto = { accion: 'omitido', id: null, detalle: 'Falta correo/tel o nombre o sugerencia crear' };
+      }
+    } else {
+      resumen.contacto = {
+        accion: 'omitido',
+        id: null,
+        detalle: !autoCrear ? 'auto_crear false' : 'revisión manual sugerida (seguro)',
+      };
+    }
+  }
+
+  /* —— Vehículo —— */
+  if (vehiculo_id) {
+    const ex = vehiculosAll.find((v) => v.id === vehiculo_id);
+    if (ex) {
+      entidades_vinculadas.push({ tipo: 'vehiculo', id: vehiculo_id, razon: 'fk_existente_validada' });
+      resumen.vehiculo = { accion: 'vinculado', id: vehiculo_id, detalle: 'FK ya asignada y válida' };
+    } else {
+      resumen.vehiculo = { accion: 'omitido', id: vehiculo_id, detalle: 'FK conservada (ID no hallado)' };
+    }
+  } else {
+    const patKey = patenteDocRaw ? normalizePatenteChile(patenteDocRaw) : '';
+    const byP = patKey.length > 3 ? vehiculosAll.find((v) => normalizePatenteChile(v.patente) === patKey) : null;
+    if (byP) {
+      vehiculo_id = byP.id;
+      entidades_vinculadas.push({ tipo: 'vehiculo', id: byP.id, razon: 'por_patente' });
+      resumen.vehiculo = { accion: 'vinculado', id: byP.id, detalle: 'Coincidencia patente' };
+    } else if (autoCrear && !skipCreate(vincPrev.vehiculo) && patKey.length > 3) {
+      const sug = vincPrev.vehiculo?.estado === 'crear_sugerido' || hints.vehiculo?.estado === 'crear_sugerido';
+      if (sug || modo === 'agresivo') {
+        const r = await createVehiculoWithChecks(
+          {
+            patente: patenteDocRaw,
+            marca: '',
+            cliente_id: cliente_id || '',
+            estado: 'activo',
+            documentos_asociados: [],
+          },
+          actor
+        );
+        if (r.errors) {
+          resumen.vehiculo = { accion: 'omitido', id: null, detalle: r.errors.join('; ') };
+        } else {
+          vehiculo_id = r.id;
+          vehiculosAll.push(r);
+          entidades_creadas.push({ tipo: 'vehiculo', id: r.id });
+          resumen.vehiculo = { accion: 'creado', id: r.id, detalle: 'Alta vehículo maestro' };
+        }
+      } else {
+        resumen.vehiculo = { accion: 'omitido', id: null, detalle: 'Modo seguro: solo crea vehículo con crear_sugerido' };
+      }
+    } else {
+      resumen.vehiculo = {
+        accion: 'omitido',
+        id: null,
+        detalle: patKey.length <= 3 ? 'Sin patente detectada' : 'sin acción',
+      };
+    }
+  }
+
+  /* —— Técnico —— */
+  if (tecnico_id) {
+    const ex = tecnicosAll.find((t) => t.id === tecnico_id);
+    if (ex) {
+      entidades_vinculadas.push({ tipo: 'tecnico', id: tecnico_id, razon: 'fk_existente_validada' });
+      resumen.tecnico = { accion: 'vinculado', id: tecnico_id, detalle: 'FK ya asignada y válida' };
+    } else {
+      resumen.tecnico = { accion: 'omitido', id: tecnico_id, detalle: 'FK conservada (ID no hallado)' };
+    }
+  } else {
+    const autoT = hints.autoTecnicoId;
+    if (autoT) {
+      tecnico_id = autoT;
+      entidades_vinculadas.push({ tipo: 'tecnico', id: autoT, razon: 'jarvis_resolver' });
+      resumen.tecnico = { accion: 'vinculado', id: autoT, detalle: 'Coincidencia motor Jarvis' };
+    } else if (modo === 'agresivo' && !skipCreate(vincPrev.tecnico) && doc.tecnico_probable?.nombre) {
+      const needle = normTxtSimple(doc.tecnico_probable.nombre);
+      const matches = personalAll.filter((p) => {
+        const nn = normTxtSimple(p.nombreCompleto);
+        return nn.length > 4 && (nn.includes(needle) || needle.includes(nn));
+      });
+      if (matches.length === 1) {
+        const persona_id = matches[0].id;
+        const exTec = tecnicosAll.find((t) => String(t.persona_id) === String(persona_id));
+        if (exTec) {
+          tecnico_id = exTec.id;
+          entidades_vinculadas.push({ tipo: 'tecnico', id: exTec.id, razon: 'persona_unica_existente' });
+          resumen.tecnico = { accion: 'vinculado', id: exTec.id, detalle: 'Técnico existente por persona' };
+        } else {
+          const row = await maestroTecnicoRepository.create(
+            {
+              persona_id,
+              especialidad: '',
+              zona: '',
+              disponibilidad: 'disponible',
+              habilidades: [],
+              certificaciones: [],
+              documentos_asociados: [],
+            },
+            actor
+          );
+          tecnico_id = row.id;
+          tecnicosAll.push(row);
+          entidades_creadas.push({ tipo: 'tecnico', id: row.id });
+          resumen.tecnico = { accion: 'creado', id: row.id, detalle: 'Alta técnico maestro (persona directorio)' };
+        }
+      } else {
+        resumen.tecnico = {
+          accion: 'omitido',
+          id: null,
+          detalle: matches.length === 0 ? 'Sin persona única en directorio' : 'Ambigüedad en directorio',
+        };
+      }
+    } else {
+      resumen.tecnico = {
+        accion: 'omitido',
+        id: null,
+        detalle: modo === 'seguro' ? 'Seguro: no se crea técnico automático' : 'Sin datos de técnico',
+      };
+    }
+  }
+
+  const jarvis_vinculacion = {
+    ...vincPrev,
+    version: hints.version || vincPrev.version,
+    autoClienteId: hints.autoClienteId,
+    autoContactoId: hints.autoContactoId,
+    autoVehiculoId: hints.autoVehiculoId,
+    autoTecnicoId: hints.autoTecnicoId,
+    cliente: cliente_id
+      ? {
+          estado: resumen.cliente.accion === 'creado' ? 'vinculado_automatico' : 'vinculado_manual',
+          mensaje_ui:
+            resumen.cliente.accion === 'creado'
+              ? 'Creado y vinculado en aprobación'
+              : 'Vinculado en aprobación',
+          cliente_id,
+          criterio: 'aprobacion_documento_jarvis',
+        }
+      : hints.cliente || vincPrev.cliente || { estado: 'sin_datos', mensaje_ui: 'Sin cliente en aprobación.' },
+    contacto: contacto_id
+      ? {
+          estado: resumen.contacto.accion === 'creado' ? 'vinculado_automatico' : 'vinculado_manual',
+          mensaje_ui:
+            resumen.contacto.accion === 'creado'
+              ? 'Creado y vinculado en aprobación'
+              : 'Vinculado en aprobación',
+          contacto_id,
+          criterio: 'aprobacion_documento_jarvis',
+        }
+      : hints.contacto || vincPrev.contacto || { estado: 'sin_datos', mensaje_ui: 'Sin contacto en aprobación.' },
+    vehiculo: vehiculo_id
+      ? {
+          estado: resumen.vehiculo.accion === 'creado' ? 'vinculado_automatico' : 'vinculado_manual',
+          mensaje_ui:
+            resumen.vehiculo.accion === 'creado'
+              ? 'Creado y vinculado en aprobación'
+              : 'Vinculado en aprobación',
+          vehiculo_id,
+          patente: patenteDocRaw || hints.vehiculo?.patente,
+          criterio: 'aprobacion_documento_jarvis',
+        }
+      : hints.vehiculo || vincPrev.vehiculo || { estado: 'sin_datos', mensaje_ui: 'Sin vehículo en aprobación.' },
+    tecnico: tecnico_id
+      ? {
+          estado: resumen.tecnico.accion === 'creado' ? 'vinculado_automatico' : 'vinculado_manual',
+          mensaje_ui:
+            resumen.tecnico.accion === 'creado'
+              ? 'Creado y vinculado en aprobación'
+              : 'Vinculado en aprobación',
+          tecnico_id,
+          criterio: 'aprobacion_documento_jarvis',
+        }
+      : hints.tecnico || vincPrev.tecnico || { estado: 'sin_datos', mensaje_ui: 'Sin técnico en aprobación.' },
+  };
+
+  const detalleHist = JSON.stringify({
+    origen: 'usuario',
+    actor,
+    modo,
+    auto_crear: autoCrear,
+    entidades_creadas,
+    entidades_vinculadas,
+    resumen,
+  }).slice(0, 1950);
+
+  const historial_revision = appendHistorialRevision(doc, 'aprobacion_documento_jarvis', detalleHist, actor);
+
+  const updated = await maestroDocumentoRepository.update(
+    documentoId,
+    {
+      estado_revision: 'aprobado',
+      actor_revision: actor,
+      cliente_id: cliente_id || null,
+      contacto_id: contacto_id || null,
+      vehiculo_id: vehiculo_id || null,
+      tecnico_id: tecnico_id || null,
+      jarvis_vinculacion,
+      relational_engine_version: hints.version || doc.relational_engine_version,
+      historial_revision,
+      ultima_aprobacion_jarvis: {
+        at: new Date().toISOString(),
+        actor,
+        modo,
+        auto_crear: autoCrear,
+        resumen,
+        entidades_creadas,
+        entidades_vinculadas,
+      },
+    },
+    actor
+  );
+
+  return {
+    ok: true,
+    documento: updated,
+    resumen,
+    entidades_creadas,
+    entidades_vinculadas,
+    modo,
+    auto_crear: autoCrear,
+  };
 }
 
 async function createContactoWithChecks(body, actor) {
@@ -508,6 +906,10 @@ export const maestroService = {
     }
 
     return { documentos: creados, total: creados.filter((x) => x.id).length };
+  },
+
+  async aprobarDocumentoMaestro(id, body, actor) {
+    return procesarAprobacionDocumento(id, body || {}, actor);
   },
 
   async patchDocumento(id, body, actor) {
