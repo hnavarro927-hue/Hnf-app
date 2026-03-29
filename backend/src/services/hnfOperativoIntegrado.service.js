@@ -1,3 +1,4 @@
+import { normalizeRutChile } from '../domain/jarvis-relational-intake.engine.js';
 import { hnfExtendedClientRepository } from '../repositories/hnfExtendedClient.repository.js';
 import { hnfInternalDirectoryRepository } from '../repositories/hnfInternalDirectory.repository.js';
 import { hnfValidatedMemoryRepository } from '../repositories/hnfValidatedMemory.repository.js';
@@ -251,6 +252,14 @@ export const hnfOperativoIntegradoService = {
   async createExtendedClient(body, actor) {
     const n = normalizeExtendedClient(body);
     if (!n.nombre) return { errors: ['nombre es obligatorio'] };
+    if (n.rut) {
+      const key = normalizeRutChile(n.rut);
+      if (key.length > 7) {
+        const all = await hnfExtendedClientRepository.findAll();
+        const dup = all.find((c) => normalizeRutChile(c.rut) === key);
+        if (dup) return { errors: [`RUT ya existe en cliente ${dup.id}`] };
+      }
+    }
     return hnfExtendedClientRepository.create(n, actor, `Cliente ${n.nombre}`);
   },
 

@@ -105,7 +105,7 @@ export const getMaestroDocumentos = async (request, response) => {
     x.estado_revision,
     x.modulo_destino_sugerido,
   ]).map((d) => {
-    const { ruta_interna, ...rest } = d;
+    const { ruta_interna, texto_match_sample, ...rest } = d;
     return { ...rest, tiene_archivo: Boolean(ruta_interna) };
   });
   sendSuccess(response, 200, data, { resource: 'maestro/documentos' });
@@ -131,6 +131,14 @@ export const postMaestroDocumentoReclasificar = async (request, response) => {
   const r = await maestroService.reclasificarDocumento(request.params?.id, actor);
   if (r.error) return sendError(response, 404, r.error);
   sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'reclasificar' });
+};
+
+export const postMaestroDocumentoCrearEntidad = async (request, response) => {
+  const actor = getRequestActor(request);
+  const r = await maestroService.crearEntidadDesdeDocumento(request.params?.id, request.body || {}, actor);
+  if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
+  if (r.error) return sendError(response, 404, r.error);
+  sendSuccess(response, 201, r, { resource: 'maestro/documentos', action: 'crear_entidad' });
 };
 
 /** Descarga binaria (no JSON). */

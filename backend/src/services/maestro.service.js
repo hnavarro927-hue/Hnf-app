@@ -3,6 +3,11 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyDocumentBuffer } from '../domain/jarvis-document-intake.engine.js';
+import {
+  normalizePatenteChile,
+  normalizePhoneChile,
+  resolveRelationalLinks,
+} from '../domain/jarvis-relational-intake.engine.js';
 import { hnfExtendedClientRepository } from '../repositories/hnfExtendedClient.repository.js';
 import { hnfInternalDirectoryRepository } from '../repositories/hnfInternalDirectory.repository.js';
 import { maestroConductorRepository } from '../repositories/maestroConductor.repository.js';
@@ -10,6 +15,7 @@ import { maestroContactoRepository } from '../repositories/maestroContacto.repos
 import { maestroDocumentoRepository } from '../repositories/maestroDocumento.repository.js';
 import { maestroTecnicoRepository } from '../repositories/maestroTecnico.repository.js';
 import { maestroVehiculoRepository } from '../repositories/maestroVehiculo.repository.js';
+import { hnfOperativoIntegradoService } from './hnfOperativoIntegrado.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_ROOT = path.resolve(__dirname, '../../data');
@@ -24,20 +30,81 @@ const safeName = (n) =>
     .replace(/\s+/g, '_')
     .slice(0, 160) || 'archivo';
 
-async function buildClassificationContext() {
-  const [clientes, contactos, personal] = await Promise.all([
+/** Contexto Jarvis: clasificación en texto + resolución relacional (cliente/contacto/vehículo/técnico). */
+async function buildMaestroJarvisContext() {
+  const [clientesRaw, contactosRaw, personal, vehiculos, tecnicos] = await Promise.all([
     hnfExtendedClientRepository.findAll(),
     maestroContactoRepository.findAll(),
     hnfInternalDirectoryRepository.findAll(),
+    maestroVehiculoRepository.findAll(),
+    maestroTecnicoRepository.findAll(),
   ]);
+  const clientes = clientesRaw.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    nombre_cliente: c.nombre || c.nombre_cliente,
+    rut: c.rut,
+    correo: c.correo || c.correo_principal,
+    telefono: c.telefono || c.telefono_principal,
+  }));
+  const contactos = contactosRaw.map((c) => ({
+    id: c.id,
+    nombre_contacto: c.nombre_contacto,
+    correo: c.correo,
+    telefono: c.telefono,
+    whatsapp: c.whatsapp,
+    cliente_id: c.cliente_id,
+  }));
   return {
-    clientes: clientes.map((c) => ({ id: c.id, nombre: c.nombre, nombre_cliente: c.nombre })),
-    contactos: contactos.map((c) => ({
-      id: c.id,
-      nombre_contacto: c.nombre_contacto,
-    })),
+    clientes,
+    contactos,
     personal: personal.map((p) => ({ id: p.id, nombreCompleto: p.nombreCompleto, nombre: p.nombreCompleto })),
+    vehiculos,
+    tecnicos,
   };
+}
+
+function appendHistorialRevision(cur, tipo, detalle, usuario) {
+  const h = Array.isArray(cur?.historial_revision) ? [...cur.historial_revision] : [];
+  h.push({
+    at: new Date().toISOString(),
+    tipo,
+    detalle: String(detalle || '').slice(0, 2000),
+    usuario: usuario || null,
+  });
+  return h.length > 250 ? h.slice(-250) : h;
+}
+
+async function createContactoWithChecks(body, actor) {
+  const n = normContacto(body);
+  if (!n.nombre_contacto) return { errors: ['nombre_contacto obligatorio'] };
+  const all = await maestroContactoRepository.findAll();
+  if (n.correo) {
+    const em = n.correo.toLowerCase();
+    if (all.some((c) => String(c.correo || '').toLowerCase() === em))
+      return { errors: ['Ese correo ya está registrado en otro contacto'] };
+  }
+  const nt = n.telefono ? normalizePhoneChile(n.telefono) : '';
+  const nw = n.whatsapp ? normalizePhoneChile(n.whatsapp) : '';
+  const clash = all.some((c) => {
+    if (nt.length >= 8 && (normalizePhoneChile(c.telefono) === nt || normalizePhoneChile(c.whatsapp) === nt))
+      return true;
+    if (nw.length >= 8 && (normalizePhoneChile(c.telefono) === nw || normalizePhoneChile(c.whatsapp) === nw))
+      return true;
+    return false;
+  });
+  if (clash) return { errors: ['Teléfono o WhatsApp ya registrado en otro contacto'] };
+  return maestroContactoRepository.create(n, actor);
+}
+
+async function createVehiculoWithChecks(body, actor) {
+  const n = normVehiculo(body);
+  if (!n.patente) return { errors: ['patente obligatoria'] };
+  const key = normalizePatenteChile(n.patente);
+  const all = await maestroVehiculoRepository.findAll();
+  if (all.some((v) => normalizePatenteChile(v.patente) === key))
+    return { errors: ['Esa patente ya existe en el maestro de vehículos'] };
+  return maestroVehiculoRepository.create(n, actor);
 }
 
 function normContacto(body, prev = {}) {
@@ -118,9 +185,7 @@ export const maestroService = {
     return [...all].sort((a, b) => String(a.nombre_contacto).localeCompare(b.nombre_contacto));
   },
   async createContacto(body, actor) {
-    const n = normContacto(body);
-    if (!n.nombre_contacto) return { errors: ['nombre_contacto obligatorio'] };
-    return maestroContactoRepository.create(n, actor);
+    return createContactoWithChecks(body, actor);
   },
   async patchContacto(id, body, actor) {
     const cur = await maestroContactoRepository.findById(id);
@@ -163,9 +228,7 @@ export const maestroService = {
     return maestroVehiculoRepository.findAll();
   },
   async createVehiculo(body, actor) {
-    const n = normVehiculo(body);
-    if (!n.patente) return { errors: ['patente obligatoria'] };
-    return maestroVehiculoRepository.create(n, actor);
+    return createVehiculoWithChecks(body, actor);
   },
   async patchVehiculo(id, body, actor) {
     const cur = await maestroVehiculoRepository.findById(id);
@@ -195,7 +258,7 @@ export const maestroService = {
     if (!files.length) return { errors: ['files[] vacío'] };
     if (files.length > MAX_FILES) return { errors: [`Máximo ${MAX_FILES} archivos por envío`] };
 
-    const ctx = await buildClassificationContext();
+    const ctx = await buildMaestroJarvisContext();
     const creados = [];
     const uploadAbs = path.join(DATA_ROOT, UPLOAD_REL);
     await mkdir(uploadAbs, { recursive: true });
@@ -226,6 +289,13 @@ export const maestroService = {
       await writeFile(abs, buffer);
 
       const jarvis = classifyDocumentBuffer({ filename: name, mimeType: mime, buffer }, ctx);
+      const vinc = resolveRelationalLinks(jarvis, ctx);
+      const historial_revision = appendHistorialRevision(
+        {},
+        'deteccion_jarvis',
+        `Clasificación documento ${jarvis.version} · vínculos ${vinc.version}`,
+        actor
+      );
 
       const row = {
         nombre_archivo: name,
@@ -254,6 +324,14 @@ export const maestroService = {
         observacion_revision: '',
         actor_revision: null,
         engine_version: jarvis.version,
+        relational_engine_version: vinc.version,
+        jarvis_vinculacion: vinc,
+        cliente_id: vinc.autoClienteId,
+        contacto_id: vinc.autoContactoId,
+        vehiculo_id: vinc.autoVehiculoId,
+        tecnico_id: vinc.autoTecnicoId,
+        historial_revision,
+        texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
       };
 
       const created = await maestroDocumentoRepository.create(row, actor);
@@ -282,7 +360,115 @@ export const maestroService = {
       patch.actor_revision = actor;
     }
     if (body.resumen_jarvis_manual !== undefined) patch.resumen_jarvis = String(body.resumen_jarvis_manual).slice(0, 2000);
+
+    const fkKeys = ['cliente_id', 'contacto_id', 'vehiculo_id', 'tecnico_id'];
+    let fkChanged = false;
+    for (const k of fkKeys) {
+      if (body[k] !== undefined) {
+        const v = String(body[k] ?? '').trim();
+        patch[k] = v || null;
+        if (String(cur[k] ?? '') !== (v || '')) fkChanged = true;
+      }
+    }
+    if (fkChanged) {
+      patch.historial_revision = appendHistorialRevision(
+        cur,
+        'correccion_manual',
+        'Vínculos actualizados en revisión (cliente / contacto / vehículo / técnico).',
+        actor
+      );
+    }
+
     return maestroDocumentoRepository.update(id, patch, actor);
+  },
+
+  /**
+   * Crear cliente extendido, contacto maestro o vehículo maestro desde la revisión de un documento; enlaza IDs al documento.
+   */
+  async crearEntidadDesdeDocumento(docId, body, actor) {
+    const cur = await maestroDocumentoRepository.findById(docId);
+    if (!cur) return { error: 'No encontrado' };
+    const tipo = String(body?.tipo || '').toLowerCase();
+    const datos = body?.datos && typeof body.datos === 'object' ? body.datos : {};
+    const vincBase = cur.jarvis_vinculacion && typeof cur.jarvis_vinculacion === 'object' ? { ...cur.jarvis_vinculacion } : {};
+
+    if (tipo === 'cliente') {
+      const r = await hnfOperativoIntegradoService.createExtendedClient(datos, actor);
+      if (r.errors) return r;
+      const entidad = r;
+      vincBase.cliente = {
+        ...(vincBase.cliente || {}),
+        estado: 'vinculado_manual',
+        mensaje_ui: 'Vincular existente: cliente recién creado desde revisión.',
+        cliente_id: entidad.id,
+      };
+      const historial_revision = appendHistorialRevision(
+        cur,
+        'creacion_asistida',
+        `Cliente ${entidad.id} creado desde documento ${docId}`,
+        actor
+      );
+      await maestroDocumentoRepository.update(
+        docId,
+        { cliente_id: entidad.id, jarvis_vinculacion: vincBase, historial_revision },
+        actor
+      );
+      return { ok: true, entidad, documento: await maestroDocumentoRepository.findById(docId) };
+    }
+
+    if (tipo === 'contacto') {
+      const payload = { ...datos };
+      if (!String(payload.cliente_id || '').trim() && cur.cliente_id) payload.cliente_id = cur.cliente_id;
+      const r = await createContactoWithChecks(payload, actor);
+      if (r.errors) return r;
+      const entidad = r;
+      vincBase.contacto = {
+        ...(vincBase.contacto || {}),
+        estado: 'vinculado_manual',
+        mensaje_ui: 'Vincular existente: contacto creado desde revisión.',
+        contacto_id: entidad.id,
+      };
+      const historial_revision = appendHistorialRevision(
+        cur,
+        'creacion_asistida',
+        `Contacto ${entidad.id} creado desde documento ${docId}`,
+        actor
+      );
+      await maestroDocumentoRepository.update(
+        docId,
+        { contacto_id: entidad.id, jarvis_vinculacion: vincBase, historial_revision },
+        actor
+      );
+      return { ok: true, entidad, documento: await maestroDocumentoRepository.findById(docId) };
+    }
+
+    if (tipo === 'vehiculo') {
+      const payload = { ...datos };
+      if (!String(payload.cliente_id || '').trim() && cur.cliente_id) payload.cliente_id = cur.cliente_id;
+      const r = await createVehiculoWithChecks(payload, actor);
+      if (r.errors) return r;
+      const entidad = r;
+      vincBase.vehiculo = {
+        ...(vincBase.vehiculo || {}),
+        estado: 'vinculado_manual',
+        mensaje_ui: 'Vincular existente: vehículo creado desde revisión.',
+        vehiculo_id: entidad.id,
+      };
+      const historial_revision = appendHistorialRevision(
+        cur,
+        'creacion_asistida',
+        `Vehículo ${entidad.id} creado desde documento ${docId}`,
+        actor
+      );
+      await maestroDocumentoRepository.update(
+        docId,
+        { vehiculo_id: entidad.id, jarvis_vinculacion: vincBase, historial_revision },
+        actor
+      );
+      return { ok: true, entidad, documento: await maestroDocumentoRepository.findById(docId) };
+    }
+
+    return { errors: ['tipo debe ser cliente, contacto o vehiculo'] };
   },
 
   async reclasificarDocumento(id, actor) {
@@ -296,30 +482,42 @@ export const maestroService = {
     } catch {
       return { error: 'Archivo no encontrado en disco' };
     }
-    const ctx = await buildClassificationContext();
+    const ctx = await buildMaestroJarvisContext();
     const jarvis = classifyDocumentBuffer(
       { filename: cur.nombre_archivo, mimeType: cur.tipo_archivo, buffer },
       ctx
     );
-    return maestroDocumentoRepository.update(
-      id,
-      {
-        categoria_detectada: jarvis.categoria_detectada,
-        confianza_jarvis: jarvis.confianza_clasificacion,
-        resumen_jarvis: jarvis.resumen_breve,
-        datos_detectados: jarvis.datos_detectados,
-        modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
-        cliente_probable: jarvis.cliente_probable,
-        contacto_probable: jarvis.contacto_probable,
-        tecnico_probable: jarvis.tecnico_probable,
-        patente_probable: jarvis.patente_probable,
-        ot_probable: jarvis.ot_probable,
-        jarvis_advertencias: jarvis.advertencias,
-        estado_revision: 'pendiente_revision',
-        clasificado_por_jarvis: true,
-        engine_version: jarvis.version,
-      },
+    const vinc = resolveRelationalLinks(jarvis, ctx);
+    const historial_revision = appendHistorialRevision(
+      cur,
+      'deteccion_jarvis',
+      `Reclasificación ${jarvis.version} · vínculos ${vinc.version}`,
       actor
     );
+    const next = {
+      categoria_detectada: jarvis.categoria_detectada,
+      confianza_jarvis: jarvis.confianza_clasificacion,
+      resumen_jarvis: jarvis.resumen_breve,
+      datos_detectados: jarvis.datos_detectados,
+      modulo_destino_sugerido: jarvis.modulo_destino_sugerido,
+      cliente_probable: jarvis.cliente_probable,
+      contacto_probable: jarvis.contacto_probable,
+      tecnico_probable: jarvis.tecnico_probable,
+      patente_probable: jarvis.patente_probable,
+      ot_probable: jarvis.ot_probable,
+      jarvis_advertencias: jarvis.advertencias,
+      estado_revision: 'pendiente_revision',
+      clasificado_por_jarvis: true,
+      engine_version: jarvis.version,
+      relational_engine_version: vinc.version,
+      jarvis_vinculacion: vinc,
+      historial_revision,
+      texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
+    };
+    if (vinc.autoClienteId) next.cliente_id = vinc.autoClienteId;
+    if (vinc.autoContactoId) next.contacto_id = vinc.autoContactoId;
+    if (vinc.autoVehiculoId) next.vehiculo_id = vinc.autoVehiculoId;
+    if (vinc.autoTecnicoId) next.tecnico_id = vinc.autoTecnicoId;
+    return maestroDocumentoRepository.update(id, next, actor);
   },
 };

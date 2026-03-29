@@ -31,6 +31,10 @@ export const maestroService = {
     httpClient.patch(`${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}`, body).then(data),
   reclasificarDocumento: (id) =>
     httpClient.post(`${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}/reclasificar`, {}).then(data),
+  postCrearEntidadDesdeDocumento: (id, body) =>
+    httpClient
+      .post(`${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}/crear-entidad`, body)
+      .then(data),
 
   async downloadDocumentoBlob(id) {
     const path = `${apiEndpoints.maestroDocumentos}/${encodeURIComponent(id)}/descarga`;

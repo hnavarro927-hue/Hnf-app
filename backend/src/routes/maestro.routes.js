@@ -13,6 +13,7 @@ import {
   postMaestroConductor,
   postMaestroContacto,
   postMaestroDocumentosIngesta,
+  postMaestroDocumentoCrearEntidad,
   postMaestroDocumentoReclasificar,
   postMaestroTecnico,
   postMaestroVehiculo,
@@ -34,6 +35,7 @@ export const maestroRoutes = [
   { method: 'GET', path: '/maestro/documentos', handler: getMaestroDocumentos },
   { method: 'POST', path: '/maestro/documentos/ingesta', handler: postMaestroDocumentosIngesta },
   { method: 'PATCH', path: '/maestro/documentos/:id', handler: patchMaestroDocumento },
+  { method: 'POST', path: '/maestro/documentos/:id/crear-entidad', handler: postMaestroDocumentoCrearEntidad },
   { method: 'POST', path: '/maestro/documentos/:id/reclasificar', handler: postMaestroDocumentoReclasificar },
   { method: 'GET', path: '/maestro/documentos/:id/descarga', handler: getMaestroDocumentoDescarga },
 ];
