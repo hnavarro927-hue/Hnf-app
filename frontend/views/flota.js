@@ -7,6 +7,7 @@ import {
 import { buildFlotaOperationalBrief } from '../domain/operational-intelligence.js';
 import { flotaSolicitudService } from '../services/flota-solicitud.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import { createHnfFlotaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 
 const TIPO_SERVICIO_OPTS = [
   { value: 'traslado', label: 'Traslado' },
@@ -130,6 +131,7 @@ export const flotaView = ({
     '<h2>Flota · solicitudes</h2><p class="muted">Módulo <strong class="hnf-accent-flota">logística móvil</strong>: rutas, vehículos y estados en campo. <strong>Seguimiento:</strong> tipo de servicio, <strong>origen / destino</strong>, conductor, vehículo y <strong>pipeline</strong>. <strong>Guardar datos</strong> graba costos e ingresos; <strong>Siguiente estado</strong> avanza el circuito (validaciones en backend). Para <strong>cerrar</strong>: costos con total &gt; 0 y observación de cierre u observación general.</p>';
 
   const flowStrip = createHnfOperationalFlowStrip(3);
+  const flotaIdentity = createHnfFlotaOpsIdentityCard();
 
   if (flotaFeedback?.message) {
     const notice = document.createElement('div');
@@ -954,7 +956,7 @@ export const flotaView = ({
 
   const heroBand = document.createElement('div');
   heroBand.className = 'hnf-flota__hero';
-  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), cards, otBandeja);
+  heroBand.append(header, flowStrip, flotaIdentity, ...(offlineBanner ? [offlineBanner] : []), cards, otBandeja);
 
   const opsBand = document.createElement('div');
   opsBand.className = 'hnf-flota__ops';

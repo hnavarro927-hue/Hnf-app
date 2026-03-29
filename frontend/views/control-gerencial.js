@@ -2,6 +2,7 @@ import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from '../doma
 import { listIngresosOperativosDelDia } from '../domain/ingreso-operativo-storage.js';
 import { otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import { createHnfGerenciaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -103,7 +104,11 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {
   `;
 
   const headEl = root.querySelector('.hnf-cap-control__head');
-  if (headEl) headEl.after(createHnfOperationalFlowStrip(4));
+  if (headEl) {
+    const strip = createHnfOperationalFlowStrip(4);
+    headEl.after(strip);
+    strip.after(createHnfGerenciaOpsIdentityCard());
+  }
 
   const ul = root.querySelector('#hnf-control-resp');
   const sorted = [...byResp.entries()].sort((a, b) => b[1] - a[1]);

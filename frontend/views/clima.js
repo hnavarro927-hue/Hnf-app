@@ -13,6 +13,7 @@ import {
   otHasResponsible,
 } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import { createHnfClimaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 import {
   CLIMA_OT_FLOW_STAGES,
   createFlowStorageKey,
@@ -337,6 +338,17 @@ const createStatusBadge = (status, variant = 'estado') => {
   const badge = document.createElement('span');
   badge.className = `status-badge status-badge--${normalized} ${variant === 'mode' ? 'status-badge--mode' : ''}`;
   badge.textContent = status || 'pendiente';
+  if (variant !== 'mode') {
+    const st = raw.replace(/\s+/g, '_');
+    const cerrado = ['terminado', 'cerrada', 'cerrado', 'completado'].includes(normalized) || normalized === 'completado';
+    const proceso =
+      normalized === 'en-proceso' ||
+      normalized === 'pendiente_validacion' ||
+      st === 'pendiente_validacion' ||
+      raw === 'en proceso';
+    const neonTier = cerrado ? 'cerrado' : proceso ? 'proceso' : 'abierto';
+    badge.classList.add(`hnf-ot-neon--${neonTier}`);
+  }
   return badge;
 };
 
@@ -1871,6 +1883,7 @@ export const climaView = ({
     '<h2>Clima · ejecución OT</h2><p class="muted">Módulo técnico <strong class="hnf-accent-clima">HVAC</strong>: precisión de campo. Orden en pantalla: <strong>A</strong> completar ahora · <strong>B</strong> datos automáticos · <strong>C</strong> evidencia visita · <strong>D</strong> cierre. Flujo: ingreso → Bandeja → asignación → <strong>ejecución acá</strong> → informe → cierre.</p>';
 
   const flowStrip = createHnfOperationalFlowStrip(3);
+  const climaIdentity = createHnfClimaOpsIdentityCard();
 
   if (feedback?.message) {
     const notice = document.createElement('div');
@@ -2391,7 +2404,7 @@ export const climaView = ({
 
   const heroBand = document.createElement('div');
   heroBand.className = 'hnf-clima__hero';
-  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), climaToolbar);
+  heroBand.append(header, flowStrip, climaIdentity, ...(offlineBanner ? [offlineBanner] : []), climaToolbar);
 
   const statsBand = document.createElement('div');
   statsBand.className = 'hnf-clima__stats';

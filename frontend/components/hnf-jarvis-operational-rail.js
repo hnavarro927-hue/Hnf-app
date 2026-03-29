@@ -44,7 +44,10 @@ function findOt(data, id) {
 export function mountHnfJarvisOperationalRail(rail, ctx = {}) {
   if (!rail) return;
   rail.textContent = '';
-  rail.className = 'hnf-jarvis-operational-rail';
+  rail.className = 'hnf-jarvis-operational-rail hnf-jarvis-rail--gradient';
+
+  const surface = document.createElement('div');
+  surface.className = 'hnf-jarvis-rail__surface';
 
   const {
     activeView = 'jarvis',
@@ -58,11 +61,61 @@ export function mountHnfJarvisOperationalRail(rail, ctx = {}) {
   const adn = buildHnfAdnSnapshot(data);
   const metrics = computeCommandCenterMetrics(data, { hnfAdn: adn });
 
+  const informesPendientes = Math.max(0, metrics.otSinEvidenciaCompleta + metrics.otPendientesCierre);
+
+  let decisionPri = 'Operación estable. Revisá portada para alertas ejecutivas.';
+  if (metrics.otSinEvidenciaCompleta > 0) {
+    decisionPri = 'Completar evidencia fotográfica en OT abiertas antes de avanzar a informe.';
+  } else if (metrics.otEnRiesgo > 0) {
+    decisionPri = 'Revisar OT en riesgo o atrasadas y reasignar técnico o fecha.';
+  } else if (metrics.solicitudesNuevasHoy > 0) {
+    decisionPri = `${metrics.solicitudesNuevasHoy} solicitud(es) flota nuevas hoy · abrir Flota.`;
+  }
+
+  const ot = activeView === 'clima' ? findOt(data, selectedOTId) : null;
+
+  let decisionAct = 'Revisar portada y alertas ejecutivas; operación estable en el corte actual.';
+  if (ot && !otCanClose(ot)) {
+    decisionAct = 'Completá requisitos de cierre en la OT seleccionada o derivá a técnico.';
+  } else if (metrics.otSinEvidenciaCompleta > 0) {
+    decisionAct = 'Abrir Clima y cargar fotos antes / durante / después donde falten.';
+  } else if (metrics.solicitudesNuevasHoy > 0) {
+    decisionAct = 'Revisar solicitudes nuevas del día en Flota.';
+  }
+
+  const iaHead = document.createElement('div');
+  iaHead.className = 'hnf-jarvis-rail__ia-head';
+  const iaTitle = document.createElement('h3');
+  iaTitle.className = 'hnf-jarvis-rail__ia-title';
+  iaTitle.textContent = 'Jarvis IA';
+  const iaDec = document.createElement('p');
+  iaDec.className = 'hnf-jarvis-rail__decisions';
+  const decLabel = document.createElement('strong');
+  decLabel.textContent = 'Decisiones sugeridas';
+  iaDec.append(decLabel, document.createElement('br'), decisionPri, document.createElement('br'), decisionAct);
+
+  const informesBox = document.createElement('div');
+  informesBox.className = 'hnf-jarvis-rail__informes';
+  const ik = document.createElement('span');
+  ik.className = 'hnf-jarvis-rail__informes-k';
+  ik.textContent = 'Informes pendientes (estimado sesión)';
+  const iv = document.createElement('div');
+  iv.className = 'hnf-jarvis-rail__informes-v';
+  iv.textContent = String(informesPendientes);
+  const im = document.createElement('p');
+  im.className = 'hnf-jarvis-rail__informes-meta';
+  im.textContent = 'Meta operativa: entrega en 2 días hábiles · priorizar RM 4 h / Regiones 12 h.';
+  informesBox.append(ik, iv, im);
+  iaHead.append(iaTitle, iaDec, informesBox);
+
   const head = document.createElement('div');
   head.className = 'hnf-jarvis-rail__head';
   const brand = document.createElement('div');
   brand.className = 'hnf-jarvis-rail__brand';
-  brand.innerHTML = '<span class="hnf-jarvis-rail__mark">J</span><div><strong>Jarvis operativo</strong><span class="hnf-jarvis-rail__view">' + (viewLabels[activeView] || 'Sistema') + '</span></div>';
+  brand.innerHTML =
+    '<span class="hnf-jarvis-rail__mark">J</span><div><strong>Jarvis operativo</strong><span class="hnf-jarvis-rail__view">' +
+    (viewLabels[activeView] || 'Sistema') +
+    '</span></div>';
   const pulse = document.createElement('div');
   pulse.className = 'hnf-jarvis-rail__pulse';
   pulse.innerHTML =
@@ -89,34 +142,27 @@ export function mountHnfJarvisOperationalRail(rail, ctx = {}) {
   p1.textContent = `OT activas: ${metrics.otActivas}. Riesgo / atraso señalado: ${metrics.otEnRiesgo}. Sin evidencia completa: ${metrics.otSinEvidenciaCompleta}.`;
   resumen.append(p1);
 
-  const ot = activeView === 'clima' ? findOt(data, selectedOTId) : null;
   if (ot) {
     const pOt = document.createElement('p');
     pOt.className = 'hnf-jarvis-rail__p hnf-jarvis-rail__p--ot';
     const gaps = getEvidenceGaps(ot);
-    pOt.innerHTML = `<strong>${ot.id}</strong> · ${ot.cliente || '—'}<br/><span class="muted small">${ot.estado || '—'} · ${gaps.length ? gaps.length + ' hueco(s) evidencia' : 'Evidencia OK'}</span>`;
+    const idEl = document.createElement('strong');
+    idEl.textContent = ot.id;
+    pOt.append(idEl, document.createTextNode(' · '), document.createTextNode(ot.cliente || '—'));
+    const br = document.createElement('br');
+    const sub = document.createElement('span');
+    sub.className = 'muted small';
+    sub.textContent = `${ot.estado || '—'} · ${gaps.length ? `${gaps.length} hueco(s) evidencia` : 'Evidencia OK'}`;
+    pOt.append(br, sub);
     resumen.append(pOt);
     if (!otCanClose(ot)) {
       const warn = document.createElement('p');
       warn.className = 'hnf-jarvis-rail__warn';
-      warn.textContent = formatAllCloseBlockersMessage(ot).slice(0, 220) + (formatAllCloseBlockersMessage(ot).length > 220 ? '…' : '');
+      const blockMsg = formatAllCloseBlockersMessage(ot);
+      warn.textContent = blockMsg.slice(0, 220) + (blockMsg.length > 220 ? '…' : '');
       resumen.append(warn);
     }
   }
-
-  const prioridad = block('Prioridad sugerida');
-  const p2 = document.createElement('p');
-  p2.className = 'hnf-jarvis-rail__p';
-  if (metrics.otSinEvidenciaCompleta > 0) {
-    p2.textContent = 'Completar evidencia fotográfica en OT abiertas antes de avanzar a informe.';
-  } else if (metrics.otEnRiesgo > 0) {
-    p2.textContent = 'Revisar OT en riesgo o atrasadas y reasignar técnico o fecha.';
-  } else if (metrics.solicitudesNuevasHoy > 0) {
-    p2.textContent = `${metrics.solicitudesNuevasHoy} solicitud(es) flota nuevas hoy · abrir Flota.`;
-  } else {
-    p2.textContent = 'Operación estable. Revisá portada para alertas ejecutivas.';
-  }
-  prioridad.append(p2);
 
   const riesgo = block('Riesgo detectado');
   const pR = document.createElement('p');
@@ -156,20 +202,6 @@ export function mountHnfJarvisOperationalRail(rail, ctx = {}) {
   }
   recordatorio.append(pM);
 
-  const siguiente = block('Siguiente acción sugerida');
-  const pS = document.createElement('p');
-  pS.className = 'hnf-jarvis-rail__p hnf-jarvis-rail__p--action';
-  if (ot && !otCanClose(ot)) {
-    pS.textContent = 'Completá requisitos de cierre en la OT seleccionada o derivá a técnico.';
-  } else if (metrics.otSinEvidenciaCompleta > 0) {
-    pS.textContent = 'Abrir Clima y cargar fotos antes / durante / después donde falten.';
-  } else if (metrics.solicitudesNuevasHoy > 0) {
-    pS.textContent = 'Revisar solicitudes nuevas del día en Flota.';
-  } else {
-    pS.textContent = 'Revisar portada y alertas ejecutivas; operación estable en el corte actual.';
-  }
-  siguiente.append(pS);
-
   const acciones = block('Acción rápida');
   const row = document.createElement('div');
   row.className = 'hnf-jarvis-rail__actions';
@@ -184,5 +216,6 @@ export function mountHnfJarvisOperationalRail(rail, ctx = {}) {
   row.append(mk('Portada', 'jarvis'), mk('Clima', 'clima'), mk('Ingreso', 'ingreso-operativo'));
   acciones.append(row);
 
-  rail.append(head, sync, resumen, prioridad, riesgo, flujo, recordatorio, siguiente, acciones);
+  surface.append(iaHead, head, sync, resumen, riesgo, flujo, recordatorio, acciones);
+  rail.append(surface);
 }

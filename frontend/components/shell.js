@@ -103,7 +103,7 @@ export const createShell = ({
   brandName.textContent = 'HNF Servicios Integrales';
   const brandProduct = document.createElement('span');
   brandProduct.className = 'shell-brand__product';
-  brandProduct.textContent = 'Centro de mando · energía y continuidad';
+  brandProduct.textContent = 'HNF SISTEMAS V1.0 · Servicios integrales';
   brandText.append(brandName, brandProduct);
   brand.append(mark, brandText);
 
@@ -135,7 +135,35 @@ export const createShell = ({
   apiLab.textContent = 'API';
   apiRow.append(apiLab, document.createTextNode(` ${apiBaseLabel || '—'}`));
 
-  header.append(brand, statusRow, syncLive, apiRow);
+  const slaStrip = document.createElement('div');
+  slaStrip.className = 'hnf-sla-commitment-strip';
+  slaStrip.setAttribute('role', 'region');
+  slaStrip.setAttribute('aria-label', 'Compromisos de respuesta regional HNF');
+  slaStrip.innerHTML = `
+    <div class="hnf-sla-chip hnf-sla-chip--rm" title="Compromiso de primera respuesta en Región Metropolitana">
+      <span class="hnf-sla-chip__label">RM</span>
+      <div class="hnf-sla-chip__body">
+        <span class="hnf-sla-chip__time">4 h</span>
+        <span class="hnf-sla-chip__hint">respuesta</span>
+      </div>
+    </div>
+    <div class="hnf-sla-chip hnf-sla-chip--regions" title="Compromiso de primera respuesta en regiones">
+      <span class="hnf-sla-chip__label">Reg.</span>
+      <div class="hnf-sla-chip__body">
+        <span class="hnf-sla-chip__time">12 h</span>
+        <span class="hnf-sla-chip__hint">respuesta</span>
+      </div>
+    </div>
+    <div class="hnf-sla-chip hnf-sla-chip--reports" title="Meta operativa de informes">
+      <span class="hnf-sla-chip__label">Inf.</span>
+      <div class="hnf-sla-chip__body">
+        <span class="hnf-sla-chip__time">2 d. háb.</span>
+        <span class="hnf-sla-chip__hint">meta</span>
+      </div>
+    </div>
+  `;
+
+  header.append(brand, slaStrip, statusRow, syncLive, apiRow);
   if (deployStatusElement) {
     deployStatusElement.classList.add('shell-deploy-status');
     header.append(deployStatusElement);

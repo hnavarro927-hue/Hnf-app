@@ -26,6 +26,40 @@ const hoursSince = (iso) => {
   return (Date.now() - t) / 3600000;
 };
 
+const inboxClientLogoClass = (hint) => {
+  const h = String(hint || '').toLowerCase();
+  if (h.includes('entel')) return 'hnf-inbox-card__logo--entel';
+  if (h.includes('walmart')) return 'hnf-inbox-card__logo--walmart';
+  if (h.includes('agrosuper')) return 'hnf-inbox-card__logo--agrosuper';
+  return 'hnf-inbox-card__logo--generic';
+};
+
+const inboxChannelKey = (m) => {
+  const t = `${m.subject || ''} ${m.bodyText || ''} ${m.clientHint || ''}`.toLowerCase();
+  if (/\bwhatsapp\b|wa\.me/i.test(t)) return 'whatsapp';
+  if (/\b(tel[ée]fono|llamada|llamar)\b|\+56\s*9\d/i.test(t)) return 'telefono';
+  return 'correo';
+};
+
+const inboxLogoLabel = (hint) => {
+  const h = String(hint || '').trim();
+  if (!h) return 'CL';
+  if (/entel/i.test(h)) return 'Entel';
+  if (/walmart/i.test(h)) return 'Walmart';
+  if (/agrosuper/i.test(h)) return 'Agrosuper';
+  return h.slice(0, 3).toUpperCase();
+};
+
+const channelUi = (key) => {
+  if (key === 'whatsapp') {
+    return { cls: 'hnf-inbox-channel--whatsapp', icon: '⌁', label: 'WhatsApp' };
+  }
+  if (key === 'telefono') {
+    return { cls: 'hnf-inbox-channel--telefono', icon: '☎', label: 'Teléfono' };
+  }
+  return { cls: 'hnf-inbox-channel--correo', icon: '✉', label: 'Correo' };
+};
+
 export const jarvisIntakeHubView = ({
   data,
   integrationStatus,
@@ -136,22 +170,71 @@ export const jarvisIntakeHubView = ({
 
   const secMail = document.createElement('section');
   secMail.className = 'jarvis-intake__panel';
-  secMail.innerHTML = '<h3>Correos entrantes</h3><p class="muted small">Clasificación heurística; editable vía ingesta API.</p>';
-  const table = document.createElement('table');
-  table.className = 'jarvis-intake__table';
-  table.innerHTML = `<thead><tr><th>ID</th><th>Asunto</th><th>Cliente</th><th>Módulo</th><th>Prioridad</th><th>Owner</th><th>Horas sin gestión*</th><th>Estado</th><th>H/L</th></tr></thead><tbody></tbody>`;
-  const tb = table.querySelector('tbody');
+  secMail.innerHTML =
+    '<h3>Inbox inteligente · solicitudes</h3><p class="muted small">Vista en tarjetas; canal inferido por texto (WhatsApp / teléfono / correo). Clasificación heurística; editable vía ingesta API.</p>';
+  const grid = document.createElement('div');
+  grid.className = 'hnf-inbox-live-grid';
   const sorted = [...messages].sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)));
   sorted.slice(0, 40).forEach((m) => {
     const h = hoursSince(m.lastActivityAt || m.receivedAt);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${m.id}</td><td>${(m.subject || '').slice(0, 56)}</td><td>${m.clientHint || '—'}</td><td>${m.moduleHint || '—'}</td><td>${m.priorityHint || '—'}</td><td>${m.internalOwner || '—'}</td><td>${h != null ? Math.round(h) : '—'}</td><td>${m.status}</td><td>${m.reportarAHernan ? 'H' : ''}${m.reportarALyn ? 'L' : ''}</td>`;
-    tb.append(tr);
+    const ch = inboxChannelKey(m);
+    const cu = channelUi(ch);
+    const card = document.createElement('article');
+    card.className = 'hnf-inbox-live-card';
+    const top = document.createElement('div');
+    top.className = 'hnf-inbox-live-card__top';
+    const logo = document.createElement('div');
+    logo.className = `hnf-inbox-card__logo ${inboxClientLogoClass(m.clientHint)}`;
+    logo.textContent = inboxLogoLabel(m.clientHint);
+    logo.setAttribute('aria-hidden', 'true');
+    const meta = document.createElement('div');
+    meta.className = 'hnf-inbox-live-card__meta';
+    const subj = document.createElement('p');
+    subj.className = 'hnf-inbox-live-card__subject';
+    subj.textContent = (m.subject || 'Sin asunto').slice(0, 120);
+    const idP = document.createElement('p');
+    idP.className = 'hnf-inbox-live-card__id';
+    idP.textContent = `ID ${m.id} · ${fmtAt(m.receivedAt)}`;
+    meta.append(subj, idP);
+    top.append(logo, meta);
+    const channels = document.createElement('div');
+    channels.className = 'hnf-inbox-channels';
+    const chEl = document.createElement('span');
+    chEl.className = `hnf-inbox-channel ${cu.cls}`;
+    const ico = document.createElement('span');
+    ico.className = 'hnf-inbox-channel__ico';
+    ico.setAttribute('aria-hidden', 'true');
+    ico.textContent = cu.icon;
+    chEl.append(ico, document.createTextNode(` ${cu.label}`));
+    channels.append(chEl);
+    const row = document.createElement('div');
+    row.className = 'hnf-inbox-live-card__row';
+    const mkSpan = (label, val) => {
+      const s = document.createElement('span');
+      const b = document.createElement('strong');
+      b.textContent = label;
+      s.append(b, document.createTextNode(` ${val}`));
+      return s;
+    };
+    row.append(
+      mkSpan('Cliente', m.clientHint || '—'),
+      mkSpan('Módulo', m.moduleHint || '—'),
+      mkSpan('Prioridad', m.priorityHint || '—'),
+      mkSpan('Owner', m.internalOwner || '—'),
+      mkSpan('Sin gestión', h != null ? `${Math.round(h)} h` : '—'),
+      mkSpan('Estado', m.status || '—'),
+      mkSpan(
+        'H/L',
+        `${m.reportarAHernan ? 'H' : ''}${m.reportarALyn ? 'L' : ''}`.trim() || '—'
+      )
+    );
+    card.append(top, channels, row);
+    grid.append(card);
   });
-  secMail.append(table);
+  secMail.append(grid);
   const foot = document.createElement('p');
   foot.className = 'muted small';
-  foot.textContent = '* Aproximado desde última actividad o recepción.';
+  foot.textContent = '* Horas sin gestión: aproximado desde última actividad o recepción.';
   secMail.append(foot);
   root.append(secMail);
 
