@@ -1,0 +1,159 @@
+/**
+ * Clasificación asistida de documentos (heurística local, sin IA externa).
+ * Extrae señales de nombre de archivo y texto legible del buffer.
+ */
+
+export const JARVIS_DOC_ENGINE_VERSION = '1.0.0';
+
+const RUT_RE = /\b\d{1,2}\.?\d{3}\.?\d{3}[-]?[\dkK]\b/g;
+const EMAIL_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+const PHONE_RE = /(?:\+?56\s*)?(?:9\s?\d{4}\s?\d{4}|2\s?\d{4}\s?\d{4})/g;
+const OT_RE = /\bOT[-_]?\d{3,}\b/gi;
+const FACTURA_RE = /\b(?:factura|folio|n[°º]|nro\.?|comprobante)\s*[:#]?\s*([A-Za-z0-9\-]{4,})\b/gi;
+/** Patentes tipo Chile común (4 letras + 2 dígitos o variantes) */
+const PATENTE_RE = /\b[BCDFGHJKLPRSTVWXYZ]{2,4}\d{2,3}\b|\b[A-Z]{4}\d{2}\b/g;
+
+export function extractTextSnippetsFromBuffer(buffer, maxLen = 120000) {
+  if (!buffer || !buffer.length) return '';
+  const slice = buffer.subarray(0, Math.min(buffer.length, maxLen));
+  let s = '';
+  try {
+    s = slice.toString('utf8');
+  } catch {
+    s = '';
+  }
+  if (s.length < 40 || /[\x00-\x08\x0e-\x1f]/.test(s.slice(0, 200))) {
+    s = slice.toString('latin1');
+  }
+  const printable = s.replace(/[^\x09\x0a\x0d\x20-\x7eáéíóúñÁÉÍÓÚÑüÜ]/g, ' ');
+  return printable.replace(/\s+/g, ' ').trim();
+}
+
+export function detectEntitiesInText(text, filename = '') {
+  const blob = `${filename} ${text}`.slice(0, 200000);
+  const ruts = [...new Set((blob.match(RUT_RE) || []).map((x) => x.trim()))].slice(0, 5);
+  const emails = [...new Set((blob.match(EMAIL_RE) || []).map((x) => x.toLowerCase()))].slice(0, 5);
+  const phones = [...new Set((blob.match(PHONE_RE) || []).map((x) => x.replace(/\s/g, '')))].slice(0, 5);
+  const ots = [...new Set((blob.match(OT_RE) || []).map((x) => String(x).toUpperCase()))].slice(0, 5);
+  const patentes = [...new Set((blob.match(PATENTE_RE) || []).map((x) => x.toUpperCase()))].slice(0, 5);
+  const facturas = [];
+  let m;
+  const re = new RegExp(FACTURA_RE.source, 'gi');
+  while ((m = re.exec(blob)) && facturas.length < 5) {
+    if (m[1]) facturas.push(m[1]);
+  }
+  return {
+    ruts,
+    emails,
+    telefonos: phones,
+    whatsapp_sugerido: phones.find((p) => p.replace(/\D/g, '').length >= 9) || null,
+    patentes,
+    ots,
+    facturas_o_comprobantes: facturas,
+  };
+}
+
+function inferModuleFromSignals(datos, filenameLower, mimeLower) {
+  const t = `${filenameLower} ${mimeLower}`;
+  if (/gasto|rendicion|honorario|boleta|factura|sii/i.test(t) || datos.facturas_o_comprobantes.length)
+    return 'finanzas';
+  if (datos.patentes.length || /flota|traslado|vehiculo|patente/i.test(t)) return 'flota';
+  if (/cotizacion|propuesta|comercial|oc/i.test(t)) return 'comercial';
+  if (/rrhh|contrato|admin|personal|interno/i.test(t)) return 'administrativo';
+  if (/hvac|clima|frio|equipo|mantencion/i.test(t)) return 'clima';
+  return 'general';
+}
+
+function inferCategory(filenameLower, mimeLower) {
+  if (/\.pdf$/i.test(filenameLower) || mimeLower.includes('pdf')) return 'pdf';
+  if (/\.xlsx?$/i.test(filenameLower) || mimeLower.includes('spreadsheet') || mimeLower.includes('excel'))
+    return 'hoja_de_calculo';
+  if (/\.csv$/i.test(filenameLower) || mimeLower === 'text/csv') return 'csv';
+  if (/\.docx?$/i.test(filenameLower) || mimeLower.includes('word')) return 'documento_word';
+  if (mimeLower.startsWith('image/')) return 'imagen';
+  return 'otro';
+}
+
+/**
+ * @param {object} ctx - { clientes?: {nombre}[], contactos?: {nombre_contacto}[], personal?: {nombreCompleto}[], patentesEnFlota?: string[] }
+ */
+export function classifyDocumentBuffer({ filename, mimeType, buffer }, ctx = {}) {
+  const fn = String(filename || 'sin_nombre');
+  const fnLower = fn.toLowerCase();
+  const mime = String(mimeType || '').toLowerCase();
+  const snippet = extractTextSnippetsFromBuffer(buffer);
+  const datos = detectEntitiesInText(snippet, fn);
+
+  const moduloDestino = inferModuleFromSignals(datos, fnLower, mime);
+  const categoria = inferCategory(fnLower, mime);
+
+  let clienteProbable = null;
+  let contactoProbable = null;
+  let tecnicoProbable = null;
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+
+  const blobN = norm(`${fn} ${snippet.slice(0, 8000)}`);
+  for (const c of ctx.clientes || []) {
+    const n = norm(c.nombre || c.nombre_cliente || c.name);
+    if (n.length > 3 && blobN.includes(n)) {
+      clienteProbable = { id: c.id || null, nombre: c.nombre || c.nombre_cliente || c.name, coincidencia: 'probable' };
+      break;
+    }
+  }
+  for (const c of ctx.contactos || []) {
+    const n = norm(c.nombre_contacto);
+    if (n.length > 3 && blobN.includes(n)) {
+      contactoProbable = { id: c.id || null, nombre: c.nombre_contacto, coincidencia: 'probable' };
+      break;
+    }
+  }
+  for (const p of ctx.personal || []) {
+    const n = norm(p.nombreCompleto || p.nombre);
+    if (n.length > 3 && blobN.includes(n)) {
+      tecnicoProbable = { id: p.id || null, nombre: p.nombreCompleto || p.nombre, coincidencia: 'probable' };
+      break;
+    }
+  }
+
+  let confianza = 38;
+  if (datos.ruts.length) confianza += 12;
+  if (datos.emails.length) confianza += 10;
+  if (datos.ots.length) confianza += 14;
+  if (datos.patentes.length) confianza += 12;
+  if (clienteProbable) confianza += 15;
+  if (snippet.length > 200) confianza += 8;
+  confianza = Math.max(15, Math.min(92, Math.round(confianza)));
+
+  const advertencias = [];
+  if (confianza < 45) advertencias.push('revisar manualmente: confianza baja');
+  if (!clienteProbable && !datos.ruts.length) advertencias.push('sin cliente ni RUT claro en el texto detectado');
+  if (snippet.length < 30 && !mime.includes('image')) advertencias.push('poco texto legible (PDF/binario sin extracción profunda)');
+
+  const resumen = [
+    categoria !== 'otro' ? `Tipo: ${categoria}` : null,
+    datos.ots[0] ? `OT: ${datos.ots[0]}` : null,
+    datos.patentes[0] ? `Patente: ${datos.patentes[0]}` : null,
+    datos.ruts[0] ? `RUT: ${datos.ruts[0]}` : null,
+    clienteProbable ? `Cliente: ${clienteProbable.nombre}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+    .slice(0, 400);
+
+  return {
+    version: JARVIS_DOC_ENGINE_VERSION,
+    categoria_detectada: categoria,
+    tipo_archivo: mime || 'application/octet-stream',
+    modulo_destino_sugerido: moduloDestino,
+    cliente_probable: clienteProbable,
+    contacto_probable: contactoProbable,
+    tecnico_probable: tecnicoProbable,
+    patente_probable: datos.patentes[0] || null,
+    ot_probable: datos.ots[0] || null,
+    confianza_clasificacion: confianza,
+    resumen_breve: resumen || 'Sin señales fuertes: revisión manual recomendada.',
+    datos_detectados: datos,
+    advertencias,
+    clasificado_por_jarvis: true,
+  };
+}

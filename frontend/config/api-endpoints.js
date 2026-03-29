@@ -21,4 +21,10 @@ export const apiEndpoints = {
   hnfExtendedClients: '/hnf-core/extended-clients',
   hnfInternalDirectory: '/hnf-core/internal-directory',
   hnfCargaMasiva: '/hnf-core/carga-masiva',
+  maestroContactos: '/maestro/contactos',
+  maestroTecnicos: '/maestro/tecnicos',
+  maestroConductores: '/maestro/conductores',
+  maestroVehiculos: '/maestro/vehiculos',
+  maestroDocumentos: '/maestro/documentos',
+  maestroDocumentosIngesta: '/maestro/documentos/ingesta',
 };

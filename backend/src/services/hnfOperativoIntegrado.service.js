@@ -16,7 +16,7 @@ export const FUENTES = ['whatsapp', 'correo', 'manual', 'masivo'];
 export const DISTRIBUCION_JARVIS = {
   clima: { responsable: 'Romina', etiqueta: 'Clima operativo' },
   flota: { responsable: 'Gery', etiqueta: 'Flota' },
-  comercial: { responsable: 'Gery', etiqueta: 'Comercial' },
+  comercial: { responsable: 'Lyn', etiqueta: 'Comercial' },
   control: { responsable: 'Lyn', etiqueta: 'Control y aprobación' },
   ejecutivo: { responsable: 'Hernán', etiqueta: 'Decisión ejecutiva' },
 };
@@ -66,15 +66,32 @@ function normalizeQueueRow(body) {
 }
 
 function normalizeExtendedClient(body, prev = {}) {
+  const nombreCliente = String(
+    body.nombre ?? body.nombre_cliente ?? prev.nombre ?? prev.nombre_cliente ?? ''
+  ).trim();
+  const correo = String(body.correo ?? body.correo_principal ?? prev.correo ?? prev.correo_principal ?? '').trim();
+  const telefono = String(
+    body.telefono ?? body.telefono_principal ?? prev.telefono ?? prev.telefono_principal ?? ''
+  ).trim();
   return {
-    nombre: String(body.nombre ?? prev.nombre ?? '').trim(),
-    razonSocial: String(body.razonSocial ?? prev.razonSocial ?? '').trim(),
+    nombre: nombreCliente,
+    nombre_cliente: nombreCliente,
+    razonSocial: String(body.razonSocial ?? body.razon_social ?? prev.razonSocial ?? prev.razon_social ?? '').trim(),
     rut: String(body.rut ?? prev.rut ?? '').trim(),
+    giro: String(body.giro ?? prev.giro ?? '').trim(),
     direccion: String(body.direccion ?? prev.direccion ?? '').trim(),
     comuna: String(body.comuna ?? prev.comuna ?? '').trim(),
+    ciudad: String(body.ciudad ?? prev.ciudad ?? '').trim(),
+    region: String(body.region ?? prev.region ?? '').trim(),
     contactoPrincipal: String(body.contactoPrincipal ?? prev.contactoPrincipal ?? '').trim(),
-    correo: String(body.correo ?? prev.correo ?? '').trim(),
-    telefono: String(body.telefono ?? prev.telefono ?? '').trim(),
+    correo,
+    correo_principal: correo,
+    telefono,
+    telefono_principal: telefono,
+    whatsapp_principal: String(
+      body.whatsapp_principal ?? prev.whatsapp_principal ?? ''
+    ).trim(),
+    estado: String(body.estado ?? prev.estado ?? 'activo').toLowerCase(),
     area: String(body.area ?? prev.area ?? 'clima').toLowerCase(),
     frecuenciaServicio: String(body.frecuenciaServicio ?? prev.frecuenciaServicio ?? '').trim(),
     observaciones: String(body.observaciones ?? prev.observaciones ?? '').trim(),
@@ -90,12 +107,14 @@ function normalizeDirectory(body, prev = {}) {
     ? body.aliases.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
     : prev.aliases || [];
   return {
-    nombreCompleto: String(body.nombreCompleto ?? prev.nombreCompleto ?? '').trim(),
+    nombreCompleto: String(body.nombreCompleto ?? body.nombre ?? prev.nombreCompleto ?? '').trim(),
+    rut: String(body.rut ?? prev.rut ?? '').trim(),
     rol: String(body.rol ?? prev.rol ?? '').trim(),
     area: String(body.area ?? prev.area ?? '').trim(),
     correo: String(body.correo ?? prev.correo ?? '').trim(),
     telefono: String(body.telefono ?? prev.telefono ?? '').trim(),
     whatsapp: String(body.whatsapp ?? prev.whatsapp ?? '').trim(),
+    supervisor: String(body.supervisor ?? prev.supervisor ?? '').trim(),
     aliases,
     permisos: body.permisos && typeof body.permisos === 'object' ? body.permisos : prev.permisos || {},
     activo: body.activo !== undefined ? Boolean(body.activo) : prev.activo !== false,

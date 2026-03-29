@@ -37,10 +37,12 @@ import { jarvisIntakeHubView } from './views/jarvis-intake-hub.js';
 import { jarvisVaultView } from './views/jarvis-vault.js';
 import { ingresoOperativoView } from './views/ingreso-operativo.js';
 import { hnfCoreHubView } from './views/hnf-core-hub.js';
+import { baseMaestraHubView } from './views/base-maestra-hub.js';
 import { finanzasOperativoView } from './views/finanzas-operativo.js';
 import { equipoOperativoView } from './views/equipo-operativo.js';
 import { controlGerencialView } from './views/control-gerencial.js';
 import { hnfOperativoIntegradoService } from './services/hnf-operativo-integrado.service.js';
+import { maestroService } from './services/maestro.service.js';
 import { whatsappFeedService } from './services/whatsapp-feed.service.js';
 import { outlookIntakeService } from './services/outlook-intake.service.js';
 import { historicalVaultService } from './services/historical-vault.service.js';
@@ -284,6 +286,7 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'ingreso-operativo',
   'control-gerencial',
   'hnf-core',
+  'base-maestra',
   'finanzas',
   'equipo',
 ]);
@@ -345,6 +348,11 @@ const minimalOperationalViewData = () => {
     hnfValidatedMemory: [],
     hnfExtendedClients: [],
     hnfInternalDirectory: [],
+    maestroContactos: [],
+    maestroTecnicos: [],
+    maestroConductores: [],
+    maestroVehiculos: [],
+    maestroDocumentos: [],
   };
   base.hnfAdn = buildHnfAdnSnapshot(base);
   return base;
@@ -385,6 +393,11 @@ const loadFullOperationalDataImpl = async () => {
     hnfValidatedMemoryRaw,
     hnfExtendedClientsRaw,
     hnfInternalDirectoryRaw,
+    maestroContactosRaw,
+    maestroTecnicosRaw,
+    maestroConductoresRaw,
+    maestroVehiculosRaw,
+    maestroDocumentosRaw,
   ] = await Promise.all([
     healthService.getStatus().catch(toListEnvelope(healthFallback)),
     otService.getAll().catch(toListEnvelope({ data: [] })),
@@ -417,6 +430,11 @@ const loadFullOperationalDataImpl = async () => {
     hnfOperativoIntegradoService.getValidatedMemory().catch(() => []),
     hnfOperativoIntegradoService.getExtendedClients().catch(() => []),
     hnfOperativoIntegradoService.getInternalDirectory().catch(() => []),
+    maestroService.getContactos().catch(() => []),
+    maestroService.getTecnicos().catch(() => []),
+    maestroService.getConductores().catch(() => []),
+    maestroService.getVehiculos().catch(() => []),
+    maestroService.getDocumentos().catch(() => []),
   ]);
 
   const emptyOutlookFeed = {
@@ -467,6 +485,11 @@ const loadFullOperationalDataImpl = async () => {
   const hnfValidatedMemory = Array.isArray(hnfValidatedMemoryRaw) ? hnfValidatedMemoryRaw : [];
   const hnfExtendedClients = Array.isArray(hnfExtendedClientsRaw) ? hnfExtendedClientsRaw : [];
   const hnfInternalDirectory = Array.isArray(hnfInternalDirectoryRaw) ? hnfInternalDirectoryRaw : [];
+  const maestroContactos = Array.isArray(maestroContactosRaw) ? maestroContactosRaw : [];
+  const maestroTecnicos = Array.isArray(maestroTecnicosRaw) ? maestroTecnicosRaw : [];
+  const maestroConductores = Array.isArray(maestroConductoresRaw) ? maestroConductoresRaw : [];
+  const maestroVehiculos = Array.isArray(maestroVehiculosRaw) ? maestroVehiculosRaw : [];
+  const maestroDocumentos = Array.isArray(maestroDocumentosRaw) ? maestroDocumentosRaw : [];
 
   let jarvisOperativeEvents = [];
   try {
@@ -506,6 +529,11 @@ const loadFullOperationalDataImpl = async () => {
     hnfValidatedMemory,
     hnfExtendedClients,
     hnfInternalDirectory,
+    maestroContactos,
+    maestroTecnicos,
+    maestroConductores,
+    maestroVehiculos,
+    maestroDocumentos,
   };
   payload.hnfAdn = buildHnfAdnSnapshot(payload);
   return payload;
@@ -545,6 +573,11 @@ const viewRegistry = {
 
   'hnf-core': {
     render: hnfCoreHubView,
+    load: loadFullOperationalData,
+  },
+
+  'base-maestra': {
+    render: baseMaestraHubView,
     load: loadFullOperationalData,
   },
 
@@ -1554,6 +1587,7 @@ const render = () => {
           'equipo',
           'whatsapp',
           'hnf-core',
+          'base-maestra',
           'documentos-tecnicos',
           'technical-documents',
           'panel-operativo-vivo',
@@ -1567,6 +1601,7 @@ const render = () => {
           planificacion: 'planificacion',
           oportunidades: 'comercial',
           'control-gerencial': 'control',
+          'base-maestra': 'neutral',
           finanzas: 'finanzas',
           'operacion-control': 'control',
         };

@@ -10,6 +10,9 @@ import { getStoredOperatorName } from '../config/operator.config.js';
 /** Clientes, directorio, validación, carga masiva (pestañas filtradas por rol en la vista). */
 export const HNF_CORE_NAV = { id: 'hnf-core', icon: '⬡', label: 'Clientes' };
 
+/** Base maestra: contactos, técnicos, vehículos, archivos y carga con revisión. */
+export const HNF_BASE_MAESTRA_NAV = { id: 'base-maestra', icon: '▦', label: 'Base maestra' };
+
 const pick = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 
 export const HNF_OS_NAV_ADMIN = [
@@ -25,6 +28,7 @@ export const HNF_OS_NAV_ADMIN = [
   { id: 'equipo', icon: '◐', label: 'Equipo' },
   HNF_CORE_NAV,
   { id: 'documentos-tecnicos', icon: '▤', label: 'Documentos' },
+  HNF_BASE_MAESTRA_NAV,
 ];
 
 /** @deprecated Usar HNF_OS_NAV_ADMIN; se mantiene alias para imports existentes. */
@@ -61,6 +65,7 @@ export function getNavItemsForRole(role) {
       pick('ingreso-operativo'),
       pick('bandeja-canal'),
       HNF_CORE_NAV,
+      HNF_BASE_MAESTRA_NAV,
     ].filter(Boolean);
   }
   if (role === 'flota') {
@@ -70,6 +75,7 @@ export function getNavItemsForRole(role) {
       pick('ingreso-operativo'),
       pick('bandeja-canal'),
       HNF_CORE_NAV,
+      HNF_BASE_MAESTRA_NAV,
     ].filter(Boolean);
   }
   if (role === 'control') {
@@ -78,6 +84,7 @@ export function getNavItemsForRole(role) {
       pick('control-gerencial'),
       pick('oportunidades'),
       HNF_CORE_NAV,
+      HNF_BASE_MAESTRA_NAV,
       pick('documentos-tecnicos'),
       pick('ingreso-operativo'),
       pick('bandeja-canal'),
@@ -119,7 +126,12 @@ export function canAccessDirectorioInterno(role) {
 }
 
 export function canAccessCargaMasiva(role) {
-  return role === 'admin' || role === 'control';
+  return role === 'admin' || role === 'control' || role === 'clima' || role === 'flota';
+}
+
+/** Carga de archivos con Jarvis (Base maestra). */
+export function canAccessMaestroCargaArchivos(role) {
+  return role === 'admin' || role === 'control' || role === 'clima' || role === 'flota';
 }
 
 /**

@@ -23265,3 +23265,52 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
     min-width: 100%;
   }
 }
+
+/* Base maestra — layout funcional carga / pestañas */
+.hnf-base-maestra__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 1rem;
+}
+.hnf-base-maestra__tab {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+.hnf-base-maestra__tab--active {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+}
+.hnf-maestro-dropzone {
+  padding: 1.25rem;
+  margin: 0.5rem 0;
+  border: 2px dashed var(--border-strong);
+  text-align: center;
+  color: var(--muted);
+}
+.hnf-maestro-dropzone--over {
+  border-color: var(--accent-clima);
+  color: var(--text);
+}
+.hnf-maestro-doc-card {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.65rem;
+}
+.hnf-maestro-doc-card__act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+.hnf-maestro-jarvis {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+}
+.hnf-maestro-jarvis__t {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}

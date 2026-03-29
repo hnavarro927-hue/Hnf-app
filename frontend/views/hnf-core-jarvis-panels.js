@@ -138,9 +138,16 @@ export function renderClientesTab(data, showFb, refresh) {
     <label class="hnf-core-new__lab">RUT<input class="hnf-core-new__in" name="rut" /></label>
     <label class="hnf-core-new__lab">Dirección<input class="hnf-core-new__in" name="direccion" /></label>
     <label class="hnf-core-new__lab">Comuna<input class="hnf-core-new__in" name="comuna" /></label>
+    <label class="hnf-core-new__lab">Ciudad<input class="hnf-core-new__in" name="ciudad" /></label>
+    <label class="hnf-core-new__lab">Región<input class="hnf-core-new__in" name="region" /></label>
+    <label class="hnf-core-new__lab">Giro<input class="hnf-core-new__in" name="giro" /></label>
     <label class="hnf-core-new__lab">Contacto<input class="hnf-core-new__in" name="contactoPrincipal" /></label>
     <label class="hnf-core-new__lab">Correo<input class="hnf-core-new__in" name="correo" type="email" /></label>
     <label class="hnf-core-new__lab">Teléfono<input class="hnf-core-new__in" name="telefono" /></label>
+    <label class="hnf-core-new__lab">WhatsApp principal<input class="hnf-core-new__in" name="whatsapp_principal" /></label>
+    <label class="hnf-core-new__lab">Estado
+      <select class="hnf-core-new__in" name="estado"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select>
+    </label>
     <label class="hnf-core-new__lab">Área
       <select class="hnf-core-new__in" name="area"><option value="clima">Clima</option><option value="flota">Flota</option><option value="comercial">Comercial</option><option value="control">Control</option></select>
     </label>
@@ -169,9 +176,14 @@ export function renderClientesTab(data, showFb, refresh) {
         rut: q('rut'),
         direccion: q('direccion'),
         comuna: q('comuna'),
+        ciudad: q('ciudad'),
+        region: q('region'),
+        giro: q('giro'),
         contactoPrincipal: q('contactoPrincipal'),
         correo: q('correo'),
         telefono: q('telefono'),
+        whatsapp_principal: q('whatsapp_principal'),
+        estado: form.querySelector('[name="estado"]')?.value || 'activo',
         area: form.querySelector('[name="area"]')?.value || 'clima',
         frecuenciaServicio: q('frecuenciaServicio'),
         responsableInterno: q('responsableInterno'),
@@ -237,11 +249,13 @@ export function renderDirectorioTab(data, showFb, refresh) {
   form.innerHTML = `
     <h3 class="hnf-core-new__h">Persona interna</h3>
     <label class="hnf-core-new__lab">Nombre completo<input class="hnf-core-new__in" name="nombreCompleto" required /></label>
+    <label class="hnf-core-new__lab">RUT<input class="hnf-core-new__in" name="rut" /></label>
     <label class="hnf-core-new__lab">Rol<input class="hnf-core-new__in" name="rol" placeholder="ej. Administración" /></label>
     <label class="hnf-core-new__lab">Área<input class="hnf-core-new__in" name="area" placeholder="clima / flota / control" /></label>
     <label class="hnf-core-new__lab">Correo<input class="hnf-core-new__in" name="correo" type="email" /></label>
     <label class="hnf-core-new__lab">Teléfono<input class="hnf-core-new__in" name="telefono" /></label>
     <label class="hnf-core-new__lab">WhatsApp<input class="hnf-core-new__in" name="whatsapp" /></label>
+    <label class="hnf-core-new__lab">Supervisor<input class="hnf-core-new__in" name="supervisor" placeholder="Nombre del supervisor" /></label>
     <label class="hnf-core-new__lab">Alias (coma, para reconocer en textos)<input class="hnf-core-new__in" name="aliases" placeholder="romi, r. pérez" /></label>`;
   const b = document.createElement('button');
   b.type = 'button';
@@ -260,11 +274,13 @@ export function renderDirectorioTab(data, showFb, refresh) {
     try {
       await hnfOperativoIntegradoService.postInternalDirectory({
         nombreCompleto: q('nombreCompleto'),
+        rut: q('rut'),
         rol: q('rol'),
         area: q('area'),
         correo: q('correo'),
         telefono: q('telefono'),
         whatsapp: q('whatsapp'),
+        supervisor: q('supervisor'),
         aliases,
         activo: true,
       });

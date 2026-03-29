@@ -57,4 +57,29 @@ export const httpClient = {
   post: (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: (path, body) => request(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (path) => request(path, { method: 'DELETE' }),
+  /** Descarga binaria con actor (p. ej. archivos maestro). */
+  getBlob: async (path) => {
+    const response = await fetchWithRetry(
+      buildUrl(path),
+      {
+        method: 'GET',
+        headers: { ...actorHeaders() },
+      },
+      { retries: 2, timeoutMs: 120000 }
+    );
+    if (!response.ok) {
+      const raw = await response.text();
+      let msg = 'No se pudo descargar el archivo.';
+      try {
+        const j = JSON.parse(raw);
+        msg = j.error?.message || msg;
+      } catch {
+        /* ignore */
+      }
+      const err = new Error(msg.trim());
+      err.status = response.status;
+      throw err;
+    }
+    return response.blob();
+  },
 };
