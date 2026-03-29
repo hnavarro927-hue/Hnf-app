@@ -9,6 +9,9 @@ const expenseCollection = [
     clienteRelacionado: null,
     otRelacionada: 'OT-001',
     comprobante: null,
+    estadoAprobacion: 'registrado',
+    observacionFinanzas: null,
+    devolverA: null,
   },
 ];
 
@@ -26,5 +29,11 @@ export const expenseRepository = {
     const item = { id: createId(), ...data };
     expenseCollection.push(item);
     return item;
+  },
+  update(id, patch) {
+    const i = expenseCollection.findIndex((x) => x.id === id);
+    if (i < 0) return null;
+    expenseCollection[i] = { ...expenseCollection[i], ...patch };
+    return expenseCollection[i];
   },
 };

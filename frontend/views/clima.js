@@ -1925,7 +1925,10 @@ export const climaView = ({
   const opRole = resolveOperatorRole();
   let ots = [...(data?.data || [])].reverse();
   if (opRole === 'clima' || opRole === 'tecnico') {
-    ots = ots.filter((o) => String(o.tipoServicio || '').toLowerCase() === 'clima');
+    ots = ots.filter((o) => {
+      const t = String(o.tipoServicio || '').toLowerCase();
+      return t === 'clima' || t === 'administrativo';
+    });
   } else if (opRole === 'flota') {
     ots = [];
   }

@@ -5,7 +5,7 @@
 
 import { getStoredOperatorName } from '../config/operator.config.js';
 
-/** @typedef {'admin' | 'clima' | 'flota' | 'control' | 'tecnico'} HnfOperatorRole */
+/** @typedef {'admin' | 'clima' | 'flota' | 'control' | 'tecnico'} HnfOperatorRole — `control` = gerencial / finanzas (Lyn). */
 
 /** Clientes, directorio, validación, carga masiva (pestañas filtradas por rol en la vista). */
 export const HNF_CORE_NAV = { id: 'hnf-core', icon: '⬡', label: 'Clientes' };
@@ -67,7 +67,6 @@ export function getNavItemsForRole(role) {
     return [
       pick('jarvis'),
       pick('flota'),
-      pick('oportunidades'),
       pick('ingreso-operativo'),
       pick('bandeja-canal'),
       HNF_CORE_NAV,
@@ -77,6 +76,7 @@ export function getNavItemsForRole(role) {
     return [
       pick('jarvis'),
       pick('control-gerencial'),
+      pick('oportunidades'),
       HNF_CORE_NAV,
       pick('documentos-tecnicos'),
       pick('ingreso-operativo'),
@@ -140,7 +140,7 @@ export function filterValidationQueueForRole(queue, role) {
   if (role === 'flota') {
     return q.filter((x) => {
       const a = String(x.sugerencias?.area || '').toLowerCase();
-      return a === 'flota' || a === 'comercial';
+      return a === 'flota';
     });
   }
   if (role === 'control') return q;

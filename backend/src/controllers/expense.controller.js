@@ -41,3 +41,26 @@ export const createExpense = async (request, response) => {
     action: 'createExpense',
   });
 };
+
+export const patchExpense = async (request, response) => {
+  const result = expenseService.update(request.params.id, request.body || {});
+
+  if (result.notFound) {
+    return sendError(response, 404, 'Gasto no encontrado.', {
+      resource: 'expenses',
+      expenseId: request.params.id,
+    });
+  }
+
+  if (result.errors) {
+    return sendError(response, 400, 'No se pudo actualizar el gasto.', {
+      resource: 'expenses',
+      validations: result.errors,
+    });
+  }
+
+  sendSuccess(response, 200, result.data, {
+    resource: 'expenses',
+    action: 'patchExpense',
+  });
+};

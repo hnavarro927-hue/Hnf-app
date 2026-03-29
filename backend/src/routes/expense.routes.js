@@ -1,4 +1,4 @@
-import { createExpense, getAllExpenses, getExpenseById } from '../controllers/expense.controller.js';
+import { createExpense, getAllExpenses, getExpenseById, patchExpense } from '../controllers/expense.controller.js';
 
 export const expenseRoutes = [
   {
@@ -15,5 +15,10 @@ export const expenseRoutes = [
     method: 'POST',
     path: '/expenses',
     handler: createExpense,
+  },
+  {
+    method: 'PATCH',
+    path: '/expenses/:id',
+    handler: patchExpense,
   },
 ];

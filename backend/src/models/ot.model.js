@@ -61,10 +61,10 @@ export const otModel = {
     'fotografiasDespues',
   ],
   statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada'],
-  origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email'],
+  origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],
   prioridadOperativaOptions: ['alta', 'media', 'baja'],
   operationModes: ['manual', 'automatic'],
-  serviceTypes: ['clima', 'flota'],
+  serviceTypes: ['clima', 'flota', 'comercial', 'administrativo'],
   equipoEstadoOptions: ['operativo', 'mantenimiento', 'falla'],
   maxEquipos: 12,
 };

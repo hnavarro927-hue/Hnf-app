@@ -304,6 +304,37 @@ export const oportunidadesView = ({
     }
   };
 
+  const otsAll = [...(data?.ots?.data || data?.planOts || [])];
+  const otComercial = otsAll.filter((o) => String(o?.tipoServicio || '').toLowerCase() === 'comercial');
+  const otComercialBox = document.createElement('div');
+  otComercialBox.className = 'tarjeta opp-ot-comercial';
+  const otComH = document.createElement('h3');
+  otComH.className = 'opp-ot-comercial__title';
+  otComH.textContent = 'OT con tipo Comercial (bandeja Lyn / Hernán)';
+  otComercialBox.append(otComH);
+  if (!otComercial.length) {
+    const p0 = document.createElement('p');
+    p0.className = 'muted small';
+    p0.textContent = 'No hay OT comerciales en este corte. Crealas desde Ingreso eligiendo tipo Comercial.';
+    otComercialBox.append(p0);
+  } else {
+    const ulO = document.createElement('ul');
+    ulO.className = 'opp-ot-comercial__ul';
+    for (const o of otComercial.slice(0, 16)) {
+      const liO = document.createElement('li');
+      liO.className = 'opp-ot-comercial__li';
+      liO.append(`${o.id} · ${o.cliente || '—'} · ${o.estado || '—'} `);
+      const bOt = document.createElement('button');
+      bOt.type = 'button';
+      bOt.className = 'secondary-button opp-ot-comercial__btn';
+      bOt.textContent = 'Abrir OT';
+      bOt.addEventListener('click', () => navigateToView?.('clima', { otId: o.id }));
+      liO.append(bOt);
+      ulO.append(liO);
+    }
+    otComercialBox.append(ulO);
+  }
+
   const back = document.createElement('div');
   back.className = 'opp-back';
   const bDash = document.createElement('button');
@@ -313,7 +344,7 @@ export const oportunidadesView = ({
   bDash.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('jarvis'));
   back.append(bDash);
 
-  section.append(header, flowStrip, radar, draftSlot, feedback, back, toolbar, tableWrap);
+  section.append(header, flowStrip, radar, draftSlot, feedback, otComercialBox, back, toolbar, tableWrap);
   renderTable();
 
   function escapeHtml(s) {

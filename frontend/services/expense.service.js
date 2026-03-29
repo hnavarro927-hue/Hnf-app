@@ -5,4 +5,5 @@ export const expenseService = {
   getAll: () => httpClient.get(apiEndpoints.expenses),
   getById: (id) => httpClient.get(`${apiEndpoints.expenses}/${id}`),
   create: (payload) => httpClient.post(apiEndpoints.expenses, payload),
+  patch: (id, payload) => httpClient.patch(`${apiEndpoints.expenses}/${encodeURIComponent(id)}`, payload),
 };

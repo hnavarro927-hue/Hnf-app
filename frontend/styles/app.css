@@ -16984,6 +16984,112 @@ body.hnf-view--control-operativo #app {
   gap: 0.5rem;
 }
 
+.hnf-mod-finanzas__jarvis {
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+}
+
+.hnf-mod-finanzas__gastos {
+  margin-top: 1rem;
+  padding: 1rem 1.15rem;
+}
+
+.hnf-mod-finanzas__gastos-t {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.hnf-mod-finanzas__table-wrap {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+.hnf-mod-finanzas__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.hnf-mod-finanzas__table th,
+.hnf-mod-finanzas__table td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.hnf-mod-finanzas__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.hnf-mod-finanzas__mini {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.62rem;
+}
+
+.hnf-ingreso-archivo-guia {
+  margin: 0.85rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hnf-ingreso-archivo-guia__sum {
+  cursor: pointer;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.hnf-ingreso-archivo-guia__ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.hnf-ingreso-archivo-guia__btn {
+  margin-top: 0.65rem;
+}
+
+.hnf-ingreso-cc-preview__jarvis-title {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.hnf-ingreso-cc-preview__jarvis-p {
+  margin: 0.2rem 0;
+  line-height: 1.4;
+}
+
+.opp-ot-comercial {
+  margin: 1rem 0;
+  padding: 1rem 1.15rem;
+}
+
+.opp-ot-comercial__title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.opp-ot-comercial__ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.opp-ot-comercial__li {
+  margin: 0.35rem 0;
+}
+
+.opp-ot-comercial__btn {
+  margin-left: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+}
+
 .hnf-mod-equipo__table-wrap {
   overflow-x: auto;
   margin-bottom: 1rem;

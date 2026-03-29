@@ -10,5 +10,10 @@ export const expenseModel = {
     'clienteRelacionado',
     'otRelacionada',
     'comprobante',
+    /** registrado | aprobado | observado | rechazado — la operación no se detiene en «registrado» */
+    'estadoAprobacion',
+    'observacionFinanzas',
+    'devolverA',
   ],
+  estadoAprobacionOptions: ['registrado', 'aprobado', 'observado', 'rechazado'],
 };

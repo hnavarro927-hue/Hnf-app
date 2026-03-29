@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bandejaFromTipoServicio, notificacionAsignadaFromBandeja } from '../domain/hnf-ot-bandeja.js';
 import { appendHistorial } from '../utils/historialUtil.js';
 import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
 
@@ -57,12 +58,10 @@ const mapLegacyOrigenSolicitud = (origenPedido) => {
   const x = String(origenPedido || '').toLowerCase().trim();
   if (x === 'whatsapp') return 'whatsapp';
   if (x === 'correo' || x === 'email') return 'email';
-  if (x === 'llamada') return 'cliente_directo';
+  if (x === 'llamada') return 'llamada';
   if (x === 'manual' || x === 'jarvis' || x === '') return 'interno';
   return 'interno';
 };
-
-const bandejaFromTipo = (tipo) => (String(tipo || '').toLowerCase() === 'flota' ? 'gery' : 'romina');
 
 const ensureDefaults = (item) => {
   const now = new Date().toISOString();
@@ -79,10 +78,13 @@ const ensureDefaults = (item) => {
     whatsappContactoNumero: String(item.whatsappContactoNumero ?? '').trim(),
     whatsappContactoNombre: String(item.whatsappContactoNombre ?? '').trim(),
     entradaExterna: Boolean(item.entradaExterna),
-    bandejaAsignada: String(item.bandejaAsignada || '').trim() || bandejaFromTipo(item.tipoServicio),
+    bandejaAsignada:
+      String(item.bandejaAsignada || '').trim() || bandejaFromTipoServicio(item.tipoServicio),
     notificacionAsignadaA:
       String(item.notificacionAsignadaA || '').trim() ||
-      (bandejaFromTipo(item.tipoServicio) === 'gery' ? 'Gery' : 'Romina'),
+      notificacionAsignadaFromBandeja(
+        String(item.bandejaAsignada || '').trim() || bandejaFromTipoServicio(item.tipoServicio)
+      ),
     prioridadOperativa: ['alta', 'media', 'baja'].includes(String(item.prioridadOperativa || '').toLowerCase())
       ? String(item.prioridadOperativa).toLowerCase()
       : 'media',
@@ -386,7 +388,7 @@ export const otRepository = {
     if ('telefonoContacto' in p) updated.telefonoContacto = str('telefonoContacto') || '';
     if ('tipoServicio' in p && p.tipoServicio) {
       updated.tipoServicio = String(p.tipoServicio).toLowerCase() === 'flota' ? 'flota' : 'clima';
-      updated.bandejaAsignada = bandejaFromTipo(updated.tipoServicio);
+      updated.bandejaAsignada = bandejaFromTipoServicio(updated.tipoServicio);
       updated.notificacionAsignadaA = updated.bandejaAsignada === 'gery' ? 'Gery' : 'Romina';
     }
     if ('subtipoServicio' in p) updated.subtipoServicio = str('subtipoServicio') || '';

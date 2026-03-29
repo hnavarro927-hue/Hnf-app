@@ -1,4 +1,5 @@
 import { HVAC_CHECKLIST_TEMPLATE } from '../constants/hvacChecklist.js';
+import { bandejaFromTipoServicio, notificacionAsignadaFromBandeja } from '../domain/hnf-ot-bandeja.js';
 import { suggestTechnicianAutomatic } from '../domain/jarvisOtAssignment.stub.js';
 import {
   normalizeEvidenceItem,
@@ -202,8 +203,6 @@ const hasResponsableForClose = (ot) => {
   return t.length > 0 && t.toLowerCase() !== 'por asignar';
 };
 
-const bandejaFromTipo = (tipo) => (String(tipo || '').toLowerCase() === 'flota' ? 'gery' : 'romina');
-
 export const otService = {
   repositoryMode: otRepository.mode,
 
@@ -241,7 +240,7 @@ export const otService = {
     const waNom = String(data.whatsappContactoNombre || '').trim();
     const entradaExterna = origenSolicitud === 'whatsapp';
     const pendienteRespuestaCliente = origenSolicitud === 'whatsapp';
-    const bBandeja = bandejaFromTipo(data.tipoServicio);
+    const bBandeja = bandejaFromTipoServicio(data.tipoServicio);
     const estadoInicial = tecnico !== 'Por asignar' ? 'asignada' : 'nueva';
     const optionalId = data.id != null ? String(data.id).trim() : '';
 
@@ -265,7 +264,7 @@ export const otService = {
         whatsappContactoNombre: waNom,
         entradaExterna,
         bandejaAsignada: bBandeja,
-        notificacionAsignadaA: bBandeja === 'gery' ? 'Gery' : 'Romina',
+        notificacionAsignadaA: notificacionAsignadaFromBandeja(bBandeja),
         prioridadOperativa,
         pendienteRespuestaCliente,
         asignadoPor,

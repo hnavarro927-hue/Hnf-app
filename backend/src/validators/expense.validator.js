@@ -1,3 +1,20 @@
+import { expenseModel } from '../models/expense.model.js';
+
+export const validateExpensePatch = (payload = {}) => {
+  const errors = [];
+  const e = String(payload.estadoAprobacion || '').toLowerCase();
+  if (e && !expenseModel.estadoAprobacionOptions.includes(e)) {
+    errors.push(`estadoAprobacion inválido. Valores: ${expenseModel.estadoAprobacionOptions.join(', ')}.`);
+  }
+  if (payload.observacionFinanzas != null && String(payload.observacionFinanzas).length > 2000) {
+    errors.push('observacionFinanzas: máximo 2000 caracteres.');
+  }
+  if (payload.devolverA != null && String(payload.devolverA).length > 120) {
+    errors.push('devolverA: máximo 120 caracteres.');
+  }
+  return { valid: errors.length === 0, errors };
+};
+
 export const validateExpensePayload = (payload = {}) => {
   const errors = [];
 

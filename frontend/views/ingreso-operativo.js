@@ -16,6 +16,8 @@ import {
   HNF_OT_OPERATION_MODES,
   HNF_OT_TECNICOS_PRESETS,
 } from '../constants/hnf-ot-operation.js';
+import { buildIngresoJarvisBrief } from '../domain/hnf-ingreso-jarvis-brief.js';
+import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
 
 const CASO_LABEL = {
   ot: 'OT',
@@ -30,7 +32,7 @@ const ORIGEN_LABEL = {
   whatsapp: 'WhatsApp',
   cliente_directo: 'Cliente directo',
   interno: 'Interno',
-  email: 'Email',
+  email: 'Correo',
   correo: 'Correo',
   llamada: 'Llamada',
   manual: 'Manual',
@@ -55,6 +57,17 @@ const SUBTIPO_BY_TIPO = {
     { value: 'Mantención', label: 'Mantención' },
     { value: 'Emergencia', label: 'Emergencia' },
     { value: 'Asistencia puntual', label: 'Asistencia puntual' },
+  ],
+  comercial: [
+    { value: 'Propuesta comercial', label: 'Propuesta comercial' },
+    { value: 'Seguimiento cliente', label: 'Seguimiento cliente' },
+    { value: 'Cotización', label: 'Cotización' },
+    { value: 'Visita comercial', label: 'Visita comercial' },
+  ],
+  administrativo: [
+    { value: 'Trámite interno', label: 'Trámite interno' },
+    { value: 'Solicitud administrativa', label: 'Solicitud administrativa' },
+    { value: 'Coordinación general', label: 'Coordinación general' },
   ],
 };
 
@@ -192,16 +205,19 @@ export const ingresoOperativoView = ({
   ingresoFeedback,
   isSubmittingIngresoOt,
   integrationStatus,
+  operatorRole: operatorRoleProp,
 } = {}) => {
+  const operatorRole = operatorRoleProp || resolveOperatorRole();
   const root = document.createElement('section');
   root.className = 'hnf-cap-ingreso hnf-cap-ingreso--command hnf-op-view hnf-op-view--ingreso';
 
   const head = document.createElement('header');
   head.className = 'hnf-cap-ingreso__head';
   head.innerHTML = `
-    <h1 class="hnf-cap-ingreso__title">Command Center · Ingreso omnicanal</h1>
+    <h1 class="hnf-cap-ingreso__title">Ingreso de información</h1>
     <p class="muted hnf-cap-ingreso__lead">
-      Flujo guiado: <strong>origen → cliente → servicio → prioridad → asignación</strong>. La <strong>OT</strong> se crea en el servidor al finalizar; abajo tenés la <strong>bandeja del día</strong> (WhatsApp + altas).
+      Flujo guiado y claro: <strong>origen → contacto → tipo de servicio → detalle → responsable</strong>.
+      Al finalizar se crea la <strong>OT</strong> en el servidor. Abajo ves los <strong>registros del día</strong> (WhatsApp y altas manuales).
     </p>
   `;
 
@@ -246,14 +262,33 @@ export const ingresoOperativoView = ({
   const formIntro = document.createElement('div');
   formIntro.className = 'hnf-ingreso-intake__intro';
   formIntro.innerHTML = `
-    <h2 class="hnf-ingreso-intake__intro-title">Nueva solicitud → OT en el servidor</h2>
+    <h2 class="hnf-ingreso-intake__intro-title">Nueva solicitud · crear OT</h2>
     <p class="muted small hnf-ingreso-intake__intro-text">
-      <strong>Qué hacés acá:</strong> contás quién pidió el servicio, desde dónde llegó, qué necesita y cómo operarlo (modo / técnico).<br/>
-      <strong>Por qué importa:</strong> la OT queda con trazabilidad para el equipo y para Jarvis.<br/>
-      <strong>Después de guardar:</strong> la OT existe en <strong>Clima</strong> (ejecución técnica); podés abrirla desde el aviso o desde el listado del día abajo.
+      <strong>Ingreso:</strong> datos del contacto y del pedido.<br/>
+      <strong>Resumen y recomendaciones:</strong> a la derecha (o abajo en tablet) se actualizan mientras escribís.<br/>
+      <strong>Después de guardar:</strong> verás «Subida de información exitosa» si todo salió bien; la OT queda en el módulo que corresponde (Clima, Flota o Comercial).
     </p>
   `;
-  formCard.append(formIntro);
+
+  const fileGuide = document.createElement('details');
+  fileGuide.className = 'hnf-ingreso-archivo-guia';
+  fileGuide.innerHTML = `
+    <summary class="hnf-ingreso-archivo-guia__sum">Carga de archivos (PDF, Excel, CSV, Word o texto)</summary>
+    <div class="hnf-ingreso-archivo-guia__body muted small">
+      <ol class="hnf-ingreso-archivo-guia__ol">
+        <li>Subí el archivo o pegá el texto en <strong>Bandeja</strong> / ingesta.</li>
+        <li>Jarvis analiza y muestra resumen, datos detectados y faltantes.</li>
+        <li>Revisá y confirmá: <strong>nada se guarda sin tu aprobación</strong>.</li>
+      </ol>
+    </div>
+  `;
+  const btnBandeja = document.createElement('button');
+  btnBandeja.type = 'button';
+  btnBandeja.className = 'secondary-button hnf-ingreso-archivo-guia__btn';
+  btnBandeja.textContent = 'Ir a ingesta con revisión previa';
+  btnBandeja.addEventListener('click', () => navigateToView?.('bandeja-canal'));
+  fileGuide.querySelector('.hnf-ingreso-archivo-guia__body')?.append(btnBandeja);
+  formCard.append(formIntro, fileGuide);
 
   const form = document.createElement('form');
   form.className = 'hnf-ingreso-intake-form';
@@ -330,9 +365,10 @@ export const ingresoOperativoView = ({
   origenSel.required = true;
   [
     { value: 'whatsapp', label: 'WhatsApp' },
+    { value: 'llamada', label: 'Llamada' },
+    { value: 'email', label: 'Correo' },
     { value: 'cliente_directo', label: 'Cliente directo' },
     { value: 'interno', label: 'Interno' },
-    { value: 'email', label: 'Email' },
   ].forEach((o) => {
     const opt = document.createElement('option');
     opt.value = o.value;
@@ -497,16 +533,30 @@ export const ingresoOperativoView = ({
   /* —— C · Tipo —— */
   const secC = mkSection(
     'C · Tipo de servicio',
-    '<strong>Clima</strong> (Romina, mantenciones, visitas HVAC) vs <strong>Flota</strong> (Gery, traslados, asistencias). El subtipo cambia según lo que elijas.'
+    'Elegí el área: <strong>Clima</strong> (Romina), <strong>Flota</strong> (Gery), <strong>Comercial</strong> o <strong>Administrativo</strong> según tu rol. El subtipo se adapta automáticamente.'
   );
+  const tipoOpciones =
+    operatorRole === 'admin' || operatorRole === 'control'
+      ? [
+          { value: 'clima', label: 'Clima (HVAC)' },
+          { value: 'flota', label: 'Flota' },
+          { value: 'comercial', label: 'Comercial' },
+          { value: 'administrativo', label: 'Administrativo' },
+        ]
+      : operatorRole === 'clima'
+        ? [
+            { value: 'clima', label: 'Clima (HVAC)' },
+            { value: 'administrativo', label: 'Administrativo' },
+          ]
+        : operatorRole === 'tecnico'
+          ? [{ value: 'clima', label: 'Clima (HVAC)' }]
+          : [{ value: 'flota', label: 'Flota' }];
+
   const tipoSel = document.createElement('select');
   tipoSel.name = 'tipo';
   tipoSel.className = 'hnf-cap-ingreso__input';
   tipoSel.required = true;
-  [
-    { value: 'clima', label: 'Clima (HVAC)' },
-    { value: 'flota', label: 'Flota' },
-  ].forEach((o) => {
+  tipoOpciones.forEach((o) => {
     const opt = document.createElement('option');
     opt.value = o.value;
     opt.textContent = o.label;
@@ -531,7 +581,7 @@ export const ingresoOperativoView = ({
       subtipoSel.append(opt);
     }
   };
-  fillSubtipo('clima');
+  fillSubtipo(tipoSel.value || 'clima');
   tipoSel.addEventListener('change', () => fillSubtipo(tipoSel.value));
   const wSub = document.createElement('label');
   wSub.className = 'hnf-cap-ingreso__field';
@@ -665,7 +715,7 @@ export const ingresoOperativoView = ({
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'primary-button hnf-cap-ingreso__submit hnf-ingreso-intake__submit';
-  submit.textContent = 'Crear OT y registrar en el día';
+  submit.textContent = 'Guardar solicitud (crear OT)';
 
   const offlineNote = document.createElement('p');
   offlineNote.className = 'muted small hnf-ingreso-intake__offline';
@@ -709,17 +759,38 @@ export const ingresoOperativoView = ({
   previewInner.className = 'hnf-ingreso-cc-preview__sticky';
   const previewTitle = document.createElement('h3');
   previewTitle.className = 'hnf-ingreso-cc-preview__title';
-  previewTitle.textContent = 'Resumen de OT';
+  previewTitle.textContent = 'Resumen';
   const dl = document.createElement('dl');
   dl.className = 'hnf-ingreso-cc-preview__dl';
-  previewInner.append(previewTitle, dl);
+  const jarvisTitle = document.createElement('h4');
+  jarvisTitle.className = 'hnf-ingreso-cc-preview__jarvis-title';
+  jarvisTitle.textContent = 'Jarvis · antes de guardar';
+  const jResumen = document.createElement('p');
+  jResumen.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jImp = document.createElement('p');
+  jImp.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jRec = document.createElement('p');
+  jRec.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jFalt = document.createElement('p');
+  jFalt.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  previewInner.append(previewTitle, dl, jarvisTitle, jResumen, jImp, jRec, jFalt);
   preview.append(previewInner);
+
+  const tipoLabel = (v) =>
+    (
+      {
+        flota: 'Flota',
+        comercial: 'Comercial',
+        administrativo: 'Administrativo',
+        clima: 'Clima',
+      }[v] || 'Clima'
+    );
 
   const updatePreview = () => {
     const o = origenSel.value;
     const ol = ORIGEN_LABEL[o] || o || '—';
     const cli = clienteInp.value?.trim() || '—';
-    const tp = tipoSel.value === 'flota' ? 'Flota' : 'Clima';
+    const tp = tipoLabel(tipoSel.value);
     const sub = subtipoSel.value || '—';
     const prUi = form.elements.prioridad?.value;
     const pr = PRIO_LABEL[prUi] || prUi || '—';
@@ -729,8 +800,8 @@ export const ingresoOperativoView = ({
       ['Cliente', cli],
       ['Servicio', `${tp} · ${sub}`],
       ['Prioridad', pr],
-      ['Asignación', tech],
-      ['Fecha solicitud', `${fechaSol.value || '—'} ${horaSol.value || ''}`.trim()],
+      ['Responsable sugerido', tech],
+      ['Fecha y hora', `${fechaSol.value || '—'} ${horaSol.value || ''}`.trim()],
     ];
     dl.replaceChildren();
     for (const [k, v] of rows) {
@@ -742,38 +813,55 @@ export const ingresoOperativoView = ({
       dd.textContent = v;
       dl.append(dt, dd);
     }
+    const brief = buildIngresoJarvisBrief({
+      formLike: {
+        cliente: clienteInp.value,
+        telefono: form.elements.telefono?.value,
+        emailCorreo: form.elements.emailCorreo?.value,
+        origen: origenSel.value,
+        tipo: tipoSel.value,
+        whatsappNumero: form.elements.whatsappNumero?.value,
+        whatsappNombre: form.elements.whatsappNombre?.value,
+        comuna: form.elements.comuna?.value,
+      },
+      clientesConocidos: nombresClientes,
+    });
+    jResumen.textContent = `Resumen: ${brief.resumen}`;
+    jImp.textContent = brief.importante ? `Información importante: ${brief.importante}` : 'Información importante: sin alertas.';
+    jRec.textContent = brief.recomendaciones ? `Recomendaciones: ${brief.recomendaciones}` : 'Recomendaciones: —';
+    jFalt.textContent = brief.faltantes;
   };
 
   const validateWizardStep = (step) => {
     if (step === 0) {
-      if (!fechaSol.value) return 'Completá la fecha de la solicitud (paso Entrada).';
-      if (!origenSel.value) return 'Seleccioná el origen.';
+      if (!fechaSol.value) return 'Falta la fecha de la solicitud.';
+      if (!origenSel.value) return 'Elegí el origen del pedido.';
       if (origenSel.value === 'whatsapp') {
         const wn = form.elements.whatsappNumero?.value?.trim();
         const wnm = form.elements.whatsappNombre?.value?.trim();
-        if (!wn) return 'WhatsApp requiere número de contacto.';
-        if (!wnm) return 'WhatsApp requiere nombre de contacto.';
+        if (!wn) return 'Falta número de WhatsApp o teléfono para este origen.';
+        if (!wnm) return 'Falta nombre de contacto de WhatsApp.';
       }
       return '';
     }
     if (step === 1) {
-      if (!clienteInp.value?.trim()) return 'Indicá el cliente (paso Cliente).';
-      if (!form.elements.contacto?.value?.trim()) return 'Indicá el contacto en terreno.';
-      if (!form.elements.telefono?.value?.trim()) return 'Indicá el teléfono.';
-      if (!form.elements.direccion?.value?.trim()) return 'Indicá la dirección.';
-      if (!form.elements.comuna?.value?.trim()) return 'Indicá la comuna.';
+      if (!clienteInp.value?.trim()) return 'Falta el nombre del cliente o empresa.';
+      if (!form.elements.contacto?.value?.trim()) return 'Falta el nombre del contacto.';
+      if (!form.elements.telefono?.value?.trim()) return 'Falta número de teléfono.';
+      if (!form.elements.direccion?.value?.trim()) return 'Falta dirección o lugar de la visita.';
+      if (!form.elements.comuna?.value?.trim()) return 'Falta comuna o ciudad.';
       return '';
     }
     if (step === 2) {
-      if (!tipoSel.value) return 'Elegí Clima o Flota (paso Servicio).';
-      if (!subtipoSel.value?.trim()) return 'Elegí el subtipo de servicio.';
+      if (!tipoSel.value) return 'Elegí el tipo de servicio.';
+      if (!subtipoSel.value?.trim()) return 'Elegí el subtipo.';
       return '';
     }
     if (step === 3) {
       const desc = form.elements.descripcion?.value?.trim() || '';
-      if (desc.length < 8) return 'Completá la descripción del pedido (paso Prioridad y detalle).';
+      if (desc.length < 8) return 'Falta información importante: describí el pedido con más detalle.';
       const pr = form.elements.prioridad?.value;
-      if (!pr) return 'Seleccioná la prioridad operativa.';
+      if (!pr) return 'Elegí la prioridad.';
       return '';
     }
     return '';
@@ -1127,8 +1215,8 @@ export const ingresoOperativoView = ({
     fechaSol.value = defaultFechaSolicitud();
     horaSol.value = defaultHoraSolicitud();
     presetSel.value = '';
-    tipoSel.value = 'clima';
-    fillSubtipo('clima');
+    tipoSel.value = tipoOpciones[0]?.value || 'clima';
+    fillSubtipo(tipoSel.value);
     techSel.value = 'Por asignar';
     techOther.value = '';
     techOther.hidden = true;
@@ -1147,7 +1235,7 @@ export const ingresoOperativoView = ({
       feedback.hidden = false;
       feedback.classList.add('form-feedback--error');
       feedback.textContent =
-        'Sin conexión: no se puede crear la OT. Revisá la red y probá de nuevo.';
+        'Sin conexión al servidor: no podemos guardar la OT ahora. Revisá la red y reintentá.';
       return;
     }
 
@@ -1181,7 +1269,7 @@ export const ingresoOperativoView = ({
     if (errs.length) {
       feedback.hidden = false;
       feedback.classList.add('form-feedback--error');
-      feedback.textContent = `Falta o revisá: ${errs.join(' · ')}`;
+      feedback.textContent = `Falta información importante para guardar: ${errs.join(' · ')}`;
       return;
     }
 

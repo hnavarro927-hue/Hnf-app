@@ -1012,7 +1012,7 @@ const createActions = () => ({
       const response = await otService.create(payload);
       state.ingresoFeedback = {
         type: 'success',
-        message: `Listo: OT ${response.data.id} creada en el servidor. Aparece abajo en tu lista del día; en Clima podés cargar equipos y evidencias.`,
+        message: `Subida de información exitosa. OT ${response.data.id} guardada correctamente. La verás en la lista del día y en el módulo que corresponda (Clima, Flota o Comercial).`,
       };
       await loadViewData();
       state.isSubmittingIngresoOt = false;
@@ -1032,6 +1032,11 @@ const createActions = () => ({
   clearIngresoFeedback: () => {
     state.ingresoFeedback = null;
     render();
+  },
+
+  patchExpenseEstado: async (id, body) => {
+    await expenseService.patch(id, body);
+    await loadViewData();
   },
 
   patchOtOperational: async (id, body) => {
@@ -1607,6 +1612,7 @@ const render = () => {
             ? state.intelGuidanceOneShot
             : null,
         commercialIntelContext: state.activeView === 'oportunidades' ? state.commercialIntelOneShot : null,
+        operatorRole: resolveOperatorRole(),
       };
 
       try {

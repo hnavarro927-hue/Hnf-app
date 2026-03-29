@@ -81,6 +81,31 @@ export function buildJarvisAgentBrief(ctx) {
     actionLine = 'Revisá solicitudes del día en Flota.';
   }
 
+  if (activeView === 'ingreso-operativo') {
+    actionLine =
+      'Completá teléfono o WhatsApp según el origen. Revisá «Información importante» en el resumen antes de guardar.';
+    priorityLine = 'Ingreso guiado: datos completos hoy ahorran llamadas mañana.';
+  }
+  if (activeView === 'finanzas') {
+    actionLine =
+      'Los gastos nuevos quedan «Registrado»: la operación sigue. Acá aprobás, observás o rechazás con registro.';
+    priorityLine = 'Finanzas: revisión posterior sin frenar a Romina, Gery ni técnicos.';
+  }
+  if (activeView === 'oportunidades') {
+    actionLine = 'Comercial: oportunidades y OT con tipo Comercial para Lyn / Hernán.';
+    priorityLine = 'Seguimiento de cartera y propuestas.';
+  }
+
+  const modHint =
+    activeView === 'clima'
+      ? ' · Módulo Clima (Romina).'
+      : activeView === 'flota'
+        ? ' · Módulo Flota (Gery).'
+        : '';
+  if (modHint && !priorityLine.includes('Módulo')) {
+    priorityLine = `${priorityLine}${modHint}`;
+  }
+
   let executeTarget = 'clima';
   let executeLabel = 'Ejecutar acción';
   if (metrics.otEnRiesgo > 0 || metrics.otSinEvidenciaCompleta > 0) {
