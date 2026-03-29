@@ -345,6 +345,15 @@ export const otService = {
         fotografiasAntes: normalizeFiles(data, 'fotografiasAntes'),
         fotografiasDurante: normalizeFiles(data, 'fotografiasDurante'),
         fotografiasDespues: normalizeFiles(data, 'fotografiasDespues'),
+        maestroDocumentoOrigenId:
+          data.maestroDocumentoOrigenId != null && String(data.maestroDocumentoOrigenId).trim()
+            ? String(data.maestroDocumentoOrigenId).trim()
+            : null,
+        estadoOperativo: (() => {
+          const e = String(data.estadoOperativo || '').toLowerCase().trim();
+          if (['pendiente', 'en_proceso', 'gestionado', 'cerrado'].includes(e)) return e;
+          return null;
+        })(),
       },
       actor
     );

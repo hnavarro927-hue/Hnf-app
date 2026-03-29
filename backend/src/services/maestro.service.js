@@ -738,6 +738,15 @@ async function procesarAprobacionDocumento(documentoId, body, actor) {
     actor
   );
 
+  let crmLeadDesdeComercial = null;
+  try {
+    const { commercialLeadService } = await import('./commercialLead.service.js');
+    const lr = await commercialLeadService.createFromMaestroDocumentIfComercial(updated, actor);
+    if (lr?.lead && !lr?.skipped) crmLeadDesdeComercial = lr.lead;
+  } catch {
+    /* no bloquear aprobación si CRM falla */
+  }
+
   return {
     ok: true,
     documento: updated,
@@ -746,6 +755,7 @@ async function procesarAprobacionDocumento(documentoId, body, actor) {
     entidades_vinculadas,
     modo,
     auto_crear: autoCrear,
+    crm_lead_creado: crmLeadDesdeComercial,
   };
 }
 

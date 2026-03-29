@@ -50,6 +50,7 @@ import { whatsappFeedService } from './services/whatsapp-feed.service.js';
 import { outlookIntakeService } from './services/outlook-intake.service.js';
 import { historicalVaultService } from './services/historical-vault.service.js';
 import { technicalDocumentsService } from './services/technical-documents.service.js';
+import { commercialLeadsService } from './services/commercial-leads.service.js';
 import { commercialOpportunitiesService } from './services/commercial-opportunities.service.js';
 import { operationalCalendarService } from './services/operational-calendar.service.js';
 import { operationalEventsService } from './services/operational-events.service.js';
@@ -322,6 +323,7 @@ const minimalOperationalViewData = () => {
     technicalDocumentAlerts: [],
     commercialOpportunities: [],
     commercialOpportunityAlerts: [],
+    commercialLeads: [],
     flotaSolicitudes: [],
     whatsappFeed: {
       messages: [],
@@ -392,6 +394,7 @@ const loadFullOperationalDataImpl = async () => {
     ocMerged,
     techDocs,
     commercialOpps,
+    commercialLeadsRaw,
     historicalVault,
     operationalPanelDaily,
     operationalEvents,
@@ -426,6 +429,7 @@ const loadFullOperationalDataImpl = async () => {
     operationalCalendarService.getMerged(opRange).catch(() => ({ entries: [] })),
     technicalDocumentsService.getAll().catch(() => []),
     commercialOpportunitiesService.getAll().catch(() => []),
+    commercialLeadsService.getAll().catch(() => []),
     historicalVaultService.getVault().catch(() => ({
       records: [],
       importBatches: [],
@@ -486,6 +490,7 @@ const loadFullOperationalDataImpl = async () => {
   );
 
   const commercialOpportunities = Array.isArray(commercialOpps) ? commercialOpps : [];
+  const commercialLeads = Array.isArray(commercialLeadsRaw) ? commercialLeadsRaw : [];
   const commercialOpportunityAlerts =
     hnfDocumentIntelligence.computeCommercialOpportunityAlerts(commercialOpportunities);
 
@@ -527,6 +532,7 @@ const loadFullOperationalDataImpl = async () => {
     technicalDocuments,
     technicalDocumentAlerts,
     commercialOpportunities,
+    commercialLeads,
     commercialOpportunityAlerts,
     flotaSolicitudes: sol.data ?? [],
     whatsappFeed,

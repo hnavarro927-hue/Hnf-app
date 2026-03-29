@@ -10,6 +10,7 @@ export const apiEndpoints = {
   operationalCalendar: '/operational-calendar',
   technicalDocuments: '/technical-documents',
   commercialOpportunities: '/commercial-opportunities',
+  commercialLeads: '/commercial-leads',
   flotaSolicitudes: '/flota/solicitudes',
   jarvisOperativeEvents: '/jarvis-operative-events',
   operationalEvents: '/operational-events',

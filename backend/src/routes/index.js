@@ -10,6 +10,7 @@ import { jarvisIntakeRoutes } from './jarvisIntake.routes.js';
 import { operationalEventRoutes } from './operationalEvent.routes.js';
 import { otRoutes } from './ot.routes.js';
 import { operationalCalendarRoutes } from './operationalCalendar.routes.js';
+import { commercialLeadRoutes } from './commercialLead.routes.js';
 import { commercialOpportunityRoutes } from './commercialOpportunity.routes.js';
 import { technicalDocumentRoutes } from './technicalDocument.routes.js';
 import { planificacionRoutes } from './planificacion.routes.js';
@@ -34,6 +35,7 @@ export const routes = [
   ...operationalCalendarRoutes,
   ...technicalDocumentRoutes,
   ...commercialOpportunityRoutes,
+  ...commercialLeadRoutes,
   ...flotaSolicitudRoutes,
   ...whatsappFeedRoutes,
   ...outlookIntakeRoutes,

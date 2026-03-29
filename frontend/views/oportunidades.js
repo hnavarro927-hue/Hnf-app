@@ -1,6 +1,7 @@
 import { buildMailtoUrl } from '../domain/jarvis-commercial-brain.js';
 import { commercialOpportunitiesService } from '../services/commercial-opportunities.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import { createCommercialLeadsCrmSection } from './commercial-leads-crm.js';
 
 const PRIORIDAD_CLASS = { alta: 'opp-prio--alta', media: 'opp-prio--media', baja: 'opp-prio--baja' };
 
@@ -13,6 +14,7 @@ export const oportunidadesView = ({
   navigateToView,
   actions,
   commercialIntelContext,
+  integrationStatus,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'opp-module hnf-op-view hnf-op-view--comercial';
@@ -57,6 +59,15 @@ export const oportunidadesView = ({
     '<h2>Comercial · radar operativo</h2><p class="muted">Enfoque <strong>profesional y claro</strong>: clientes, oportunidades y seguimiento — sin ruido técnico. Conectado a OT, WhatsApp y pipeline.</p>';
 
   const flowStrip = createHnfOperationalFlowStrip(2);
+
+  const crmLeads = Array.isArray(data?.commercialLeads) ? data.commercialLeads : [];
+  const crmSection = createCommercialLeadsCrmSection({
+    leads: crmLeads,
+    reloadApp,
+    integrationStatus,
+    navigateToView,
+    onFeedback: (type, msg) => showFb(type, msg),
+  });
 
   const live = data?.hnfAdn?.commercialLive || data?.commercialLive;
   const radar = document.createElement('div');
@@ -344,7 +355,7 @@ export const oportunidadesView = ({
   bDash.addEventListener('click', () => typeof navigateToView === 'function' && navigateToView('jarvis'));
   back.append(bDash);
 
-  section.append(header, flowStrip, radar, draftSlot, feedback, otComercialBox, back, toolbar, tableWrap);
+  section.append(header, flowStrip, crmSection, radar, draftSlot, feedback, otComercialBox, back, toolbar, tableWrap);
   renderTable();
 
   function escapeHtml(s) {
