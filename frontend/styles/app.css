@@ -20640,3 +20640,215 @@ body.hnf-op-command .hnf-cap-control__k {
     box-shadow: 0 0 16px rgba(0, 242, 255, 0.25);
   }
 }
+
+/* —— Clima · flujo modular OT (etapas, táctil, scroll acotado) —— */
+.ot-flow-app__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.ot-flow-app--create .ot-form-card__header {
+  margin-bottom: 8px;
+}
+
+.ot-flow-app__lede {
+  margin-top: 8px;
+  font-size: 13px;
+  max-width: 42rem;
+}
+
+.ot-flow-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ot-flow-progress__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 14, 22, 0.65);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ot-flow-progress__step:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.ot-flow-progress__step.is-active {
+  border-color: rgba(0, 242, 255, 0.45);
+  box-shadow: 0 0 18px rgba(0, 242, 255, 0.12);
+  color: var(--accent-clima);
+}
+
+.ot-flow-progress__step.is-done {
+  border-color: rgba(0, 255, 157, 0.35);
+  color: var(--accent-flota);
+}
+
+.ot-flow-progress__dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ot-flow-progress__arrow {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.ot-flow-jarvis {
+  border-radius: 14px;
+  border: 1px solid rgba(112, 0, 255, 0.28);
+  padding: 12px 14px;
+  background: rgba(12, 8, 28, 0.42);
+  margin-bottom: 4px;
+}
+
+.ot-flow-jarvis__title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent-jarvis);
+}
+
+.ot-flow-jarvis__list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.ot-flow-jarvis__next {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(225, 225, 225, 0.78);
+}
+
+.ot-flow-stage-body {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ot-flow-stage-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ot-flow-stage-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.ot-flow-block {
+  margin: 0 !important;
+}
+
+.ot-flow-block--scroll {
+  max-height: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ot-flow-field-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ot-flow-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 120px;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.45;
+  border-radius: 12px;
+  resize: vertical;
+}
+
+.ot-flow-summary-mini {
+  margin-bottom: 0;
+}
+
+.ot-flow-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ot-flow-footer__btn {
+  min-height: 48px;
+  min-width: 44px;
+  padding-left: 18px;
+  padding-right: 18px;
+  font-size: 14px;
+}
+
+.ot-flow-footer__msg {
+  flex: 1;
+  min-width: 160px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.ot-flow-touch-control {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.ot-flow-blockers {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #fbbf24;
+}
+
+body.hnf-viewport-tablet .ot-flow-stage-body {
+  max-height: min(62vh, 560px);
+}
+
+body.hnf-viewport-tablet .ot-flow-progress__label {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

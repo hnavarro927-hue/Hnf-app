@@ -4,8 +4,20 @@ import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
-import { otCanClose } from '../utils/ot-evidence.js';
+import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import {
+  CLIMA_OT_FLOW_STAGES,
+  createFlowStorageKey,
+  detailStageStorageKey,
+  jarvisLinesForCreateStage,
+  jarvisLinesForDetailStage,
+  nextActionHintForDetailStage,
+  readStoredStageIndex,
+  validateCreateStageAdvance,
+  validateDetailStageAdvance,
+  writeStoredStageIndex,
+} from '../domain/clima-ot-flow-stages.js';
 import {
   HNF_OT_OPERATION_MODES,
   HNF_OT_ORIGEN_PEDIDO,
@@ -260,92 +272,6 @@ const attachChecklistUI = (parent, checklistRef, readOnly) => {
   rerender();
 };
 
-const createInlineEditableBlock = ({ title, hint, value = '', readOnly = false, onSave }) => {
-  const block = document.createElement('article');
-  block.className = 'ot-saas-block ot-saas-block--summary';
-  const head = document.createElement('div');
-  head.className = 'ot-saas-block__head';
-  const h = document.createElement('h4');
-  h.textContent = title;
-  const p = document.createElement('p');
-  p.className = 'muted';
-  p.textContent = hint;
-  head.append(h, p);
-
-  const content = document.createElement('div');
-  content.className = 'ot-inline-edit';
-  const area = document.createElement('div');
-  area.className = 'ot-inline-edit__area';
-  area.contentEditable = String(!readOnly);
-  area.textContent = value || '';
-  area.dataset.placeholder = 'Escribe aquí…';
-
-  const actions = document.createElement('div');
-  actions.className = 'ot-inline-edit__actions';
-  const save = document.createElement('button');
-  save.type = 'button';
-  save.className = 'secondary-button';
-  save.textContent = 'Guardar';
-  save.disabled = readOnly || typeof onSave !== 'function';
-  save.addEventListener('click', async () => {
-    if (typeof onSave !== 'function') return;
-    await onSave(String(area.textContent || '').trim());
-  });
-  actions.append(save);
-
-  content.append(area, actions);
-  block.append(head, content);
-  return block;
-};
-
-const createJarvisSuggestions = (ot) => {
-  const out = [];
-  if (!ot) return out;
-  if (!ot.resumenTrabajo?.trim()) out.push('Completa el resumen para habilitar cierre sin fricción.');
-  if ((ot.equipos?.length || 0) === 0) out.push('Agrega al menos un equipo para trazabilidad técnica.');
-  if (!ot.pdfUrl) out.push('Genera borrador PDF antes del cierre para validación interna.');
-  if (['pendiente', 'nueva', 'asignada'].includes(String(ot?.estado || '').toLowerCase()))
-    out.push('Mueve la OT a “en proceso” para reflejar ejecución real.');
-  return out.slice(0, 3);
-};
-
-const mountJarvisOrb = (host, ot) => {
-  const orb = document.createElement('aside');
-  orb.className = `jarvis-orb jarvis-orb--${(ot?.estado || 'pendiente').replace(/\s+/g, '-')}`;
-  orb.setAttribute('aria-label', 'Jarvis contextual');
-  orb.innerHTML = `
-    <button type="button" class="jarvis-orb__core" aria-expanded="false" aria-controls="jarvis-orb-panel">J</button>
-    <div id="jarvis-orb-panel" class="jarvis-orb__panel" hidden>
-      <h4>Jarvis · Sugerencias</h4>
-      <ul class="jarvis-orb__list"></ul>
-    </div>
-  `;
-  const core = orb.querySelector('.jarvis-orb__core');
-  const panel = orb.querySelector('.jarvis-orb__panel');
-  const ul = orb.querySelector('.jarvis-orb__list');
-  createJarvisSuggestions(ot).forEach((txt) => {
-    const li = document.createElement('li');
-    li.textContent = txt;
-    ul.append(li);
-  });
-  if (!ul.children.length) {
-    const li = document.createElement('li');
-    li.textContent = 'Operación estable. Mantén evidencias y costos al día.';
-    ul.append(li);
-  }
-  core?.addEventListener('click', () => {
-    const open = panel?.hasAttribute('hidden') === false;
-    if (open) {
-      panel?.setAttribute('hidden', '');
-      core.setAttribute('aria-expanded', 'false');
-    } else {
-      panel?.removeAttribute('hidden');
-      core.setAttribute('aria-expanded', 'true');
-    }
-  });
-  host.append(orb);
-};
-
 const buildField = (field) => {
   const wrapper = document.createElement('label');
   wrapper.className = 'form-field';
@@ -533,10 +459,9 @@ const resolveTecnicoFromAltaForm = (form) => {
   return preset || 'Por asignar';
 };
 
-const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
-  const sec = document.createElement('section');
-  sec.className = 'ot-op-detail';
-  sec.setAttribute('aria-label', 'Modo operación y responsabilidades');
+const buildOtOperationalSummarySection = (ot) => {
+  const block = document.createElement('div');
+  block.className = 'ot-op-detail__summary-block';
 
   const mode = ot.operationMode === 'automatic' ? 'automatic' : 'manual';
 
@@ -544,11 +469,11 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
   head.className = 'ot-op-detail__head';
   const ht = document.createElement('h3');
   ht.className = 'ot-section-title';
-  ht.textContent = 'Control operativo (modo · responsables · origen)';
+  ht.textContent = 'Clasificación operativa';
   const hp = document.createElement('p');
   hp.className = 'muted small';
   hp.innerHTML =
-    'Indicadores siempre visibles. <strong>Automático</strong> = Jarvis puede proponer técnico al crear; el equipo mantiene control y puede anular.';
+    '<strong>Automático</strong> permite sugerencias de asignación; <strong>Manual</strong> deja el control en el equipo.';
   head.append(ht, hp);
 
   const badges = document.createElement('div');
@@ -558,7 +483,7 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
   bMode.textContent = labelOperationMode(mode);
   const bOrig = document.createElement('span');
   bOrig.className = 'ot-op-badge ot-op-badge--neutral';
-  bOrig.textContent = `Origen: ${labelOrigenPedido(ot.origenPedido)}`;
+  bOrig.textContent = `Origen pedido: ${labelOrigenPedido(ot.origenPedido)}`;
   badges.append(bMode, bOrig);
 
   const grid = document.createElement('div');
@@ -574,16 +499,20 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
     return d;
   };
   grid.append(
-    row('Creada por', ot.creadoPor),
-    row('Asignación por', ot.asignadoPor),
-    row('Responsable actual', ot.responsableActual || ot.tecnicoAsignado),
-    row('Técnico (OT)', ot.tecnicoAsignado)
+    row('Origen solicitud', labelOrigenSolicitud(ot.origenSolicitud)),
+    row('Prioridad', labelPrioridadOperativa(ot.prioridadOperativa)),
+    row('Tipo / subtipo', `${ot.tipoServicio || '—'} / ${ot.subtipoServicio || '—'}`),
+    row('Bandeja → aviso', `${ot.bandejaAsignada || '—'} → ${ot.notificacionAsignadaA || '—'}`)
   );
 
-  sec.append(head, badges, grid);
+  block.append(head, badges, grid);
+  return block;
+};
 
+const buildOtOperationalControlsSection = (ot, actions, readOnly, isPatching) => {
+  const empty = document.createElement('div');
   if (readOnly || typeof actions?.patchOtOperational !== 'function') {
-    return sec;
+    return { element: empty, flushOperationalSave: async () => true };
   }
 
   const ctl = document.createElement('div');
@@ -592,8 +521,10 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
   const rowCtrl = document.createElement('div');
   rowCtrl.className = 'ot-op-detail__ctrl-row';
 
+  const mode = ot.operationMode === 'automatic' ? 'automatic' : 'manual';
+
   const ms = document.createElement('select');
-  ms.className = 'ot-op-detail__select';
+  ms.className = 'ot-op-detail__select ot-flow-touch-control';
   ms.setAttribute('aria-label', 'Modo operación');
   [
     ['manual', 'Manual'],
@@ -607,7 +538,7 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
   });
 
   const tSel = document.createElement('select');
-  tSel.className = 'ot-op-detail__select';
+  tSel.className = 'ot-op-detail__select ot-flow-touch-control';
   tSel.setAttribute('aria-label', 'Técnico');
   HNF_OT_TECNICOS_PRESETS.forEach((p) => {
     const o = document.createElement('option');
@@ -621,7 +552,7 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
   tSel.append(otroOpt);
   const tOther = document.createElement('input');
   tOther.type = 'text';
-  tOther.className = 'ot-op-detail__other';
+  tOther.className = 'ot-op-detail__other ot-flow-touch-control';
   tOther.placeholder = 'Nombre técnico';
   tOther.hidden = true;
   const curTech = String(ot.tecnicoAsignado || '').trim() || 'Por asignar';
@@ -638,7 +569,7 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
   });
 
   const os = document.createElement('select');
-  os.className = 'ot-op-detail__select';
+  os.className = 'ot-op-detail__select ot-flow-touch-control';
   os.setAttribute('aria-label', 'Origen del pedido');
   HNF_OT_ORIGEN_PEDIDO.forEach((p) => {
     const o = document.createElement('option');
@@ -650,24 +581,29 @@ const buildOtOperationalDetailPanel = (ot, actions, readOnly, isPatching) => {
 
   const save = document.createElement('button');
   save.type = 'button';
-  save.className = 'primary-button';
-  save.textContent = isPatching ? 'Guardando…' : 'Guardar modo / técnico / origen';
+  save.className = 'primary-button ot-flow-footer__btn';
+  save.textContent = isPatching ? 'Guardando…' : 'Guardar asignación operativa';
   save.disabled = Boolean(isPatching);
-  save.addEventListener('click', () => {
+
+  const flushOperationalSave = async () => {
+    if (readOnly || typeof actions?.patchOtOperational !== 'function') return true;
     let t = tSel.value;
     if (t === '__otro__') t = tOther.value.trim() || 'Por asignar';
-    actions.patchOtOperational(ot.id, {
+    await actions.patchOtOperational(ot.id, {
       operationMode: ms.value,
       tecnicoAsignado: t,
       origenPedido: os.value,
     });
+    return true;
+  };
+
+  save.addEventListener('click', () => {
+    flushOperationalSave();
   });
 
   rowCtrl.append(ms, tSel, tOther, os, save);
   ctl.append(rowCtrl);
-  sec.append(ctl);
-
-  return sec;
+  return { element: ctl, flushOperationalSave };
 };
 
 const createEquipoFormRow = () => {
@@ -996,6 +932,543 @@ const createEvidenceSection = (title, items = []) => {
   return article;
 };
 
+const mountClimaOtDetailFlow = (
+  detailCard,
+  {
+    selectedOT,
+    actions,
+    ro,
+    isClosingOT,
+    isGeneratingPdf,
+    isSavingEquipos,
+    isPatchingOtOperational,
+    otEconomicsSaved,
+  }
+) => {
+  const storageKey = detailStageStorageKey(selectedOT.id);
+  let detailStageIdx = readStoredStageIndex(storageKey, CLIMA_OT_FLOW_STAGES.length - 1);
+
+  detailCard.classList.add('ot-flow-app', 'ot-flow-app--detail');
+  const flowRoot = document.createElement('div');
+  flowRoot.className = 'ot-flow-app__inner';
+
+  const compactHeader = document.createElement('header');
+  compactHeader.className = 'ot-saas-sticky ot-flow-compact-header';
+  const meta = document.createElement('div');
+  meta.className = 'ot-saas-sticky__meta';
+  [
+    ['OT', selectedOT.id],
+    ['Cliente', selectedOT.cliente],
+    ['Técnico', selectedOT.tecnicoAsignado],
+  ].forEach(([k, v]) => {
+    const pill = document.createElement('div');
+    pill.className = 'ot-saas-pill';
+    pill.innerHTML = `<span>${k}</span><strong>${v || '—'}</strong>`;
+    meta.append(pill);
+  });
+  const statusPill = document.createElement('div');
+  statusPill.className = 'ot-saas-pill';
+  const stK = document.createElement('span');
+  stK.textContent = 'Estado';
+  const stV = document.createElement('strong');
+  stV.append(createStatusBadge(selectedOT.estado));
+  statusPill.append(stK, stV);
+  meta.append(statusPill);
+  compactHeader.append(meta);
+
+  const progressNav = document.createElement('nav');
+  progressNav.className = 'ot-flow-progress';
+  progressNav.setAttribute('aria-label', 'Etapas de la OT');
+
+  const jarvisAside = document.createElement('aside');
+  jarvisAside.className = 'ot-flow-jarvis';
+  const jt = document.createElement('h4');
+  jt.className = 'ot-flow-jarvis__title';
+  jt.textContent = 'Jarvis · esta etapa';
+  const jarvisUl = document.createElement('ul');
+  jarvisUl.className = 'ot-flow-jarvis__list';
+  const jarvisNext = document.createElement('p');
+  jarvisNext.className = 'ot-flow-jarvis__next';
+  jarvisAside.append(jt, jarvisUl, jarvisNext);
+
+  const stageBody = document.createElement('div');
+  stageBody.className = 'ot-flow-stage-body';
+
+  const mkPanel = (idx) => {
+    const p = document.createElement('section');
+    p.className = 'ot-flow-stage-panel';
+    p.dataset.detailStage = String(idx);
+    p.hidden = true;
+    return p;
+  };
+
+  const p0 = mkPanel(0);
+  const h0 = document.createElement('h3');
+  h0.className = 'ot-flow-stage-title';
+  h0.textContent = 'Entrada · datos del sitio';
+  const waRow = document.createElement('div');
+  waRow.className = 'ot-saas-block ot-flow-block';
+  const waMeta = document.createElement('p');
+  waMeta.className = 'muted small';
+  const os0 = String(selectedOT.origenSolicitud || selectedOT.origenPedido || '').toLowerCase();
+  waMeta.textContent =
+    os0 === 'whatsapp'
+      ? `WhatsApp · Pendiente respuesta al cliente: ${selectedOT.pendienteRespuestaCliente ? 'sí' : 'no'}`
+      : '';
+  const btnWa = document.createElement('button');
+  btnWa.type = 'button';
+  btnWa.className = 'secondary-button ot-flow-footer__btn';
+  btnWa.textContent = 'Simular envío respuesta al cliente';
+  btnWa.hidden = !(os0 === 'whatsapp' && selectedOT.pendienteRespuestaCliente);
+  btnWa.addEventListener('click', async () => {
+    await actions.patchOtOperational(selectedOT.id, { pendienteRespuestaCliente: false });
+  });
+  waRow.append(waMeta, btnWa);
+
+  const histBlock = document.createElement('div');
+  histBlock.className = 'ot-saas-block ot-flow-block ot-flow-block--scroll';
+  const histH = document.createElement('h4');
+  histH.textContent = 'Historial reciente';
+  const histUl = document.createElement('ul');
+  histUl.className = 'muted small';
+  histUl.style.paddingLeft = '1.1rem';
+  const hist = Array.isArray(selectedOT.historial) ? selectedOT.historial : [];
+  if (!hist.length) {
+    const li = document.createElement('li');
+    li.textContent = 'Sin eventos registrados.';
+    histUl.append(li);
+  } else {
+    for (const ev of [...hist].slice(-12).reverse()) {
+      const li = document.createElement('li');
+      li.textContent = `${formatAuditTs(ev.at)} · ${ev.actor || '—'} · ${ev.accion || '—'} — ${ev.detalle || ''}`;
+      histUl.append(li);
+    }
+  }
+  histBlock.append(histH, histUl);
+
+  const editGrid = document.createElement('div');
+  editGrid.className = 'ot-form__grid';
+  const mkEdit = (name, lab, val) => {
+    const w = document.createElement('label');
+    w.className = 'form-field';
+    const sp = document.createElement('span');
+    sp.className = 'form-field__label';
+    sp.textContent = lab;
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.name = `edit-${name}`;
+    inp.value = val || '';
+    inp.className = 'form-field__control ot-flow-touch-control';
+    inp.readOnly = ro;
+    w.append(sp, inp);
+    return w;
+  };
+  editGrid.append(
+    mkEdit('cliente', 'Cliente', selectedOT.cliente),
+    mkEdit('direccion', 'Dirección', selectedOT.direccion),
+    mkEdit('comuna', 'Comuna', selectedOT.comuna),
+    mkEdit('contactoTerreno', 'Contacto', selectedOT.contactoTerreno),
+    mkEdit('telefonoContacto', 'Teléfono', selectedOT.telefonoContacto),
+    mkEdit('subtipoServicio', 'Subtipo servicio', selectedOT.subtipoServicio)
+  );
+
+  const flushEntrada = async () => {
+    if (ro) return true;
+    const g = (n) => editGrid.querySelector(`[name="edit-${n}"]`)?.value?.trim() ?? '';
+    await actions.patchOtCore(selectedOT.id, {
+      cliente: g('cliente'),
+      direccion: g('direccion'),
+      comuna: g('comuna'),
+      contactoTerreno: g('contactoTerreno'),
+      telefonoContacto: g('telefonoContacto'),
+      subtipoServicio: g('subtipoServicio'),
+    });
+    return true;
+  };
+
+  const draftEntradaOt = () => {
+    const g = (n) => editGrid.querySelector(`[name="edit-${n}"]`)?.value?.trim() ?? '';
+    return {
+      ...selectedOT,
+      cliente: g('cliente') || selectedOT.cliente,
+      direccion: g('direccion') || selectedOT.direccion,
+      comuna: g('comuna') || selectedOT.comuna,
+      contactoTerreno: g('contactoTerreno') || selectedOT.contactoTerreno,
+      telefonoContacto: g('telefonoContacto') || selectedOT.telefonoContacto,
+      subtipoServicio: g('subtipoServicio') || selectedOT.subtipoServicio,
+    };
+  };
+
+  p0.append(h0, waRow, histBlock, editGrid);
+
+  const p1 = mkPanel(1);
+  const h1 = document.createElement('h3');
+  h1.className = 'ot-flow-stage-title';
+  h1.textContent = 'Clasificación';
+  p1.append(h1, buildOtOperationalSummarySection(selectedOT));
+
+  const p2 = mkPanel(2);
+  const h2 = document.createElement('h3');
+  h2.className = 'ot-flow-stage-title';
+  h2.textContent = 'Asignación';
+  const estadoBar = document.createElement('div');
+  estadoBar.className = 'ot-saas-block ot-flow-block';
+  const estLab = document.createElement('label');
+  estLab.className = 'form-field';
+  const estSpan = document.createElement('span');
+  estSpan.className = 'form-field__label';
+  estSpan.textContent = 'Estado en servidor';
+  const estadoSel = document.createElement('select');
+  estadoSel.className = 'ot-op-detail__select ot-flow-touch-control';
+  const curNorm = String(selectedOT.estado || '')
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  const curVal =
+    selectedOT.estado === 'en proceso'
+      ? 'en_proceso'
+      : OT_STATUS_OPTIONS.some((o) => o.value === curNorm)
+        ? curNorm
+        : 'nueva';
+  OT_STATUS_OPTIONS.forEach((o) => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    if (o.value === curVal) opt.selected = true;
+    estadoSel.append(opt);
+  });
+  estadoSel.disabled = ro;
+  estLab.append(estSpan, estadoSel);
+  estadoBar.append(estLab);
+
+  const { element: opControls, flushOperationalSave } = buildOtOperationalControlsSection(
+    selectedOT,
+    actions,
+    ro,
+    isPatchingOtOperational
+  );
+  p2.append(h2, estadoBar, opControls);
+
+  const flushAsignacion = async () => {
+    if (ro) return true;
+    await actions.updateOTStatus(selectedOT.id, estadoSel.value);
+    await flushOperationalSave();
+    return true;
+  };
+
+  const p3 = mkPanel(3);
+  const h3 = document.createElement('h3');
+  h3.className = 'ot-flow-stage-title';
+  h3.textContent = 'Ejecución · texto, equipos y fotos';
+  const summaryMini = document.createElement('div');
+  summaryMini.className = 'ot-summary-grid ot-flow-summary-mini';
+  [
+    ['Fecha / hora', `${selectedOT.fecha} · ${selectedOT.hora}`],
+    ['Técnico', selectedOT.tecnicoAsignado],
+    ['Servicio', `${selectedOT.tipoServicio} / ${selectedOT.subtipoServicio}`],
+  ].forEach(([label, value]) => {
+    const row = document.createElement('div');
+    row.className = 'ot-summary-item';
+    row.innerHTML = `<span>${label}</span><strong>${value || '—'}</strong>`;
+    summaryMini.append(row);
+  });
+
+  const mkTa = (label, value) => {
+    const w = document.createElement('label');
+    w.className = 'form-field ot-flow-field-stack';
+    const sp = document.createElement('span');
+    sp.className = 'form-field__label';
+    sp.textContent = label;
+    const ta = document.createElement('textarea');
+    ta.rows = 4;
+    ta.className = 'ot-flow-textarea ot-flow-touch-control';
+    ta.value = value || '';
+    ta.readOnly = ro;
+    w.append(sp, ta);
+    return { w, ta };
+  };
+  const resBlock = mkTa('Resumen del trabajo', selectedOT.resumenTrabajo);
+  const obsBlock = mkTa('Observaciones', selectedOT.observaciones);
+  const recBlock = mkTa('Recomendaciones', selectedOT.recomendaciones);
+
+  const detailEqHost = document.createElement('div');
+  detailEqHost.className = 'ot-detail-equipos-host ot-saas-cards';
+  (selectedOT.equipos?.length ? selectedOT.equipos : [{}]).forEach((eq, idx) => {
+    detailEqHost.append(buildDetailEquipoRow(eq, idx, ro));
+  });
+
+  const eqToolbar = document.createElement('div');
+  eqToolbar.className = 'ot-equipos-toolbar';
+  const addDetailEq = document.createElement('button');
+  addDetailEq.type = 'button';
+  addDetailEq.className = 'secondary-button ot-flow-footer__btn';
+  addDetailEq.textContent = '+ Equipo';
+  addDetailEq.disabled = Boolean(ro || isSavingEquipos);
+  addDetailEq.addEventListener('click', () => {
+    const n = detailEqHost.querySelectorAll('.ot-equipo-detail-row').length;
+    if (n >= MAX_EQUIPOS || ro) return;
+    detailEqHost.append(buildDetailEquipoRow({ id: `eq-new-${Date.now()}-${n}` }, n, false));
+  });
+  const saveEq = document.createElement('button');
+  saveEq.type = 'button';
+  saveEq.className = 'primary-button ot-flow-footer__btn';
+  saveEq.textContent = isSavingEquipos ? 'Guardando…' : 'Guardar equipos ahora';
+  saveEq.disabled = Boolean(ro || isSavingEquipos);
+  saveEq.addEventListener('click', async () => {
+    await actions.saveEquipos(selectedOT.id, collectEquiposFromDetail(detailEqHost, selectedOT));
+  });
+  eqToolbar.append(addDetailEq, saveEq);
+
+  const evidenceBoard = document.createElement('div');
+  evidenceBoard.className = 'ot-saas-evidence-grid';
+  ['fotografiasAntes', 'fotografiasDurante', 'fotografiasDespues'].forEach((key, idx) => {
+    const labels = ['Antes', 'Durante', 'Después'];
+    const col = document.createElement('article');
+    col.className = 'ot-saas-block';
+    const hh = document.createElement('h4');
+    hh.textContent = `${labels[idx]} (visita)`;
+    const drop = document.createElement('label');
+    drop.className = 'ot-dropzone';
+    drop.innerHTML = '<span>Tocá o arrastrá fotos acá</span>';
+    const hiddenFile = document.createElement('input');
+    hiddenFile.type = 'file';
+    hiddenFile.accept = 'image/*';
+    hiddenFile.multiple = true;
+    hiddenFile.hidden = true;
+    drop.append(hiddenFile);
+    const gallery = document.createElement('div');
+    gallery.className = 'ot-evidence-preview';
+    const renderGallery = (items = []) => {
+      gallery.innerHTML = '';
+      if (!items.length) {
+        const em = document.createElement('p');
+        em.className = 'muted';
+        em.textContent = 'Sin evidencia.';
+        gallery.append(em);
+        return;
+      }
+      items.forEach((it) => gallery.append(createEvidenceSection(it.name || 'Evidencia', [it])));
+    };
+    renderGallery((selectedOT[key] || []).map(normalizeEvidenceItemForUi));
+    hiddenFile.addEventListener('change', async () => {
+      const added = await readFilesAsEvidence(hiddenFile);
+      const payload = collectEquiposFromDetail(detailEqHost, selectedOT);
+      if (!payload[0]) return;
+      payload[0][key] = [...(payload[0][key] || []), ...added.map((a) => ({ ...a, id: newLocalEvidenceId() }))];
+      await actions.saveEquipos(selectedOT.id, payload);
+    });
+    drop.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      drop.classList.add('is-over');
+    });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+    drop.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      drop.classList.remove('is-over');
+      hiddenFile.files = e.dataTransfer.files;
+      hiddenFile.dispatchEvent(new Event('change'));
+    });
+    col.append(hh, drop, gallery);
+    evidenceBoard.append(col);
+  });
+
+  const flushEjecucion = async () => {
+    if (ro) return true;
+    await actions.saveVisitText(selectedOT.id, {
+      observaciones: obsBlock.ta.value.trim(),
+      resumenTrabajo: resBlock.ta.value.trim(),
+      recomendaciones: recBlock.ta.value.trim(),
+    });
+    await actions.saveEquipos(selectedOT.id, collectEquiposFromDetail(detailEqHost, selectedOT));
+    return true;
+  };
+
+  const draftExecOt = () => ({
+    ...selectedOT,
+    resumenTrabajo: resBlock.ta.value.trim(),
+    observaciones: obsBlock.ta.value.trim(),
+    recomendaciones: recBlock.ta.value.trim(),
+  });
+
+  p3.append(
+    h3,
+    summaryMini,
+    resBlock.w,
+    obsBlock.w,
+    recBlock.w,
+    detailEqHost,
+    eqToolbar,
+    evidenceBoard
+  );
+
+  const p4 = mkPanel(4);
+  const h4 = document.createElement('h3');
+  h4.className = 'ot-flow-stage-title';
+  h4.textContent = 'Informe';
+  const checklistPanel = document.createElement('article');
+  checklistPanel.className = 'ot-saas-block';
+  checklistPanel.innerHTML = '<h4>Checklist</h4>';
+  const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
+  const checklist = document.createElement('div');
+  checklist.className = 'ot-visual-checklist';
+  (brief.blockers.length ? brief.blockers.map((b) => ({ ok: false, label: b.detail })) : [{ ok: true, label: 'Sin bloqueos operativos.' }]).forEach((item) => {
+    const row = document.createElement('label');
+    row.className = `ot-visual-check ${item.ok ? 'is-on' : ''}`;
+    const t = document.createElement('span');
+    t.textContent = item.label;
+    row.append(t);
+    checklist.append(row);
+  });
+  checklistPanel.append(checklist);
+  const previewPanel = document.createElement('article');
+  previewPanel.className = 'ot-saas-block';
+  previewPanel.innerHTML = '<h4>Vista previa</h4>';
+  previewPanel.append(createClientPreview(selectedOT));
+  const pdfTop = document.createElement('button');
+  pdfTop.type = 'button';
+  pdfTop.className = 'secondary-button ot-flow-footer__btn';
+  pdfTop.textContent = isGeneratingPdf ? 'Generando…' : 'Generar PDF';
+  pdfTop.disabled = Boolean(isGeneratingPdf || isClosingOT);
+  pdfTop.addEventListener('click', async () => actions.generatePdfFromOt(selectedOT));
+  p4.append(h4, checklistPanel, previewPanel, pdfTop);
+
+  const p5 = mkPanel(5);
+  const h5 = document.createElement('h3');
+  h5.className = 'ot-flow-stage-title';
+  h5.textContent = 'Cierre';
+  const closeHint = document.createElement('p');
+  closeHint.className = 'muted';
+  closeHint.textContent =
+    'Solo podés cerrar cuando haya evidencia completa, textos, economía guardada y técnico asignado.';
+  const blockersP = document.createElement('p');
+  blockersP.className = 'ot-flow-blockers';
+  blockersP.textContent = otCanClose(selectedOT) ? '' : formatAllCloseBlockersMessage(selectedOT);
+  const closeTop = document.createElement('button');
+  closeTop.type = 'button';
+  closeTop.className = 'primary-button ot-flow-footer__btn';
+  closeTop.textContent = isClosingOT ? 'Procesando…' : 'Cerrar OT';
+  closeTop.disabled = Boolean(isClosingOT || ro || !otCanClose(selectedOT));
+  closeTop.addEventListener('click', async () => {
+    await actions.closeAndGenerateReport(selectedOT, {
+      costoMateriales: roundEcon(selectedOT.costoMateriales),
+      costoManoObra: roundEcon(selectedOT.costoManoObra),
+      costoTraslado: roundEcon(selectedOT.costoTraslado),
+      costoOtros: roundEcon(selectedOT.costoOtros),
+      montoCobrado: roundEcon(selectedOT.montoCobrado),
+    });
+  });
+  const delTop = document.createElement('button');
+  delTop.type = 'button';
+  delTop.className = 'secondary-button ot-flow-footer__btn';
+  delTop.textContent = 'Eliminar OT';
+  delTop.hidden = resolveOperatorRole() !== 'admin';
+  delTop.addEventListener('click', async () => {
+    if (!window.confirm(`¿Eliminar definitivamente ${selectedOT.id}? Solo admin.`)) return;
+    await actions.deleteOt(selectedOT.id);
+  });
+  p5.append(h5, closeHint, blockersP, closeTop, delTop);
+
+  stageBody.append(p0, p1, p2, p3, p4, p5);
+
+  const footer = document.createElement('div');
+  footer.className = 'ot-flow-footer';
+  const btnPrev = document.createElement('button');
+  btnPrev.type = 'button';
+  btnPrev.className = 'secondary-button ot-flow-footer__btn';
+  btnPrev.textContent = 'Anterior';
+  const footMsg = document.createElement('p');
+  footMsg.className = 'ot-flow-footer__msg muted';
+  const btnNext = document.createElement('button');
+  btnNext.type = 'button';
+  btnNext.className = 'primary-button ot-flow-footer__btn';
+  btnNext.textContent = 'Siguiente etapa';
+  footer.append(btnPrev, footMsg, btnNext);
+
+  const panels = [p0, p1, p2, p3, p4, p5];
+
+  const renderJarvis = () => {
+    jarvisUl.innerHTML = '';
+    jarvisLinesForDetailStage(selectedOT, detailStageIdx, { economicsSaved: otEconomicsSaved }).forEach((txt) => {
+      const li = document.createElement('li');
+      li.textContent = txt;
+      jarvisUl.append(li);
+    });
+    jarvisNext.textContent = `Acción sugerida: ${nextActionHintForDetailStage(selectedOT, detailStageIdx)}`;
+  };
+
+  const setDetailStage = (idx) => {
+    const n = Math.max(0, Math.min(CLIMA_OT_FLOW_STAGES.length - 1, idx));
+    detailStageIdx = n;
+    writeStoredStageIndex(storageKey, n);
+    panels.forEach((p, i) => {
+      p.hidden = i !== n;
+    });
+    progressNav.querySelectorAll('.ot-flow-progress__step').forEach((btn, i) => {
+      btn.classList.toggle('is-active', i === n);
+      btn.classList.toggle('is-done', i < n);
+      btn.disabled = !ro && i > n;
+    });
+    btnPrev.disabled = n === 0;
+    btnNext.hidden = n === CLIMA_OT_FLOW_STAGES.length - 1 || ro;
+    btnNext.textContent = n === 4 ? 'Ir a cierre' : 'Siguiente etapa';
+    footMsg.textContent = '';
+    renderJarvis();
+  };
+
+  CLIMA_OT_FLOW_STAGES.forEach((st, i) => {
+    if (i > 0) {
+      const ar = document.createElement('span');
+      ar.className = 'ot-flow-progress__arrow';
+      ar.setAttribute('aria-hidden', 'true');
+      ar.textContent = '→';
+      progressNav.append(ar);
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ot-flow-progress__step';
+    btn.innerHTML = `<span class="ot-flow-progress__dot">${i + 1}</span><span class="ot-flow-progress__label">${st.label}</span>`;
+    btn.addEventListener('click', () => {
+      if (i <= detailStageIdx) setDetailStage(i);
+    });
+    progressNav.append(btn);
+  });
+
+  btnPrev.addEventListener('click', () => setDetailStage(detailStageIdx - 1));
+
+  btnNext.addEventListener('click', async () => {
+    if (ro) {
+      setDetailStage(detailStageIdx + 1);
+      return;
+    }
+    try {
+      if (detailStageIdx === 0) await flushEntrada();
+      if (detailStageIdx === 2) await flushAsignacion();
+      if (detailStageIdx === 3) await flushEjecucion();
+    } catch {
+      footMsg.textContent = 'No se pudo guardar. Revisá conexión e intentá de nuevo.';
+      actions?.showFeedback?.({ type: 'error', message: footMsg.textContent });
+      return;
+    }
+
+    let v = { ok: true, message: '' };
+    if (detailStageIdx === 0) v = validateDetailStageAdvance(draftEntradaOt(), 0);
+    else if (detailStageIdx === 1) v = validateDetailStageAdvance(selectedOT, 1);
+    else if (detailStageIdx === 2) v = validateDetailStageAdvance(selectedOT, 2);
+    else if (detailStageIdx === 3) v = validateDetailStageAdvance(draftExecOt(), 3);
+    else if (detailStageIdx === 4) v = validateDetailStageAdvance(selectedOT, 4, { economicsSaved: otEconomicsSaved });
+
+    if (!v.ok) {
+      footMsg.textContent = v.message;
+      actions?.showFeedback?.({ type: 'error', message: v.message });
+      return;
+    }
+    setDetailStage(detailStageIdx + 1);
+  });
+
+  flowRoot.append(compactHeader, progressNav, jarvisAside, stageBody, footer);
+  detailCard.append(flowRoot);
+  setDetailStage(detailStageIdx);
+};
+
 const parseMoneyInput = (v) => {
   const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
   return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -1221,52 +1694,78 @@ export const climaView = ({
   ].forEach((item) => cards.append(createCard(item)));
 
   const formCard = document.createElement('article');
-  formCard.className = 'ot-form-card';
+  formCard.className = 'ot-form-card ot-flow-app ot-flow-app--create';
 
   const formHeader = document.createElement('div');
   formHeader.className = 'ot-form-card__header';
   formHeader.innerHTML = `
     <div>
-      <p class="muted">Paso 1 · Nueva visita</p>
+      <p class="muted">Nueva visita · flujo por etapas</p>
       <h3>Crear OT</h3>
-      <p class="muted" style="margin-top:8px;font-size:13px;">Completá los datos del cliente y del servicio. Más abajo podés sumar equipos y fotos ya en el alta.</p>
+      <p class="muted ot-flow-app__lede">Una etapa por pantalla. Podés volver atrás tocando una etapa ya visitada.</p>
     </div>
   `;
 
   const form = document.createElement('form');
-  form.className = 'ot-form';
+  form.className = 'ot-form ot-flow-app__form';
+  form.setAttribute('novalidate', 'true');
 
-  otFormDefinition.sections.forEach((sectionConfig) => {
-    if (sectionConfig.title === 'Evidencias fotográficas') return;
+  const createStageKey = createFlowStorageKey();
+  let createStageIdx = readStoredStageIndex(createStageKey, CLIMA_OT_FLOW_STAGES.length - 1);
 
-    const fieldset = document.createElement('fieldset');
-    fieldset.className = 'ot-form__section';
+  const mkPanel = (idx) => {
+    const p = document.createElement('div');
+    p.className = 'ot-flow-stage-panel';
+    p.dataset.createStage = String(idx);
+    p.hidden = idx !== createStageIdx;
+    return p;
+  };
 
-    const legend = document.createElement('legend');
-    legend.textContent = sectionConfig.title;
-    fieldset.append(legend);
-
-    const grid = document.createElement('div');
-    grid.className = 'ot-form__grid';
-
-    sectionConfig.fields.forEach((field) => {
-      grid.append(buildField(field));
-    });
-
-    fieldset.append(grid);
-    form.append(fieldset);
+  const panel0 = mkPanel(0);
+  const grid0 = document.createElement('div');
+  grid0.className = 'ot-form__grid';
+  ['cliente', 'direccion', 'comuna', 'contactoTerreno', 'telefonoContacto'].forEach((name) => {
+    const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
+    if (field) grid0.append(buildField(field));
   });
+  panel0.append(grid0);
 
-  form.append(buildOtAltaOperationSection());
+  const panel1 = mkPanel(1);
+  const grid1 = document.createElement('div');
+  grid1.className = 'ot-form__grid';
+  ['tipoServicio', 'subtipoServicio', 'fecha', 'hora'].forEach((name) => {
+    const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
+    if (field) grid1.append(buildField(field));
+  });
+  const estNote = document.createElement('p');
+  estNote.className = 'muted small';
+  estNote.textContent = 'La OT se crea en estado inicial «nueva» en el servidor.';
+  panel1.append(grid1, estNote);
 
+  const panel2 = mkPanel(2);
+  panel2.append(buildOtAltaOperationSection());
+
+  const panel3 = mkPanel(3);
+  const fsDet = document.createElement('fieldset');
+  fsDet.className = 'ot-form__section';
+  const legDet = document.createElement('legend');
+  legDet.textContent = 'Detalle técnico (opcional en el alta)';
+  const gridDet = document.createElement('div');
+  gridDet.className = 'ot-form__grid';
+  otFormDefinition.sections[1].fields.forEach((field) => gridDet.append(buildField(field)));
+  fsDet.append(legDet, gridDet);
+  panel3.append(fsDet);
+
+  const panel4 = mkPanel(4);
   const eqWrap = document.createElement('div');
   eqWrap.className = 'ot-form__section';
-  eqWrap.innerHTML = '<h4 class="ot-equipos-title">Equipos en sitio (máx. 12)</h4><p class="muted">Cada equipo lleva sus propias fotos antes / durante / después.</p>';
+  eqWrap.innerHTML =
+    '<h4 class="ot-equipos-title">Equipos en sitio (máx. 12)</h4><p class="muted">Podés agregar más después desde el detalle de la OT.</p>';
   const eqContainer = document.createElement('div');
   eqContainer.className = 'ot-equipos-create';
   const addEqBtn = document.createElement('button');
   addEqBtn.type = 'button';
-  addEqBtn.className = 'secondary-button';
+  addEqBtn.className = 'secondary-button ot-flow-footer__btn';
   addEqBtn.textContent = '+ Agregar equipo';
 
   const appendEquipoRow = () => {
@@ -1284,17 +1783,135 @@ export const climaView = ({
   });
 
   eqWrap.append(eqContainer, addEqBtn);
-  form.append(eqWrap);
+  panel4.append(eqWrap);
 
-  const footer = document.createElement('div');
-  footer.className = 'ot-form__footer';
+  const panel5 = mkPanel(5);
+  const review = document.createElement('div');
+  review.className = 'ot-flow-review';
+  review.innerHTML =
+    '<h4 class="ot-section-title">Última revisión</h4><p class="muted">Al confirmar se envía la OT al servidor con los datos cargados en las etapas anteriores.</p><ul class="ot-flow-review__list muted"></ul>';
+  const reviewList = review.querySelector('.ot-flow-review__list');
+  const refreshReview = () => {
+    if (!reviewList) return;
+    reviewList.innerHTML = '';
+    const add = (k, v) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<strong>${k}:</strong> ${v || '—'}`;
+      reviewList.append(li);
+    };
+    add('Cliente', form.elements.cliente?.value);
+    add('Ubicación', `${form.elements.direccion?.value || ''}, ${form.elements.comuna?.value || ''}`);
+    add('Contacto', `${form.elements.contactoTerreno?.value || ''} · ${form.elements.telefonoContacto?.value || ''}`);
+    add('Servicio', `${form.elements.tipoServicio?.value || ''} / ${form.elements.subtipoServicio?.value || ''}`);
+    add('Fecha', `${form.elements.fecha?.value || ''} ${form.elements.hora?.value || ''}`);
+  };
+  panel5.append(review);
+
+  form.append(panel0, panel1, panel2, panel3, panel4, panel5);
+
+  const createProgress = document.createElement('nav');
+  createProgress.className = 'ot-flow-progress';
+  createProgress.setAttribute('aria-label', 'Etapas de alta');
+
+  const createJarvis = document.createElement('aside');
+  createJarvis.className = 'ot-flow-jarvis';
+  const createJarvisTitle = document.createElement('h4');
+  createJarvisTitle.className = 'ot-flow-jarvis__title';
+  createJarvisTitle.textContent = 'Jarvis · esta etapa';
+  const createJarvisUl = document.createElement('ul');
+  createJarvisUl.className = 'ot-flow-jarvis__list';
+  const createJarvisNext = document.createElement('p');
+  createJarvisNext.className = 'ot-flow-jarvis__next';
+  createJarvis.append(createJarvisTitle, createJarvisUl, createJarvisNext);
+
+  const createStageBody = document.createElement('div');
+  createStageBody.className = 'ot-flow-stage-body';
+  createStageBody.append(form);
+
+  const createFooter = document.createElement('div');
+  createFooter.className = 'ot-flow-footer';
+  const createBtnPrev = document.createElement('button');
+  createBtnPrev.type = 'button';
+  createBtnPrev.className = 'secondary-button ot-flow-footer__btn';
+  createBtnPrev.textContent = 'Anterior';
+  const createMsg = document.createElement('p');
+  createMsg.className = 'ot-flow-footer__msg muted';
+  const createBtnNext = document.createElement('button');
+  createBtnNext.type = 'button';
+  createBtnNext.className = 'primary-button ot-flow-footer__btn';
+  createBtnNext.textContent = 'Siguiente etapa';
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
-  submitButton.className = 'primary-button';
+  submitButton.className = 'primary-button ot-flow-footer__btn';
   submitButton.textContent = isSubmitting ? 'Guardando…' : 'Crear OT';
   submitButton.disabled = Boolean(isSubmitting);
-  footer.append(submitButton);
-  form.append(footer);
+  submitButton.hidden = true;
+  createFooter.append(createBtnPrev, createMsg, createBtnNext, submitButton);
+
+  const renderCreateJarvis = () => {
+    createJarvisUl.innerHTML = '';
+    jarvisLinesForCreateStage(createStageIdx).forEach((txt) => {
+      const li = document.createElement('li');
+      li.textContent = txt;
+      createJarvisUl.append(li);
+    });
+    createJarvisNext.textContent =
+      createStageIdx < CLIMA_OT_FLOW_STAGES.length - 1
+        ? `Siguiente sugerido: ${CLIMA_OT_FLOW_STAGES[createStageIdx + 1].label}`
+        : 'Confirmá y creá la orden.';
+  };
+
+  const setCreateStage = (idx) => {
+    const n = Math.max(0, Math.min(CLIMA_OT_FLOW_STAGES.length - 1, idx));
+    createStageIdx = n;
+    writeStoredStageIndex(createStageKey, n);
+    form.querySelectorAll('.ot-flow-stage-panel').forEach((el) => {
+      el.hidden = Number(el.dataset.createStage) !== n;
+    });
+    createBtnPrev.disabled = n === 0;
+    createBtnNext.hidden = n === CLIMA_OT_FLOW_STAGES.length - 1;
+    submitButton.hidden = n !== CLIMA_OT_FLOW_STAGES.length - 1;
+    createMsg.textContent = '';
+    createProgress.querySelectorAll('.ot-flow-progress__step').forEach((btn, i) => {
+      btn.classList.toggle('is-active', i === n);
+      btn.classList.toggle('is-done', i < n);
+      btn.disabled = i > n;
+    });
+    if (n === CLIMA_OT_FLOW_STAGES.length - 1) refreshReview();
+    renderCreateJarvis();
+  };
+
+  CLIMA_OT_FLOW_STAGES.forEach((st, i) => {
+    if (i > 0) {
+      const ar = document.createElement('span');
+      ar.className = 'ot-flow-progress__arrow';
+      ar.setAttribute('aria-hidden', 'true');
+      ar.textContent = '→';
+      createProgress.append(ar);
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ot-flow-progress__step';
+    btn.dataset.stageIndex = String(i);
+    btn.innerHTML = `<span class="ot-flow-progress__dot">${i + 1}</span><span class="ot-flow-progress__label">${st.label}</span>`;
+    btn.addEventListener('click', () => {
+      if (i <= createStageIdx) setCreateStage(i);
+    });
+    createProgress.append(btn);
+  });
+
+  createBtnPrev.addEventListener('click', () => setCreateStage(createStageIdx - 1));
+  createBtnNext.addEventListener('click', () => {
+    const v = validateCreateStageAdvance(form, eqContainer, createStageIdx);
+    if (!v.ok) {
+      createMsg.textContent = v.message;
+      actions?.showFeedback?.({ type: 'error', message: v.message });
+      return;
+    }
+    setCreateStage(createStageIdx + 1);
+  });
+
+  setCreateStage(createStageIdx);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1337,7 +1954,7 @@ export const climaView = ({
     await actions.createOT(payload);
   });
 
-  formCard.append(formHeader, form);
+  formCard.append(formHeader, createProgress, createJarvis, createStageBody, createFooter);
 
   const overview = document.createElement('div');
   overview.className = 'ot-overview';
@@ -1477,410 +2094,16 @@ export const climaView = ({
     detailCard.innerHTML =
       '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado del medio.</p>';
   } else {
-    const ro = isOtEstadoCerradaUi(selectedOT.estado);
-    const topSticky = document.createElement('header');
-    topSticky.className = 'ot-saas-sticky';
-    const meta = document.createElement('div');
-    meta.className = 'ot-saas-sticky__meta';
-    [
-      ['OT', selectedOT.id],
-      ['Cliente', selectedOT.cliente],
-      ['Técnico', selectedOT.tecnicoAsignado],
-    ].forEach(([k, v]) => {
-      const pill = document.createElement('div');
-      pill.className = 'ot-saas-pill';
-      pill.innerHTML = `<span>${k}</span><strong>${v || '—'}</strong>`;
-      meta.append(pill);
+    mountClimaOtDetailFlow(detailCard, {
+      selectedOT,
+      actions,
+      ro: isOtEstadoCerradaUi(selectedOT.estado),
+      isClosingOT,
+      isGeneratingPdf,
+      isSavingEquipos,
+      isPatchingOtOperational,
+      otEconomicsSaved,
     });
-    const statusPill = document.createElement('div');
-    statusPill.className = 'ot-saas-pill';
-    const stK = document.createElement('span');
-    stK.textContent = 'Estado';
-    const stV = document.createElement('strong');
-    stV.append(createStatusBadge(selectedOT.estado));
-    statusPill.append(stK, stV);
-    meta.append(statusPill);
-    const modePill = document.createElement('div');
-    modePill.className = 'ot-saas-pill';
-    const modeK = document.createElement('span');
-    modeK.textContent = 'Modo';
-    const modeV = document.createElement('strong');
-    modeV.append(createStatusBadge(labelOperationMode(selectedOT.operationMode), 'mode'));
-    modePill.append(modeK, modeV);
-    meta.append(modePill);
-    const actionsTop = document.createElement('div');
-    actionsTop.className = 'ot-saas-sticky__actions';
-    const pdfTop = document.createElement('button');
-    pdfTop.type = 'button';
-    pdfTop.className = 'secondary-button';
-    pdfTop.textContent = isGeneratingPdf ? 'Generando…' : 'Generar PDF';
-    pdfTop.disabled = Boolean(isGeneratingPdf || isClosingOT);
-    pdfTop.addEventListener('click', async () => actions.generatePdfFromOt(selectedOT));
-    const closeTop = document.createElement('button');
-    closeTop.type = 'button';
-    closeTop.className = 'primary-button';
-    closeTop.textContent = isClosingOT ? 'Procesando…' : 'Cerrar OT';
-    closeTop.disabled = Boolean(isClosingOT || ro || !otCanClose(selectedOT));
-    closeTop.addEventListener('click', async () => {
-      await actions.closeAndGenerateReport(selectedOT, {
-        costoMateriales: roundEcon(selectedOT.costoMateriales),
-        costoManoObra: roundEcon(selectedOT.costoManoObra),
-        costoTraslado: roundEcon(selectedOT.costoTraslado),
-        costoOtros: roundEcon(selectedOT.costoOtros),
-        montoCobrado: roundEcon(selectedOT.montoCobrado),
-      });
-    });
-    const delTop = document.createElement('button');
-    delTop.type = 'button';
-    delTop.className = 'secondary-button';
-    delTop.textContent = 'Eliminar OT';
-    delTop.hidden = resolveOperatorRole() !== 'admin';
-    delTop.addEventListener('click', async () => {
-      if (!window.confirm(`¿Eliminar definitivamente ${selectedOT.id}? Solo admin.`)) return;
-      await actions.deleteOt(selectedOT.id);
-    });
-    actionsTop.append(pdfTop, closeTop, delTop);
-    topSticky.append(meta, actionsTop);
-
-    const estadoBar = document.createElement('div');
-    estadoBar.className = 'ot-saas-block';
-    estadoBar.style.marginTop = '10px';
-    const estLab = document.createElement('label');
-    estLab.className = 'form-field';
-    const estSpan = document.createElement('span');
-    estSpan.className = 'form-field__label';
-    estSpan.textContent = 'Estado operativo (servidor)';
-    const estadoSel = document.createElement('select');
-    estadoSel.className = 'ot-op-detail__select';
-    const curNorm = String(selectedOT.estado || '')
-      .toLowerCase()
-      .replace(/\s+/g, '_');
-    const curVal =
-      selectedOT.estado === 'en proceso'
-        ? 'en_proceso'
-        : OT_STATUS_OPTIONS.some((o) => o.value === curNorm)
-          ? curNorm
-          : 'nueva';
-    OT_STATUS_OPTIONS.forEach((o) => {
-      const opt = document.createElement('option');
-      opt.value = o.value;
-      opt.textContent = o.label;
-      if (o.value === curVal) opt.selected = true;
-      estadoSel.append(opt);
-    });
-    const btnEst = document.createElement('button');
-    btnEst.type = 'button';
-    btnEst.className = 'secondary-button';
-    btnEst.textContent = isUpdatingStatus ? 'Guardando…' : 'Guardar estado';
-    btnEst.disabled = Boolean(isUpdatingStatus || ro);
-    btnEst.addEventListener('click', async () => {
-      await actions.updateOTStatus(selectedOT.id, estadoSel.value);
-    });
-    estLab.append(estSpan, estadoSel);
-    estadoBar.append(estLab, btnEst);
-
-    const waRow = document.createElement('div');
-    waRow.className = 'ot-saas-block';
-    waRow.style.marginTop = '8px';
-    const waMeta = document.createElement('p');
-    waMeta.className = 'muted small';
-    const os = String(selectedOT.origenSolicitud || selectedOT.origenPedido || '').toLowerCase();
-    waMeta.textContent =
-      os === 'whatsapp'
-        ? `Entrada externa · WhatsApp · Pendiente respuesta cliente: ${selectedOT.pendienteRespuestaCliente ? 'sí' : 'no'}`
-        : '';
-    const btnWa = document.createElement('button');
-    btnWa.type = 'button';
-    btnWa.className = 'secondary-button';
-    btnWa.textContent = 'Simular envío respuesta al cliente';
-    btnWa.hidden = !(os === 'whatsapp' && selectedOT.pendienteRespuestaCliente);
-    btnWa.addEventListener('click', async () => {
-      await actions.patchOtOperational(selectedOT.id, { pendienteRespuestaCliente: false });
-    });
-    waRow.append(waMeta, btnWa);
-
-    const histBlock = document.createElement('div');
-    histBlock.className = 'ot-saas-block';
-    histBlock.style.marginTop = '8px';
-    const histH = document.createElement('h4');
-    histH.textContent = 'Trazabilidad (historial)';
-    const histUl = document.createElement('ul');
-    histUl.className = 'muted small';
-    histUl.style.paddingLeft = '1.1rem';
-    const hist = Array.isArray(selectedOT.historial) ? selectedOT.historial : [];
-    if (!hist.length) {
-      const li = document.createElement('li');
-      li.textContent = 'Sin eventos registrados.';
-      histUl.append(li);
-    } else {
-      for (const ev of [...hist].slice(-25).reverse()) {
-        const li = document.createElement('li');
-        li.textContent = `${formatAuditTs(ev.at)} · ${ev.actor || '—'} · ${ev.accion || '—'} — ${ev.detalle || ''}`;
-        histUl.append(li);
-      }
-    }
-    histBlock.append(histH, histUl);
-
-    const editDet = document.createElement('details');
-    editDet.className = 'ot-saas-block';
-    editDet.style.marginTop = '8px';
-    const editSum = document.createElement('summary');
-    editSum.textContent = 'Editar datos principales de la OT';
-    const editGrid = document.createElement('div');
-    editGrid.className = 'ot-form__grid';
-    const mkEdit = (name, lab, val) => {
-      const w = document.createElement('label');
-      w.className = 'form-field';
-      const sp = document.createElement('span');
-      sp.className = 'form-field__label';
-      sp.textContent = lab;
-      const inp = document.createElement('input');
-      inp.type = 'text';
-      inp.name = `edit-${name}`;
-      inp.value = val || '';
-      inp.className = 'form-field__control';
-      w.append(sp, inp);
-      return w;
-    };
-    editGrid.append(
-      mkEdit('cliente', 'Cliente', selectedOT.cliente),
-      mkEdit('direccion', 'Dirección', selectedOT.direccion),
-      mkEdit('comuna', 'Comuna', selectedOT.comuna),
-      mkEdit('contactoTerreno', 'Contacto', selectedOT.contactoTerreno),
-      mkEdit('telefonoContacto', 'Teléfono', selectedOT.telefonoContacto),
-      mkEdit('subtipoServicio', 'Subtipo servicio', selectedOT.subtipoServicio)
-    );
-    const btnSaveEdit = document.createElement('button');
-    btnSaveEdit.type = 'button';
-    btnSaveEdit.className = 'primary-button';
-    btnSaveEdit.textContent = 'Guardar edición';
-    btnSaveEdit.disabled = ro;
-    btnSaveEdit.addEventListener('click', async () => {
-      const g = (n) => editGrid.querySelector(`[name="edit-${n}"]`)?.value?.trim() ?? '';
-      await actions.patchOtCore(selectedOT.id, {
-        cliente: g('cliente'),
-        direccion: g('direccion'),
-        comuna: g('comuna'),
-        contactoTerreno: g('contactoTerreno'),
-        telefonoContacto: g('telefonoContacto'),
-        subtipoServicio: g('subtipoServicio'),
-      });
-    });
-    editDet.append(editSum, editGrid, btnSaveEdit);
-    detailCard.append(topSticky, estadoBar, waRow, histBlock, editDet);
-
-    const tabs = document.createElement('div');
-    tabs.className = 'ot-saas-tabs';
-    const tabPanels = document.createElement('div');
-    tabPanels.className = 'ot-saas-panels';
-    const tabDefs = [
-      { key: 'ejecucion', label: 'Ejecución' },
-      { key: 'equipos', label: 'Equipos' },
-      { key: 'evidencia', label: 'Evidencia' },
-      { key: 'informe', label: 'Informe' },
-    ];
-    const setActiveTab = (key) => {
-      tabs.querySelectorAll('button').forEach((btn) => btn.classList.toggle('is-active', btn.dataset.tab === key));
-      tabPanels.querySelectorAll('[data-panel]').forEach((p) => {
-        p.hidden = p.dataset.panel !== key;
-      });
-    };
-    tabDefs.forEach((t, idx) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `ot-saas-tab ${idx === 0 ? 'is-active' : ''}`;
-      btn.dataset.tab = t.key;
-      btn.textContent = t.label;
-      btn.addEventListener('click', () => setActiveTab(t.key));
-      tabs.append(btn);
-    });
-
-    const summaryGrid = document.createElement('div');
-    summaryGrid.className = 'ot-summary-grid ot-saas-block';
-    [
-      ['Dirección', selectedOT.direccion],
-      ['Comuna', selectedOT.comuna],
-      ['Contacto', selectedOT.contactoTerreno],
-      ['Teléfono', selectedOT.telefonoContacto],
-      ['Modo operación', labelOperationMode(selectedOT.operationMode)],
-      ['Origen del pedido', labelOrigenPedido(selectedOT.origenPedido)],
-      ['Origen solicitud', labelOrigenSolicitud(selectedOT.origenSolicitud)],
-      ['Prioridad', labelPrioridadOperativa(selectedOT.prioridadOperativa)],
-      ['Bandeja / notificación', `${selectedOT.bandejaAsignada || '—'} → ${selectedOT.notificacionAsignadaA || '—'}`],
-      ['Técnico', selectedOT.tecnicoAsignado],
-      ['Tipo / subtipo', `${selectedOT.tipoServicio} / ${selectedOT.subtipoServicio}`],
-      ['Fecha / hora', `${selectedOT.fecha} · ${selectedOT.hora}`],
-    ].forEach(([label, value]) => {
-      const row = document.createElement('div');
-      row.className = 'ot-summary-item';
-      row.innerHTML = `<span>${label}</span><strong>${value || '—'}</strong>`;
-      summaryGrid.append(row);
-    });
-
-    const panelExec = document.createElement('section');
-    panelExec.className = 'ot-saas-panel';
-    panelExec.dataset.panel = 'ejecucion';
-    panelExec.hidden = false;
-    panelExec.append(
-      summaryGrid,
-      createInlineEditableBlock({
-        title: 'Resumen',
-        hint: 'Edición inline y guardado rápido',
-        value: selectedOT.resumenTrabajo,
-        readOnly: ro,
-        onSave: async (txt) =>
-          actions.saveVisitText(selectedOT.id, {
-            observaciones: selectedOT.observaciones || '',
-            resumenTrabajo: txt,
-            recomendaciones: selectedOT.recomendaciones || '',
-          }),
-      }),
-      createInlineEditableBlock({
-        title: 'Observaciones',
-        hint: 'Bloque operativo editable',
-        value: selectedOT.observaciones,
-        readOnly: ro,
-        onSave: async (txt) =>
-          actions.saveVisitText(selectedOT.id, {
-            observaciones: txt,
-            resumenTrabajo: selectedOT.resumenTrabajo || '',
-            recomendaciones: selectedOT.recomendaciones || '',
-          }),
-      }),
-      createInlineEditableBlock({
-        title: 'Recomendaciones',
-        hint: 'Sugerencias para continuidad',
-        value: selectedOT.recomendaciones,
-        readOnly: ro,
-        onSave: async (txt) =>
-          actions.saveVisitText(selectedOT.id, {
-            observaciones: selectedOT.observaciones || '',
-            resumenTrabajo: selectedOT.resumenTrabajo || '',
-            recomendaciones: txt,
-          }),
-      })
-    );
-
-    const panelEquipos = document.createElement('section');
-    panelEquipos.className = 'ot-saas-panel';
-    panelEquipos.dataset.panel = 'equipos';
-    panelEquipos.hidden = true;
-    const detailEqHost = document.createElement('div');
-    detailEqHost.className = 'ot-detail-equipos-host ot-saas-cards';
-    (selectedOT.equipos?.length ? selectedOT.equipos : [{}]).forEach((eq, idx) => {
-      detailEqHost.append(buildDetailEquipoRow(eq, idx, ro));
-    });
-
-    const eqToolbar = document.createElement('div');
-    eqToolbar.className = 'ot-equipos-toolbar';
-    const addDetailEq = document.createElement('button');
-    addDetailEq.type = 'button';
-    addDetailEq.className = 'secondary-button';
-    addDetailEq.textContent = '+ Equipo';
-    addDetailEq.disabled = Boolean(ro || isSavingEquipos);
-    addDetailEq.addEventListener('click', () => {
-      const n = detailEqHost.querySelectorAll('.ot-equipo-detail-row').length;
-      if (n >= MAX_EQUIPOS || ro) return;
-      detailEqHost.append(buildDetailEquipoRow({ id: `eq-new-${Date.now()}-${n}` }, n, false));
-    });
-    const saveEq = document.createElement('button');
-    saveEq.type = 'button';
-    saveEq.className = 'primary-button';
-    saveEq.textContent = isSavingEquipos ? 'Guardando…' : 'Guardar equipos';
-    saveEq.disabled = Boolean(ro || isSavingEquipos);
-    saveEq.addEventListener('click', async () => {
-      await actions.saveEquipos(selectedOT.id, collectEquiposFromDetail(detailEqHost, selectedOT));
-    });
-    eqToolbar.append(addDetailEq, saveEq);
-    panelEquipos.append(detailEqHost, eqToolbar);
-
-    const panelEvidence = document.createElement('section');
-    panelEvidence.className = 'ot-saas-panel';
-    panelEvidence.dataset.panel = 'evidencia';
-    panelEvidence.hidden = true;
-    const evidenceBoard = document.createElement('div');
-    evidenceBoard.className = 'ot-saas-evidence-grid';
-    ['fotografiasAntes', 'fotografiasDurante', 'fotografiasDespues'].forEach((key, idx) => {
-      const labels = ['Antes', 'Durante', 'Después'];
-      const col = document.createElement('article');
-      col.className = 'ot-saas-block';
-      const h = document.createElement('h4');
-      h.textContent = `${labels[idx]} (visita)`;
-      const drop = document.createElement('label');
-      drop.className = 'ot-dropzone';
-      drop.innerHTML = '<span>Arrastrá imágenes aquí o toca para cargar</span>';
-      const hiddenFile = document.createElement('input');
-      hiddenFile.type = 'file';
-      hiddenFile.accept = 'image/*';
-      hiddenFile.multiple = true;
-      hiddenFile.hidden = true;
-      drop.append(hiddenFile);
-      const gallery = document.createElement('div');
-      gallery.className = 'ot-evidence-preview';
-      const renderGallery = (items = []) => {
-        gallery.innerHTML = '';
-        if (!items.length) {
-          const em = document.createElement('p');
-          em.className = 'muted';
-          em.textContent = 'Sin evidencia.';
-          gallery.append(em);
-          return;
-        }
-        items.forEach((it) => gallery.append(createEvidenceSection(it.name || 'Evidencia', [it])));
-      };
-      renderGallery((selectedOT[key] || []).map(normalizeEvidenceItemForUi));
-      hiddenFile.addEventListener('change', async () => {
-        const added = await readFilesAsEvidence(hiddenFile);
-        const payload = collectEquiposFromDetail(detailEqHost, selectedOT);
-        if (!payload[0]) return;
-        payload[0][key] = [...(payload[0][key] || []), ...added.map((a) => ({ ...a, id: newLocalEvidenceId() }))];
-        await actions.saveEquipos(selectedOT.id, payload);
-      });
-      drop.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        drop.classList.add('is-over');
-      });
-      drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
-      drop.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        drop.classList.remove('is-over');
-        hiddenFile.files = e.dataTransfer.files;
-        hiddenFile.dispatchEvent(new Event('change'));
-      });
-      col.append(h, drop, gallery);
-      evidenceBoard.append(col);
-    });
-    panelEvidence.append(evidenceBoard);
-
-    const panelInforme = document.createElement('section');
-    panelInforme.className = 'ot-saas-panel';
-    panelInforme.dataset.panel = 'informe';
-    panelInforme.hidden = true;
-    const checklistPanel = document.createElement('article');
-    checklistPanel.className = 'ot-saas-block';
-    checklistPanel.innerHTML = '<h4>Checklist visual</h4>';
-    const brief = buildOtOperationalBrief(selectedOT, { economicsSaved: otEconomicsSaved });
-    const checklist = document.createElement('div');
-    checklist.className = 'ot-visual-checklist';
-    (brief.blockers.length ? brief.blockers.map((b) => ({ ok: false, label: b.detail })) : [{ ok: true, label: 'Sin bloqueos operativos.' }]).forEach((item) => {
-      const row = document.createElement('label');
-      row.className = `ot-visual-check ${item.ok ? 'is-on' : ''}`;
-      const t = document.createElement('span');
-      t.textContent = item.label;
-      row.append(t);
-      checklist.append(row);
-    });
-    checklistPanel.append(checklist);
-    const previewPanel = document.createElement('article');
-    previewPanel.className = 'ot-saas-block';
-    previewPanel.innerHTML = '<h4>Preview de informe</h4>';
-    previewPanel.append(createClientPreview(selectedOT));
-    panelInforme.append(checklistPanel, previewPanel);
-
-    tabPanels.append(panelExec, panelEquipos, panelEvidence, panelInforme);
-    detailCard.append(tabs, tabPanels);
-    detailCard.append(buildOtOperationalDetailPanel(selectedOT, actions, ro, isPatchingOtOperational));
-    mountJarvisOrb(detailCard, selectedOT);
   }
 
   overview.append(listCard, detailCard);
