@@ -17,7 +17,7 @@ import {
 
 export const JARVIS_ASSISTANT_ENGINE_VERSION = '2026-03-27-copilot';
 
-const CLOSED = new Set(['terminado', 'cerrado', 'cancelado']);
+const CLOSED = new Set(['terminado', 'cerrada', 'cerrado', 'cancelado']);
 
 function planOtsFromData(data) {
   const ots = data?.planOts ?? data?.ots?.data ?? [];

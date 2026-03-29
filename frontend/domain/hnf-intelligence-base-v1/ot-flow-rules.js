@@ -27,7 +27,7 @@ function cardByOtId(cards, otId) {
 
 function isAbierta(ot) {
   const st = String(ot?.estado || '').toLowerCase();
-  return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+  return st && !['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st);
 }
 
 /**
@@ -50,7 +50,7 @@ export function listOtFlowGaps(ots, controlCards = []) {
     }
     const sinPdf = !String(ot?.pdfUrl || '').trim();
     const st = String(ot?.estado || '').toLowerCase();
-    if (['terminado', 'cerrado'].includes(st) && sinPdf) {
+    if (['terminado', 'cerrada', 'cerrado'].includes(st) && sinPdf) {
       out.push({
         otId: String(ot?.id || '—'),
         cliente: String(ot?.cliente || '').trim(),

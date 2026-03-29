@@ -8,7 +8,7 @@ export const HNF_OPERATIONAL_CONTROL_VERSION = '2026-03-27-v1';
 
 function isAbierta(ot) {
   const st = String(ot?.estado || '').toLowerCase();
-  return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+  return st && !['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st);
 }
 
 function sinTec(ot) {

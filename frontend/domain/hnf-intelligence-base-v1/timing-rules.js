@@ -40,7 +40,7 @@ export function buildTimingAlerts(ots) {
 
   for (const ot of list) {
     const st = String(ot?.estado || '').toLowerCase();
-    if (['terminado', 'cerrado', 'cancelado'].includes(st)) continue;
+    if (['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st)) continue;
     const ms = parseMs(ot);
     if (ms == null) continue;
     const ageH = (now - ms) / 3600000;

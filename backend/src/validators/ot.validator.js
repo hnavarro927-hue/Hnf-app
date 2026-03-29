@@ -35,6 +35,27 @@ export const validateOTPayload = (payload = {}) => {
     errors.push('El subtipo de servicio es obligatorio.');
   }
 
+  if (!payload.origenSolicitud || !otModel.origenSolicitudOptions.includes(payload.origenSolicitud)) {
+    errors.push(
+      `origenSolicitud es obligatorio. Valores: ${otModel.origenSolicitudOptions.join(', ')}.`
+    );
+  }
+
+  if (!payload.prioridadOperativa || !otModel.prioridadOperativaOptions.includes(payload.prioridadOperativa)) {
+    errors.push(
+      `prioridadOperativa es obligatoria. Valores: ${otModel.prioridadOperativaOptions.join(', ')}.`
+    );
+  }
+
+  if (payload.origenSolicitud === 'whatsapp') {
+    if (!String(payload.whatsappContactoNumero || '').trim()) {
+      errors.push('Con origen WhatsApp, el número de contacto es obligatorio.');
+    }
+    if (!String(payload.whatsappContactoNombre || '').trim()) {
+      errors.push('Con origen WhatsApp, el nombre de contacto es obligatorio.');
+    }
+  }
+
   if (!payload.fecha) {
     errors.push('La fecha es obligatoria.');
   }
@@ -71,10 +92,12 @@ export const validateOTPayload = (payload = {}) => {
 
 export const validateOperationalPatch = (payload = {}) => {
   const errors = [];
-  const keys = ['operationMode', 'tecnicoAsignado', 'origenPedido', 'responsableActual'];
+  const keys = ['operationMode', 'tecnicoAsignado', 'origenPedido', 'responsableActual', 'pendienteRespuestaCliente'];
   const hasAny = keys.some((k) => k in payload);
   if (!hasAny) {
-    errors.push('Enviá al menos uno de: operationMode, tecnicoAsignado, origenPedido, responsableActual.');
+    errors.push(
+      'Enviá al menos uno de: operationMode, tecnicoAsignado, origenPedido, responsableActual, pendienteRespuestaCliente.'
+    );
   }
   if ('operationMode' in payload && payload.operationMode != null) {
     const m = String(payload.operationMode).trim();
@@ -101,6 +124,60 @@ export const validateOperationalPatch = (payload = {}) => {
       errors.push('responsableActual debe ser texto.');
     } else if (String(payload.responsableActual).length > 120) {
       errors.push('responsableActual: máximo 120 caracteres.');
+    }
+  }
+  if ('pendienteRespuestaCliente' in payload && payload.pendienteRespuestaCliente != null) {
+    if (typeof payload.pendienteRespuestaCliente !== 'boolean') {
+      errors.push('pendienteRespuestaCliente debe ser booleano.');
+    }
+  }
+  return { valid: errors.length === 0, errors };
+};
+
+const CORE_PATCH_KEYS = [
+  'cliente',
+  'direccion',
+  'comuna',
+  'contactoTerreno',
+  'telefonoContacto',
+  'tipoServicio',
+  'subtipoServicio',
+  'observaciones',
+  'origenSolicitud',
+  'origenPedido',
+  'prioridadOperativa',
+  'whatsappContactoNumero',
+  'whatsappContactoNombre',
+  'entradaExterna',
+  'pendienteRespuestaCliente',
+];
+
+export const validateOTCorePatch = (payload = {}) => {
+  const errors = [];
+  if (!payload || typeof payload !== 'object') {
+    errors.push('Payload inválido.');
+    return { valid: false, errors };
+  }
+  const hasAny = CORE_PATCH_KEYS.some((k) => k in payload);
+  if (!hasAny) {
+    errors.push(`Enviá al menos uno de: ${CORE_PATCH_KEYS.join(', ')}.`);
+  }
+  if ('tipoServicio' in payload && payload.tipoServicio != null) {
+    const t = String(payload.tipoServicio).trim();
+    if (!otModel.serviceTypes.includes(t)) {
+      errors.push(`tipoServicio inválido. Valores: ${otModel.serviceTypes.join(', ')}.`);
+    }
+  }
+  if ('origenSolicitud' in payload && payload.origenSolicitud != null) {
+    const o = String(payload.origenSolicitud).trim();
+    if (!otModel.origenSolicitudOptions.includes(o)) {
+      errors.push(`origenSolicitud inválido. Valores: ${otModel.origenSolicitudOptions.join(', ')}.`);
+    }
+  }
+  if ('prioridadOperativa' in payload && payload.prioridadOperativa != null) {
+    const p = String(payload.prioridadOperativa).trim();
+    if (!otModel.prioridadOperativaOptions.includes(p)) {
+      errors.push(`prioridadOperativa inválida. Valores: ${otModel.prioridadOperativaOptions.join(', ')}.`);
     }
   }
   return { valid: errors.length === 0, errors };

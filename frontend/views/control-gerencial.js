@@ -16,10 +16,15 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {
   const raw = data?.planOts ?? data?.ots?.data ?? [];
   const list = Array.isArray(raw) ? raw : [];
 
-  const abiertas = list.filter((o) => o.estado !== 'terminado');
+  const abiertas = list.filter(
+    (o) => !['terminado', 'cerrada', 'cerrado'].includes(String(o.estado || '').toLowerCase())
+  );
   const pendientes = list.filter((o) => o.estado === 'pendiente');
   const enProceso = list.filter((o) => o.estado === 'en proceso');
-  const listasCierre = list.filter((o) => o.estado !== 'terminado' && otCanClose(o));
+  const listasCierre = list.filter(
+    (o) =>
+      !['terminado', 'cerrada', 'cerrado'].includes(String(o.estado || '').toLowerCase()) && otCanClose(o)
+  );
 
   const wa = Array.isArray(data?.whatsappFeed?.messages) ? data.whatsappFeed.messages : [];
   const dayStart = new Date();

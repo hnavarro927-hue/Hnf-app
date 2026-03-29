@@ -28,6 +28,19 @@ export const otModel = {
     'operationMode',
     /** Origen del pedido: whatsapp, correo, llamada, manual, jarvis, etc. */
     'origenPedido',
+    /** Origen estructurado: whatsapp | cliente_directo | interno | email */
+    'origenSolicitud',
+    /** whatsapp: número y nombre de contacto (entrada externa) */
+    'whatsappContactoNumero',
+    'whatsappContactoNombre',
+    'entradaExterna',
+    /** Romina | Gery — bandeja operativa derivada de tipoServicio */
+    'bandejaAsignada',
+    'notificacionAsignadaA',
+    /** alta | media | baja */
+    'prioridadOperativa',
+    /** WhatsApp: pendiente de respuesta al cliente (simulado) */
+    'pendienteRespuestaCliente',
     /** Quien asignó el técnico actual (Romina, Gery, Jarvis, sistema) */
     'asignadoPor',
     /** Responsable operativo actual (suele coincidir con técnico en terreno) */
@@ -47,7 +60,9 @@ export const otModel = {
     'fotografiasDurante',
     'fotografiasDespues',
   ],
-  statusOptions: ['pendiente', 'en proceso', 'terminado'],
+  statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada'],
+  origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email'],
+  prioridadOperativaOptions: ['alta', 'media', 'baja'],
   operationModes: ['manual', 'automatic'],
   serviceTypes: ['clima', 'flota'],
   equipoEstadoOptions: ['operativo', 'mantenimiento', 'falla'],

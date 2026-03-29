@@ -105,6 +105,7 @@ export const flotaView = ({
   integrationStatus,
   flotaIntelFilter,
   intelGuidance,
+  navigateToView,
 } = {}) => {
   const section = document.createElement('section');
   section.className = 'flota-module hnf-op-view hnf-op-view--flota';
@@ -114,6 +115,10 @@ export const flotaView = ({
   const solicitudes = [...(data?.flotaSolicitudes || [])].sort((a, b) =>
     String(b.fecha).localeCompare(String(a.fecha))
   );
+
+  const otFlota = [...(data?.ots?.data || [])]
+    .filter((o) => String(o?.tipoServicio || '').toLowerCase() === 'flota')
+    .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
 
   const plates = [
     ...new Set(vehicles.map((v) => String(v.plate || '').trim()).filter(Boolean)),
@@ -156,6 +161,40 @@ export const flotaView = ({
       ],
     },
   ].forEach((item) => cards.append(createCard(item)));
+
+  const otBandeja = document.createElement('div');
+  otBandeja.className = 'flota-ot-bandeja';
+  const otBandejaTitle = document.createElement('h3');
+  otBandejaTitle.className = 'flota-section-title';
+  otBandejaTitle.textContent = 'Bandeja OT Flota (Gery)';
+  const otBandejaP = document.createElement('p');
+  otBandejaP.className = 'muted small';
+  otBandejaP.textContent =
+    'Órdenes de trabajo con tipo Flota. La ejecución detallada (evidencias, cierre) sigue en el módulo Clima cuando compartís flujo OT unificado; acá ves el listado filtrado por línea Flota.';
+  otBandeja.append(otBandejaTitle, otBandejaP);
+  if (!otFlota.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = 'No hay OT clasificadas como Flota en el servidor.';
+    otBandeja.append(empty);
+  } else {
+    const ul = document.createElement('ul');
+    ul.className = 'flota-ot-bandeja__list';
+    for (const o of otFlota.slice(0, 40)) {
+      const li = document.createElement('li');
+      li.className = 'flota-ot-bandeja__item';
+      const st = String(o.estado || '—');
+      li.innerHTML = `<strong>${o.id}</strong> · ${o.cliente || '—'} · <span class="muted">${st}</span> · ${o.fecha || '—'}`;
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'secondary-button flota-ot-bandeja__open';
+      open.textContent = 'Abrir en Clima';
+      open.addEventListener('click', () => navigateToView?.('clima', { otId: o.id }));
+      li.append(open);
+      ul.append(li);
+    }
+    otBandeja.append(ul);
+  }
 
   const runReload = async () => {
     if (typeof reloadApp === 'function') return await reloadApp();
@@ -915,7 +954,7 @@ export const flotaView = ({
 
   const heroBand = document.createElement('div');
   heroBand.className = 'hnf-flota__hero';
-  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), cards);
+  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), cards, otBandeja);
 
   const opsBand = document.createElement('div');
   opsBand.className = 'hnf-flota__ops';

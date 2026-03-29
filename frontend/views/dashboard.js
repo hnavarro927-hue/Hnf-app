@@ -41,6 +41,9 @@ const monthRangeYmd = (d = new Date()) => {
 const estadoRed = (s) =>
   ({ conectado: 'Conectado', 'sin conexión': 'Sin conexión', cargando: 'Cargando…', pendiente: '—' }[s] || s || '—');
 
+const otClimaCerrada = (o) =>
+  ['terminado', 'cerrada', 'cerrado'].includes(String(o?.estado || '').toLowerCase());
+
 const countBy = (arr, keyFn) => {
   const m = new Map();
   for (const x of arr) {
@@ -51,7 +54,7 @@ const countBy = (arr, keyFn) => {
 };
 
 const avgCloseHours = (ots) => {
-  const closed = ots.filter((o) => o.estado === 'terminado' && o.cerradoEn);
+  const closed = ots.filter((o) => otClimaCerrada(o) && o.cerradoEn);
   let total = 0;
   let n = 0;
   for (const o of closed) {
@@ -339,8 +342,8 @@ export const dashboardView = ({
   [...otMonthClima, ...otMonthFlotaTipo].forEach((o) => {
     addResp(techKey(o), {
       otTotal: 1,
-      otTerm: o.estado === 'terminado' ? 1 : 0,
-      pendientes: o.estado !== 'terminado' ? 1 : 0,
+      otTerm: otClimaCerrada(o) ? 1 : 0,
+      pendientes: !otClimaCerrada(o) ? 1 : 0,
       ingresoReal: climaOtIngresoReal(o),
       utilidadReal: climaOtUtilidad(o),
     });
@@ -360,13 +363,13 @@ export const dashboardView = ({
   const estMonth = byEstado(otMonth);
 
   const tecMonthTerm = countBy(
-    otMonth.filter((o) => o.estado === 'terminado'),
+    otMonth.filter((o) => otClimaCerrada(o)),
     (o) => (o.tecnicoAsignado || 'Sin técnico').trim() || 'Sin técnico'
   );
   const tecMonthAll = countBy(otMonth, (o) => (o.tecnicoAsignado || 'Sin técnico').trim() || 'Sin técnico');
 
   const creadasMes = otMonth.length;
-  const terminadasMes = otMonth.filter((o) => o.estado === 'terminado').length;
+  const terminadasMes = otMonth.filter((o) => otClimaCerrada(o)).length;
   const pctTerm =
     creadasMes > 0 ? Math.round((terminadasMes / creadasMes) * 1000) / 10 : null;
 
@@ -380,10 +383,10 @@ export const dashboardView = ({
   const flotaAprobadaNoEjecutada = flotaSolicitudes.filter((s) => s.estado === 'aprobada').length;
   const flotaCompletadaNoCerrada = flotaSolicitudes.filter((s) => s.estado === 'completada').length;
   const otSinCostos = ots.filter(
-    (o) => o.estado === 'terminado' && (!Number(o.costoTotal) || Number(o.costoTotal) <= 0)
+    (o) => otClimaCerrada(o) && (!Number(o.costoTotal) || Number(o.costoTotal) <= 0)
   ).length;
   const otTerminadasNoInformadas = ots.filter(
-    (o) => o.estado === 'terminado' && (!o.pdfUrl || !String(o.pdfUrl).trim())
+    (o) => otClimaCerrada(o) && (!o.pdfUrl || !String(o.pdfUrl).trim())
   ).length;
 
   const flotaCerradaSinIngresoFinal = flotaSolicitudes.filter(
@@ -400,7 +403,7 @@ export const dashboardView = ({
 
   const otInformadasNoCobradas = ots.filter(
     (o) =>
-      o.estado === 'terminado' &&
+      otClimaCerrada(o) &&
       o.pdfUrl &&
       String(o.pdfUrl).trim().length > 0 &&
       roundMoney(o.montoCobrado) <= 0
@@ -427,12 +430,12 @@ export const dashboardView = ({
 
   const mantAtras = planMantenciones.filter((m) => m.fecha < today && m.estado !== 'realizado');
 
-  const otAbiertas = ots.filter((o) => o.estado !== 'terminado');
-  const otSinFotos = ots.filter((o) => o.estado !== 'terminado' && getEvidenceGaps(o).length > 0);
+  const otAbiertas = ots.filter((o) => !otClimaCerrada(o));
+  const otSinFotos = ots.filter((o) => !otClimaCerrada(o) && getEvidenceGaps(o).length > 0);
 
   const otPend = ots.filter((o) => o.estado === 'pendiente').length;
   const otProc = ots.filter((o) => o.estado === 'en proceso').length;
-  const otTerm = ots.filter((o) => o.estado === 'terminado').length;
+  const otTerm = ots.filter((o) => otClimaCerrada(o)).length;
   const cierreAlertCount =
     flotaCompletadaNoCerrada +
     otSinCostos +

@@ -9,6 +9,7 @@ import { whatsappMessagesForOt } from '../domain/control-operativo-tiempo-real.j
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 import { hnfOperativoIntegradoService } from '../services/hnf-operativo-integrado.service.js';
 import { otService } from '../services/ot.service.js';
+import { computeJarvisOtKpis } from '../domain/jarvis-ot-kpis.js';
 import { createJarvisAssistantPanel } from './jarvis-assistant-panel.js';
 
 let __hnfJarvisPrimaryActionFn = null;
@@ -37,7 +38,7 @@ function countOtAbiertas(viewData) {
   if (!Array.isArray(ots)) return 0;
   return ots.filter((o) => {
     const st = String(o?.estado || '').toLowerCase();
-    return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+    return st && !['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st);
   }).length;
 }
 
@@ -55,7 +56,7 @@ function getPlanOtsList(raw) {
 
 function isOtActiveForLive(o) {
   const st = String(o?.estado || '').toLowerCase();
-  return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+  return st && !['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st);
 }
 
 function outlookMessagesForOt(ot, messages) {
@@ -96,7 +97,7 @@ function resolveOtLiveStatus(ot, ctrlCard) {
     return { key: 'urgente', label: 'URGENTE', bar: 'red', pct: 72 };
   }
   const st = String(ot?.estado || '').toLowerCase();
-  if (['terminado', 'cerrado'].includes(st)) {
+  if (['terminado', 'cerrada', 'cerrado'].includes(st)) {
     return { key: 'terminada', label: 'TERMINADA', bar: 'green', pct: 100 };
   }
   if (['en proceso', 'proceso', 'visita', 'ejecucion', 'ejecución'].includes(st)) {
@@ -218,7 +219,7 @@ function computeAdnOperationalTrace(ot, ctrl) {
   const hasTipo = Boolean(String(ot?.subtipoServicio || ot?.tipoServicio || '').trim());
   const techRaw = String(ot?.tecnicoAsignado || '').trim();
   const hasTech = Boolean(techRaw) && !/^sin\s+asignar$/i.test(techRaw);
-  const terminado = st === 'terminado' || st === 'cerrado';
+  const terminado = st === 'terminado' || st === 'cerrada' || st === 'cerrado';
 
   const completed = [true, hasTipo, hasTech, gaps0, pdfOk, terminado];
   let activeIdx = completed.findIndex((c) => !c);
@@ -301,7 +302,7 @@ function buildOtTraceabilityPayload(p) {
 }
 
 function terminadoOrClosed(st) {
-  return st === 'terminado' || st === 'cerrado';
+  return st === 'terminado' || st === 'cerrada' || st === 'cerrado';
 }
 
 /** @param {object} raw @param {object[]} cards @param {number} nowMs */
@@ -525,9 +526,11 @@ export function createHnfJarvisPremiumCommand({
   kpiRow.className = 'hnf-jarvis-premium__kpi-row';
   kpiRow.setAttribute('aria-label', 'Resumen operativo del día');
 
-  const nCrit = Number(traffic.bloqueos) || 0;
-  const nProc = Number(traffic.pendientes) || 0;
-  const nOk = Number(traffic.ok) || 0;
+  const kpiOt = computeJarvisOtKpis(raw);
+  const nNuevas = kpiOt.nuevasHoy;
+  const nProc = kpiOt.enProceso;
+  const nAtras = kpiOt.atrasadas;
+  const nSin = kpiOt.sinAsignar;
 
   const mkKpi = (variant, title, value, hint, { ctaLabel, view }) => {
     const card = document.createElement('div');
@@ -561,24 +564,24 @@ export function createHnfJarvisPremiumCommand({
   kpiRow.append(
     mkKpi(
       'crit',
-      'Crítico hoy',
-      nCrit,
-      nCrit ? 'OT con señal crítica' : 'Sin OT críticas en panel',
-      { ctaLabel: 'Revisar OT', view: 'clima' }
+      'OT nuevas hoy',
+      nNuevas,
+      nNuevas ? 'Altas registradas hoy' : 'Sin altas hoy en corte',
+      { ctaLabel: 'Ir a Clima', view: 'clima' }
     ),
     mkKpi(
       'proc',
-      'En proceso',
+      'OT en proceso',
       nProc,
-      nProc ? 'Requieren atención' : 'Sin cola ámbar',
-      { ctaLabel: 'Ver pendientes', view: 'clima' }
+      nProc ? 'Ejecución activa' : 'Sin OT en proceso',
+      { ctaLabel: 'Ver Clima', view: 'clima' }
     ),
     mkKpi(
       'ok',
-      'Operación',
-      nOk,
-      traffic.totalOt ? 'OT en ritmo (verde)' : 'Sin OT cargadas en corte',
-      { ctaLabel: 'Completar informe', view: 'clima' }
+      'OT atrasadas / sin asignar',
+      `${nAtras} / ${nSin}`,
+      'Atrasadas: fecha de visita anterior a hoy y OT abiertas. Sin asignar: sin técnico.',
+      { ctaLabel: 'Asignar en Clima', view: 'clima' }
     )
   );
 

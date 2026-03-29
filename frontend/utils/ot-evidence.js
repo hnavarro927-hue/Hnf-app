@@ -102,7 +102,15 @@ export const formatQualityCloseGapsMessage = (gaps) =>
 
 export const otHasCloseQuality = (ot) => getQualityCloseGaps(ot).length === 0;
 
-export const otCanClose = (ot) => otHasCloseEvidence(ot) && otHasCloseQuality(ot);
+export const otHasResponsible = (ot) => {
+  const r = String(ot?.responsableActual || '').trim();
+  if (r) return true;
+  const t = String(ot?.tecnicoAsignado || '').trim();
+  return t.length > 0 && t.toLowerCase() !== 'por asignar';
+};
+
+export const otCanClose = (ot) =>
+  otHasCloseEvidence(ot) && otHasCloseQuality(ot) && otHasResponsible(ot);
 
 export const formatAllCloseBlockersMessage = (ot) => {
   const ev = getEvidenceGaps(ot);
@@ -110,6 +118,9 @@ export const formatAllCloseBlockersMessage = (ot) => {
   const parts = [];
   if (ev.length) parts.push(formatEvidenceGapsMessage(ev));
   if (q.length) parts.push(formatQualityCloseGapsMessage(q));
+  if (!otHasResponsible(ot)) {
+    parts.push('Asigná un técnico o responsable actual antes de cerrar (no puede quedar «Por asignar»).');
+  }
   return parts.filter(Boolean).join(' ');
 };
 

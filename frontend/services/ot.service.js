@@ -4,6 +4,9 @@ import { httpClient } from './http-client.js';
 export const otService = {
   getAll: () => httpClient.get(apiEndpoints.ots),
   create: (payload) => httpClient.post(apiEndpoints.ots, payload),
+  patchCore: (id, payload) =>
+    httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}`, payload),
+  delete: (id) => httpClient.delete(`${apiEndpoints.ots}/${encodeURIComponent(id)}`),
   updateStatus: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/status`, payload),
   patchEvidences: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/evidences`, payload),
   patchReport: (id, payload) => httpClient.patch(`${apiEndpoints.ots}/${id}/report`, payload),

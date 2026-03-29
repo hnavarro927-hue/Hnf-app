@@ -56,4 +56,5 @@ export const httpClient = {
   get: (path) => request(path),
   post: (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: (path, body) => request(path, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (path) => request(path, { method: 'DELETE' }),
 };

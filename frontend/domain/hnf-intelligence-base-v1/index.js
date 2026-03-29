@@ -41,7 +41,7 @@ export function buildHnfIntelligenceBaseV1Snapshot(viewData = {}, controlCards =
   const ots = planOtsFrom(viewData);
   const abiertas = ots.filter((o) => {
     const st = String(o?.estado || '').toLowerCase();
-    return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+    return st && !['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st);
   });
   const sampleOt = abiertas[0] || null;
 

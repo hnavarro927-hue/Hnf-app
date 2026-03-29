@@ -20288,3 +20288,65 @@ body.hnf-op-command .hnf-cap-ingreso--command .hnf-ingreso-cc-preview__sticky {
   ) !important;
   box-shadow: 0 0 56px rgba(112, 0, 255, 0.18) !important;
 }
+
+/* Vencer body.hnf-op-command .content::before (tema operativo previo) en shell real Tech-Rebirth */
+body.hnf-op-command #app .shell.hnf-tech-rebirth .content::before {
+  opacity: 0.92;
+  background:
+    radial-gradient(ellipse 72% 46% at 12% 0%, rgba(0, 242, 255, 0.12), transparent 58%),
+    radial-gradient(ellipse 52% 38% at 88% 22%, rgba(112, 0, 255, 0.07), transparent 52%);
+}
+
+body.hnf-op-command.hnf-op-theme--clima #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 75% 50% at 12% 0%, rgba(0, 242, 255, 0.18), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 30%, rgba(0, 242, 255, 0.06), transparent 50%);
+}
+
+body.hnf-op-command.hnf-op-theme--flota #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 75% 50% at 10% 0%, rgba(0, 255, 157, 0.16), transparent 58%),
+    radial-gradient(ellipse 50% 38% at 92% 25%, rgba(0, 255, 157, 0.07), transparent 52%);
+}
+
+body.hnf-op-command.hnf-op-theme--comercial #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 65% 45% at 20% 0%, rgba(255, 193, 7, 0.14), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 15%, rgba(0, 242, 255, 0.06), transparent 50%);
+}
+
+body.hnf-op-command.hnf-op-theme--planificacion #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 70% 42% at 15% 0%, rgba(112, 0, 255, 0.14), transparent 56%),
+    radial-gradient(ellipse 45% 36% at 85% 20%, rgba(255, 193, 7, 0.06), transparent 50%);
+}
+
+body.hnf-op-command.hnf-op-theme--control #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 68% 48% at 18% 0%, rgba(255, 193, 7, 0.12), transparent 58%),
+    radial-gradient(ellipse 50% 40% at 95% 18%, rgba(225, 225, 225, 0.06), transparent 52%);
+}
+
+body.hnf-op-command.hnf-op-theme--finanzas #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 60% 40% at 25% 0%, rgba(255, 193, 7, 0.1), transparent 55%),
+    radial-gradient(ellipse 55% 38% at 80% 12%, rgba(148, 163, 184, 0.06), transparent 50%);
+}
+
+body.hnf-op-command.hnf-op-theme--bandeja #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 70% 44% at 10% 0%, rgba(255, 193, 7, 0.12), transparent 56%),
+    radial-gradient(ellipse 48% 36% at 92% 20%, rgba(0, 242, 255, 0.08), transparent 50%);
+}
+
+body.hnf-op-command.hnf-op-theme--ingreso #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 72% 46% at 12% 0%, rgba(255, 193, 7, 0.13), transparent 58%),
+    radial-gradient(ellipse 52% 38% at 88% 22%, rgba(0, 255, 157, 0.07), transparent 52%);
+}
+
+body.hnf-op-command.hnf-op-theme--neutral #app .shell.hnf-tech-rebirth .content::before {
+  background:
+    radial-gradient(ellipse 70% 44% at 10% 0%, rgba(225, 225, 225, 0.06), transparent 56%),
+    radial-gradient(ellipse 48% 36% at 92% 20%, rgba(0, 242, 255, 0.05), transparent 50%);
+}

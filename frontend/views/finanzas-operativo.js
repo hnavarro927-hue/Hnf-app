@@ -27,7 +27,7 @@ export const finanzasOperativoView = ({ data, navigateToView, reloadApp } = {}) 
   let climaAbierto = 0;
   let climaMonto = 0;
   for (const o of ots) {
-    if (String(o?.estado || '').toLowerCase() === 'terminado') continue;
+    if (['terminado', 'cerrada', 'cerrado'].includes(String(o?.estado || '').toLowerCase())) continue;
     if (String(o?.tipoServicio || 'clima') === 'flota') continue;
     climaAbierto += 1;
     climaMonto += roundMoney(o.montoPresupuestado ?? o.montoEstimado ?? o.montoCobrado ?? o.monto ?? 0);

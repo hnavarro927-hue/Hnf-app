@@ -29,7 +29,7 @@ export function computeCopilotOperationalTrace(ot, ctrl) {
   const l = techRaw.toLowerCase();
   const hasTechOk =
     Boolean(techRaw) && l !== 'sin asignar' && l !== 'por asignar';
-  const terminado = st === 'terminado' || st === 'cerrado';
+  const terminado = st === 'terminado' || st === 'cerrado' || st === 'cerrada';
 
   const completed = [true, hasTipo, hasTechOk, gaps0, pdfOk, terminado];
   let activeIdx = completed.findIndex((c) => !c);

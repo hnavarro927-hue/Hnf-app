@@ -671,13 +671,14 @@ const viewRegistry = {
   flota: {
     render: flotaView,
     load: async () => {
-      const [vehicles, expenses, sol] = await Promise.all([
+      const [vehicles, expenses, sol, ots] = await Promise.all([
         vehicleService.getAll().catch(() => ({ data: [] })),
         expenseService.getAll().catch(() => ({ data: [] })),
         flotaSolicitudService.getAll({}).catch(() => ({ data: [] })),
+        otService.getAll().catch(() => ({ data: [] })),
       ]);
 
-      return { vehicles, expenses, flotaSolicitudes: sol.data ?? [] };
+      return { vehicles, expenses, flotaSolicitudes: sol.data ?? [], ots };
     },
   },
 
@@ -770,7 +771,7 @@ const getJarvisOsState = () => {
   const ots = d.ots?.data || [];
   let bloqueos = 0;
   for (const o of ots) {
-    if (String(o.estado || '') === 'terminado') continue;
+    if (['terminado', 'cerrada', 'cerrado'].includes(String(o.estado || '').toLowerCase())) continue;
     bloqueos += roundOtMoney(
       o.montoPresupuestado ?? o.montoEstimado ?? o.montoCobrado ?? o.monto ?? 0
     );
@@ -1052,6 +1053,39 @@ const createActions = () => ({
     }
   },
 
+  patchOtCore: async (id, body) => {
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.patchCore(id, body);
+      state.otFeedback = { type: 'success', message: 'Datos de la OT actualizados en el servidor.' };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudo editar la OT.',
+      };
+      render();
+    }
+  },
+
+  deleteOt: async (id) => {
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.delete(id);
+      state.selectedOTId = null;
+      state.otFeedback = { type: 'success', message: 'OT eliminada del servidor.' };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudo eliminar la OT (¿permisos admin?).',
+      };
+      render();
+    }
+  },
+
   updateOTStatus: async (id, status) => {
     state.isUpdatingOTStatus = true;
     state.otFeedback = null;
@@ -1211,7 +1245,10 @@ const createActions = () => ({
 
     let fresh = state.viewData?.data?.find((o) => o.id === id) || ot;
 
-    if (!state.otEconomicsSaved && economicsPayload != null && fresh.estado !== 'terminado') {
+    const otStillOpen = !['terminado', 'cerrada', 'cerrado'].includes(
+      String(fresh.estado || '').toLowerCase()
+    );
+    if (!state.otEconomicsSaved && economicsPayload != null && otStillOpen) {
       state.isSavingOtEconomics = true;
       state.otFeedback = null;
       render();
@@ -1278,13 +1315,13 @@ const createActions = () => ({
     render();
 
     try {
-      await otService.updateStatus(id, { estado: 'terminado' });
+      await otService.updateStatus(id, { estado: 'cerrada' });
       await loadViewData();
       fresh = state.viewData?.data?.find((o) => o.id === id) || {
         ...fresh,
-        estado: 'terminado',
+        estado: 'cerrada',
       };
-      const otClosed = { ...fresh, estado: 'terminado' };
+      const otClosed = { ...fresh, estado: 'cerrada' };
       const { blob, fileName } = await generateOtPdfBlob(otClosed);
       openPdfBlobInNewTab(blob);
       const pdfUrl = await blobToDataUrl(blob);
@@ -1292,7 +1329,7 @@ const createActions = () => ({
       state.otFeedback = {
         type: 'success',
         message:
-          'OT cerrada (terminado). Informe PDF guardado en la orden; revisá la pestaña abierta.',
+          'OT cerrada. Informe PDF guardado en la orden; revisá la pestaña abierta.',
       };
       await loadViewData();
     } catch (error) {

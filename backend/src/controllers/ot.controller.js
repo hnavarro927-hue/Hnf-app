@@ -43,7 +43,8 @@ export const updateOTStatus = async (request, response) => {
     const isCloseBlock =
       result.code === 'EVIDENCE_INCOMPLETE' ||
       result.code === 'QUALITY_INCOMPLETE' ||
-      result.code === 'ECONOMICS_INCOMPLETE';
+      result.code === 'ECONOMICS_INCOMPLETE' ||
+      result.code === 'NO_RESPONSABLE';
     return sendError(response, isCloseBlock ? 422 : 400, result.error, {
       resource: 'ots',
       validStatuses: otModel.statusOptions,
@@ -180,5 +181,44 @@ export const patchOTOperational = async (request, response) => {
   return sendSuccess(response, 200, result, {
     resource: 'ots',
     action: 'patchOTOperational',
+  });
+};
+
+export const patchOTCore = async (request, response) => {
+  const actor = getRequestActor(request);
+  const result = await otService.patchCore(request.params.id, request.body || {}, actor);
+
+  if (result.errors) {
+    return sendError(response, 400, 'Edición de OT inválida.', {
+      resource: 'ots',
+      validations: result.errors,
+    });
+  }
+
+  if (result.error) {
+    return sendError(response, 404, result.error, { resource: 'ots' });
+  }
+
+  return sendSuccess(response, 200, result, {
+    resource: 'ots',
+    action: 'patchOTCore',
+  });
+};
+
+export const deleteOT = async (request, response) => {
+  const actor = getRequestActor(request);
+  const result = await otService.deleteById(request.params.id, actor);
+
+  if (result.code === 'FORBIDDEN') {
+    return sendError(response, 403, result.error, { resource: 'ots', code: result.code });
+  }
+
+  if (result.error) {
+    return sendError(response, 404, result.error, { resource: 'ots' });
+  }
+
+  return sendSuccess(response, 200, result, {
+    resource: 'ots',
+    action: 'deleteOT',
   });
 };

@@ -1,6 +1,8 @@
 import {
   createOT,
+  deleteOT,
   getAllOT,
+  patchOTCore,
   patchOTEvidences,
   patchOTEquipos,
   patchOTReport,
@@ -20,6 +22,16 @@ export const otRoutes = [
     method: 'POST',
     path: '/ots',
     handler: createOT,
+  },
+  {
+    method: 'PATCH',
+    path: '/ots/:id',
+    handler: patchOTCore,
+  },
+  {
+    method: 'DELETE',
+    path: '/ots/:id',
+    handler: deleteOT,
   },
   {
     method: 'PATCH',

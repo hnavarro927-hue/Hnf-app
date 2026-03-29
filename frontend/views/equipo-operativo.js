@@ -20,7 +20,7 @@ export const equipoOperativoView = ({ data, navigateToView, reloadApp } = {}) =>
   };
 
   for (const o of ots) {
-    if (norm(o?.estado) === 'terminado') continue;
+    if (['terminado', 'cerrada', 'cerrado'].includes(norm(o?.estado))) continue;
     const t = String(o?.tecnicoAsignado || '').trim() || 'Sin técnico';
     bump(t, 'otAbiertas');
     if (norm(o?.prioridad) === 'critica') {

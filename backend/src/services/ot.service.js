@@ -6,11 +6,14 @@ import {
 } from '../middlewares/file-upload.middleware.js';
 import { otModel } from '../models/ot.model.js';
 import { otRepository } from '../repositories/ot.repository.js';
+import { isAdminActor } from '../utils/hnfActor.js';
+import { isOtCerrada, normalizeIncomingEstadoPatch } from '../utils/otEstado.js';
 import {
   validateEconomicsPatch,
   validateEquiposPatchBody,
   validateEvidencePatchBody,
   validateOperationalPatch,
+  validateOTCorePatch,
   validateOTPayload,
   validateReportPayload,
   validateVisitFieldsPatch,
@@ -192,6 +195,15 @@ const hasFullEvidence = (ot) => {
   );
 };
 
+const hasResponsableForClose = (ot) => {
+  const r = String(ot?.responsableActual || '').trim();
+  if (r) return true;
+  const t = String(ot?.tecnicoAsignado || '').trim();
+  return t.length > 0 && t.toLowerCase() !== 'por asignar';
+};
+
+const bandejaFromTipo = (tipo) => (String(tipo || '').toLowerCase() === 'flota' ? 'gery' : 'romina');
+
 export const otService = {
   repositoryMode: otRepository.mode,
 
@@ -222,7 +234,15 @@ export const otService = {
     const asignadoPor =
       tecnico === 'Por asignar' ? null : jarvisPickedTech ? 'Jarvis' : actor;
     const responsableActual = tecnico === 'Por asignar' ? null : tecnico;
-    const origenPedido = String(data.origenPedido || '').trim().slice(0, 120);
+    const origenSolicitud = String(data.origenSolicitud || '').trim();
+    const origenPedido = String(data.origenPedido || origenSolicitud || '').trim().slice(0, 120);
+    const prioridadOperativa = String(data.prioridadOperativa || 'media').toLowerCase();
+    const waNum = String(data.whatsappContactoNumero || '').trim();
+    const waNom = String(data.whatsappContactoNombre || '').trim();
+    const entradaExterna = origenSolicitud === 'whatsapp';
+    const pendienteRespuestaCliente = origenSolicitud === 'whatsapp';
+    const bBandeja = bandejaFromTipo(data.tipoServicio);
+    const estadoInicial = tecnico !== 'Por asignar' ? 'asignada' : 'nueva';
     const optionalId = data.id != null ? String(data.id).trim() : '';
 
     const created = await otRepository.create(
@@ -240,9 +260,17 @@ export const otService = {
         tecnicoAsignado: tecnico,
         operationMode: mode,
         origenPedido,
+        origenSolicitud,
+        whatsappContactoNumero: waNum,
+        whatsappContactoNombre: waNom,
+        entradaExterna,
+        bandejaAsignada: bBandeja,
+        notificacionAsignadaA: bBandeja === 'gery' ? 'Gery' : 'Romina',
+        prioridadOperativa,
+        pendienteRespuestaCliente,
         asignadoPor,
         responsableActual,
-        estado: 'pendiente',
+        estado: estadoInicial,
         fecha: data.fecha,
         hora: data.hora || '',
         observaciones: data.observaciones || '',
@@ -280,14 +308,22 @@ export const otService = {
   },
 
   async updateStatus(id, estado, statusOptions, actor = 'sistema') {
-    if (!statusOptions.includes(estado)) {
+    const estadoN = normalizeIncomingEstadoPatch(estado);
+    if (!statusOptions.includes(estadoN)) {
       return { error: 'Estado inválido.' };
     }
 
-    if (estado === 'terminado') {
+    if (isOtCerrada(estadoN)) {
       const current = await otRepository.findById(id);
       if (!current) {
         return { error: 'OT no encontrada.' };
+      }
+      if (!hasResponsableForClose(current)) {
+        return {
+          error:
+            'No se puede cerrar sin responsable asignado: indicá técnico o responsable actual (distinto de «Por asignar»).',
+          code: 'NO_RESPONSABLE',
+        };
       }
       if (!hasFullEvidence(current)) {
         return {
@@ -310,7 +346,7 @@ export const otService = {
       }
     }
 
-    const item = await otRepository.updateStatus(id, estado, actor);
+    const item = await otRepository.updateStatus(id, estadoN, actor);
     if (!item) {
       return { error: 'OT no encontrada.' };
     }
@@ -410,5 +446,28 @@ export const otService = {
       return { error: 'OT no encontrada.' };
     }
     return item;
+  },
+
+  async patchCore(id, body, actor = 'sistema') {
+    const validation = validateOTCorePatch(body);
+    if (!validation.valid) {
+      return { errors: validation.errors };
+    }
+    const item = await otRepository.patchCore(id, body, actor);
+    if (!item) {
+      return { error: 'OT no encontrada.' };
+    }
+    return item;
+  },
+
+  async deleteById(id, actor = 'sistema') {
+    if (!isAdminActor(actor)) {
+      return { error: 'Solo administradores pueden eliminar una OT.', code: 'FORBIDDEN' };
+    }
+    const ok = await otRepository.deleteById(id);
+    if (!ok) {
+      return { error: 'OT no encontrada.' };
+    }
+    return { ok: true };
   },
 };

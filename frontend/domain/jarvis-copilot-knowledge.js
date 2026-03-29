@@ -55,7 +55,7 @@ export function buildStructuredKnowledgeSnapshot(data, cards = []) {
   const list = Array.isArray(ots) ? ots : [];
   const abiertas = list.filter((o) => {
     const st = String(o?.estado || '').toLowerCase();
-    return st && !['terminado', 'cerrado', 'cancelado'].includes(st);
+    return st && !['terminado', 'cerrada', 'cerrado', 'cancelado'].includes(st);
   });
   const techs = new Set();
   for (const o of abiertas) {

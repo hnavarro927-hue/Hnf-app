@@ -3,15 +3,31 @@ import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
+import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
 import { otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import {
   HNF_OT_OPERATION_MODES,
   HNF_OT_ORIGEN_PEDIDO,
+  HNF_OT_ORIGEN_SOLICITUD,
+  HNF_OT_PRIORIDAD_OPERATIVA,
   HNF_OT_TECNICOS_PRESETS,
   labelOperationMode,
   labelOrigenPedido,
+  labelOrigenSolicitud,
+  labelPrioridadOperativa,
 } from '../constants/hnf-ot-operation.js';
+
+const OT_STATUS_OPTIONS = [
+  { value: 'nueva', label: 'Nueva' },
+  { value: 'asignada', label: 'Asignada' },
+  { value: 'en_proceso', label: 'En proceso' },
+  { value: 'pendiente_validacion', label: 'Pendiente validación' },
+  { value: 'cerrada', label: 'Cerrada' },
+];
+
+const isOtEstadoCerradaUi = (e) =>
+  ['terminado', 'cerrada', 'cerrado'].includes(String(e || '').toLowerCase());
 
 const MAX_EQUIPOS = 12;
 const EQ_ESTADOS = ['operativo', 'mantenimiento', 'falla'];
@@ -288,7 +304,8 @@ const createJarvisSuggestions = (ot) => {
   if (!ot.resumenTrabajo?.trim()) out.push('Completa el resumen para habilitar cierre sin fricción.');
   if ((ot.equipos?.length || 0) === 0) out.push('Agrega al menos un equipo para trazabilidad técnica.');
   if (!ot.pdfUrl) out.push('Genera borrador PDF antes del cierre para validación interna.');
-  if (ot.estado === 'pendiente') out.push('Mueve la OT a “en proceso” para reflejar ejecución real.');
+  if (['pendiente', 'nueva', 'asignada'].includes(String(ot?.estado || '').toLowerCase()))
+    out.push('Mueve la OT a “en proceso” para reflejar ejecución real.');
   return out.slice(0, 3);
 };
 
@@ -375,9 +392,9 @@ const buildField = (field) => {
 const createStatusBadge = (status, variant = 'estado') => {
   const raw = String(status || '').trim().toLowerCase();
   const normalized =
-    raw === 'terminado'
+    raw === 'terminado' || raw === 'cerrada' || raw === 'cerrado'
       ? 'completado'
-      : raw === 'en proceso'
+      : raw === 'en proceso' || raw === 'en_proceso'
         ? 'en-proceso'
         : raw === 'automatico'
           ? 'automatico'
@@ -394,7 +411,7 @@ const buildOtAltaOperationSection = () => {
   const fs = document.createElement('fieldset');
   fs.className = 'ot-form__section ot-form__section--operation';
   const leg = document.createElement('legend');
-  leg.textContent = 'Modo operación · Nº OT · Origen · Técnico';
+  leg.textContent = 'Modo operación · Nº OT · Origen · Prioridad · Técnico';
   const grid = document.createElement('div');
   grid.className = 'ot-form__grid';
 
@@ -423,13 +440,45 @@ const buildOtAltaOperationSection = () => {
     modeSel.append(op);
   });
 
-  const origenSel = document.createElement('select');
-  origenSel.name = 'origenPedidoCreate';
-  HNF_OT_ORIGEN_PEDIDO.forEach((o) => {
+  const origenSolSel = document.createElement('select');
+  origenSolSel.name = 'origenSolicitudCreate';
+  origenSolSel.required = true;
+  HNF_OT_ORIGEN_SOLICITUD.forEach((o) => {
     const op = document.createElement('option');
     op.value = o.value;
     op.textContent = o.label;
-    origenSel.append(op);
+    origenSolSel.append(op);
+  });
+
+  const waNumInp = document.createElement('input');
+  waNumInp.type = 'tel';
+  waNumInp.name = 'whatsappNumeroCreate';
+  waNumInp.placeholder = '+56 9 …';
+  waNumInp.autocomplete = 'off';
+  const waNomInp = document.createElement('input');
+  waNomInp.type = 'text';
+  waNomInp.name = 'whatsappNombreCreate';
+  waNomInp.placeholder = 'Nombre contacto';
+  waNomInp.autocomplete = 'name';
+
+  const waWrap = document.createElement('div');
+  waWrap.className = 'ot-form__grid';
+  waWrap.style.gridColumn = '1 / -1';
+  waWrap.hidden = true;
+  waWrap.append(mk('WhatsApp · número *', waNumInp), mk('WhatsApp · nombre contacto *', waNomInp));
+  origenSolSel.addEventListener('change', () => {
+    waWrap.hidden = origenSolSel.value !== 'whatsapp';
+  });
+
+  const prioSel = document.createElement('select');
+  prioSel.name = 'prioridadOperativaCreate';
+  prioSel.required = true;
+  HNF_OT_PRIORIDAD_OPERATIVA.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    if (o.value === 'media') op.selected = true;
+    prioSel.append(op);
   });
 
   const techWrap = document.createElement('div');
@@ -467,7 +516,9 @@ const buildOtAltaOperationSection = () => {
   grid.append(
     mk('Nº OT (opcional)', idInp),
     mk('Modo operación', modeSel),
-    mk('Origen del pedido', origenSel),
+    mk('Origen de la solicitud *', origenSolSel),
+    waWrap,
+    mk('Prioridad operativa *', prioSel),
     mk('Técnico asignado', techWrap),
     hint
   );
@@ -1004,22 +1055,22 @@ const filterOtsIntelList = (list, intelListFilter) => {
     out = out.filter((o) => o.fecha >= start && o.fecha <= end);
   }
   if (intelListFilter.sinCostoTerminadas) {
-    out = out.filter((o) => o.estado === 'terminado' && roundEcon(o.costoTotal) <= 0);
+    out = out.filter((o) => isOtEstadoCerradaUi(o.estado) && roundEcon(o.costoTotal) <= 0);
   }
   if (intelListFilter.sinCobroConPdf) {
     out = out.filter(
       (o) =>
-        o.estado === 'terminado' &&
+        isOtEstadoCerradaUi(o.estado) &&
         o.pdfUrl &&
         String(o.pdfUrl).trim() &&
         roundEcon(o.montoCobrado) <= 0
     );
   }
   if (intelListFilter.sinPdfTerminadas) {
-    out = out.filter((o) => o.estado === 'terminado' && (!o.pdfUrl || !String(o.pdfUrl).trim()));
+    out = out.filter((o) => isOtEstadoCerradaUi(o.estado) && (!o.pdfUrl || !String(o.pdfUrl).trim()));
   }
   if (intelListFilter.soloAbiertas) {
-    out = out.filter((o) => o.estado !== 'terminado');
+    out = out.filter((o) => !isOtEstadoCerradaUi(o.estado));
   }
   if (intelListFilter.clienteContains) {
     const q = String(intelListFilter.clienteContains).toLowerCase();
@@ -1030,7 +1081,7 @@ const filterOtsIntelList = (list, intelListFilter) => {
 
 const buildClimaIntelChecklist = (ot, economicsSaved) => {
   if (!ot) return [];
-  if (ot.estado === 'terminado') {
+  if (isOtEstadoCerradaUi(ot.estado)) {
     return [
       { ok: roundEcon(ot.costoTotal) > 0, label: 'Costo total > 0 guardado' },
       { ok: roundEcon(ot.montoCobrado) > 0, label: 'Monto cobrado > 0 guardado' },
@@ -1055,7 +1106,7 @@ export const climaView = ({
   feedback,
   integrationStatus,
   isSubmitting,
-  isUpdatingStatus,
+  isUpdatingStatus = false,
   isClosingOT,
   isUploadingEvidence,
   isGeneratingPdf,
@@ -1116,14 +1167,30 @@ export const climaView = ({
   });
   climaToolbar.append(climaRefresh, climaRefreshHint);
 
-  const ots = [...(data?.data || [])].reverse();
+  const opRole = resolveOperatorRole();
+  let ots = [...(data?.data || [])].reverse();
+  if (opRole === 'clima' || opRole === 'tecnico') {
+    ots = ots.filter((o) => String(o.tipoServicio || '').toLowerCase() === 'clima');
+  } else if (opRole === 'flota') {
+    ots = [];
+  }
   const listOts = filterOtsIntelList(ots, intelListFilter);
   const effectiveSelectedId = listOts.some((item) => item.id === selectedOTId)
     ? selectedOTId
     : listOts[0]?.id ?? selectedOTId;
   const selectedOT = ots.find((item) => item.id === effectiveSelectedId) || ots[0] || null;
-  const pendingCount = ots.filter((item) => item.estado === 'pendiente').length;
-  const inProgressCount = ots.filter((item) => item.estado === 'en proceso').length;
+  const pendingCount = ots.filter((item) => {
+    const s = String(item.estado || '')
+      .toLowerCase()
+      .replace(/\s+/g, '_');
+    return s === 'nueva' || s === 'pendiente' || s === 'asignada';
+  }).length;
+  const inProgressCount = ots.filter((item) => {
+    const s = String(item.estado || '')
+      .toLowerCase()
+      .replace(/\s+/g, '_');
+    return s === 'en_proceso' || s === 'pendiente_validacion' || item.estado === 'en proceso';
+  }).length;
   const eqTotal = ots.reduce((t, o) => t + (o.equipos?.length || 0), 0);
 
   const cards = document.createElement('div');
@@ -1132,7 +1199,11 @@ export const climaView = ({
     {
       title: 'Órdenes de trabajo',
       description: 'Resumen rápido.',
-      items: [`Total: ${ots.length}`, `Pendientes: ${pendingCount}`, `En proceso: ${inProgressCount}`],
+      items: [
+        `Total: ${ots.length}`,
+        `Nueva / asignada: ${pendingCount}`,
+        `En proceso / validación: ${inProgressCount}`,
+      ],
     },
     {
       title: 'Equipos',
@@ -1227,8 +1298,19 @@ export const climaView = ({
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const origenSolicitud = form.elements.origenSolicitudCreate?.value || '';
+    const waNum = form.elements.whatsappNumeroCreate?.value?.trim() || '';
+    const waNom = form.elements.whatsappNombreCreate?.value?.trim() || '';
+    if (origenSolicitud === 'whatsapp' && (!waNum || !waNom)) {
+      actions?.showFeedback?.({
+        type: 'error',
+        message: 'Con origen WhatsApp el número y el nombre de contacto son obligatorios.',
+      });
+      return;
+    }
     const equipos = collectEquiposFromCreateForm(eqContainer);
     const customId = form.elements.otCustomId?.value?.trim() || '';
+    const prioridadOperativa = form.elements.prioridadOperativaCreate?.value || 'media';
     const payload = {
       ...(customId ? { id: customId } : {}),
       cliente: form.elements.cliente.value.trim(),
@@ -1240,7 +1322,11 @@ export const climaView = ({
       subtipoServicio: form.elements.subtipoServicio.value.trim(),
       tecnicoAsignado: resolveTecnicoFromAltaForm(form),
       operationMode: form.elements.operationModeCreate?.value || 'manual',
-      origenPedido: form.elements.origenPedidoCreate?.value || '',
+      origenSolicitud,
+      origenPedido: origenSolicitud,
+      prioridadOperativa,
+      whatsappContactoNumero: waNum,
+      whatsappContactoNombre: waNom,
       fecha: form.elements.fecha.value,
       hora: form.elements.hora.value,
       observaciones: form.elements.observaciones.value.trim(),
@@ -1335,7 +1421,13 @@ export const climaView = ({
   const list = document.createElement('div');
   list.className = 'ot-list';
 
-  if (!ots.length) {
+  if (opRole === 'flota') {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent =
+      'Tu bandeja de OT de Flota está en el módulo Flota. Este listado es para operación Clima / HVAC.';
+    list.append(empty);
+  } else if (!ots.length) {
     const empty = document.createElement('p');
     empty.className = 'muted';
     empty.textContent =
@@ -1385,7 +1477,7 @@ export const climaView = ({
     detailCard.innerHTML =
       '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado del medio.</p>';
   } else {
-    const ro = selectedOT.estado === 'terminado';
+    const ro = isOtEstadoCerradaUi(selectedOT.estado);
     const topSticky = document.createElement('header');
     topSticky.className = 'ot-saas-sticky';
     const meta = document.createElement('div');
@@ -1438,9 +1530,144 @@ export const climaView = ({
         montoCobrado: roundEcon(selectedOT.montoCobrado),
       });
     });
-    actionsTop.append(pdfTop, closeTop);
+    const delTop = document.createElement('button');
+    delTop.type = 'button';
+    delTop.className = 'secondary-button';
+    delTop.textContent = 'Eliminar OT';
+    delTop.hidden = resolveOperatorRole() !== 'admin';
+    delTop.addEventListener('click', async () => {
+      if (!window.confirm(`¿Eliminar definitivamente ${selectedOT.id}? Solo admin.`)) return;
+      await actions.deleteOt(selectedOT.id);
+    });
+    actionsTop.append(pdfTop, closeTop, delTop);
     topSticky.append(meta, actionsTop);
-    detailCard.append(topSticky);
+
+    const estadoBar = document.createElement('div');
+    estadoBar.className = 'ot-saas-block';
+    estadoBar.style.marginTop = '10px';
+    const estLab = document.createElement('label');
+    estLab.className = 'form-field';
+    const estSpan = document.createElement('span');
+    estSpan.className = 'form-field__label';
+    estSpan.textContent = 'Estado operativo (servidor)';
+    const estadoSel = document.createElement('select');
+    estadoSel.className = 'ot-op-detail__select';
+    const curNorm = String(selectedOT.estado || '')
+      .toLowerCase()
+      .replace(/\s+/g, '_');
+    const curVal =
+      selectedOT.estado === 'en proceso'
+        ? 'en_proceso'
+        : OT_STATUS_OPTIONS.some((o) => o.value === curNorm)
+          ? curNorm
+          : 'nueva';
+    OT_STATUS_OPTIONS.forEach((o) => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      if (o.value === curVal) opt.selected = true;
+      estadoSel.append(opt);
+    });
+    const btnEst = document.createElement('button');
+    btnEst.type = 'button';
+    btnEst.className = 'secondary-button';
+    btnEst.textContent = isUpdatingStatus ? 'Guardando…' : 'Guardar estado';
+    btnEst.disabled = Boolean(isUpdatingStatus || ro);
+    btnEst.addEventListener('click', async () => {
+      await actions.updateOTStatus(selectedOT.id, estadoSel.value);
+    });
+    estLab.append(estSpan, estadoSel);
+    estadoBar.append(estLab, btnEst);
+
+    const waRow = document.createElement('div');
+    waRow.className = 'ot-saas-block';
+    waRow.style.marginTop = '8px';
+    const waMeta = document.createElement('p');
+    waMeta.className = 'muted small';
+    const os = String(selectedOT.origenSolicitud || selectedOT.origenPedido || '').toLowerCase();
+    waMeta.textContent =
+      os === 'whatsapp'
+        ? `Entrada externa · WhatsApp · Pendiente respuesta cliente: ${selectedOT.pendienteRespuestaCliente ? 'sí' : 'no'}`
+        : '';
+    const btnWa = document.createElement('button');
+    btnWa.type = 'button';
+    btnWa.className = 'secondary-button';
+    btnWa.textContent = 'Simular envío respuesta al cliente';
+    btnWa.hidden = !(os === 'whatsapp' && selectedOT.pendienteRespuestaCliente);
+    btnWa.addEventListener('click', async () => {
+      await actions.patchOtOperational(selectedOT.id, { pendienteRespuestaCliente: false });
+    });
+    waRow.append(waMeta, btnWa);
+
+    const histBlock = document.createElement('div');
+    histBlock.className = 'ot-saas-block';
+    histBlock.style.marginTop = '8px';
+    const histH = document.createElement('h4');
+    histH.textContent = 'Trazabilidad (historial)';
+    const histUl = document.createElement('ul');
+    histUl.className = 'muted small';
+    histUl.style.paddingLeft = '1.1rem';
+    const hist = Array.isArray(selectedOT.historial) ? selectedOT.historial : [];
+    if (!hist.length) {
+      const li = document.createElement('li');
+      li.textContent = 'Sin eventos registrados.';
+      histUl.append(li);
+    } else {
+      for (const ev of [...hist].slice(-25).reverse()) {
+        const li = document.createElement('li');
+        li.textContent = `${formatAuditTs(ev.at)} · ${ev.actor || '—'} · ${ev.accion || '—'} — ${ev.detalle || ''}`;
+        histUl.append(li);
+      }
+    }
+    histBlock.append(histH, histUl);
+
+    const editDet = document.createElement('details');
+    editDet.className = 'ot-saas-block';
+    editDet.style.marginTop = '8px';
+    const editSum = document.createElement('summary');
+    editSum.textContent = 'Editar datos principales de la OT';
+    const editGrid = document.createElement('div');
+    editGrid.className = 'ot-form__grid';
+    const mkEdit = (name, lab, val) => {
+      const w = document.createElement('label');
+      w.className = 'form-field';
+      const sp = document.createElement('span');
+      sp.className = 'form-field__label';
+      sp.textContent = lab;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.name = `edit-${name}`;
+      inp.value = val || '';
+      inp.className = 'form-field__control';
+      w.append(sp, inp);
+      return w;
+    };
+    editGrid.append(
+      mkEdit('cliente', 'Cliente', selectedOT.cliente),
+      mkEdit('direccion', 'Dirección', selectedOT.direccion),
+      mkEdit('comuna', 'Comuna', selectedOT.comuna),
+      mkEdit('contactoTerreno', 'Contacto', selectedOT.contactoTerreno),
+      mkEdit('telefonoContacto', 'Teléfono', selectedOT.telefonoContacto),
+      mkEdit('subtipoServicio', 'Subtipo servicio', selectedOT.subtipoServicio)
+    );
+    const btnSaveEdit = document.createElement('button');
+    btnSaveEdit.type = 'button';
+    btnSaveEdit.className = 'primary-button';
+    btnSaveEdit.textContent = 'Guardar edición';
+    btnSaveEdit.disabled = ro;
+    btnSaveEdit.addEventListener('click', async () => {
+      const g = (n) => editGrid.querySelector(`[name="edit-${n}"]`)?.value?.trim() ?? '';
+      await actions.patchOtCore(selectedOT.id, {
+        cliente: g('cliente'),
+        direccion: g('direccion'),
+        comuna: g('comuna'),
+        contactoTerreno: g('contactoTerreno'),
+        telefonoContacto: g('telefonoContacto'),
+        subtipoServicio: g('subtipoServicio'),
+      });
+    });
+    editDet.append(editSum, editGrid, btnSaveEdit);
+    detailCard.append(topSticky, estadoBar, waRow, histBlock, editDet);
 
     const tabs = document.createElement('div');
     tabs.className = 'ot-saas-tabs';
@@ -1477,6 +1704,9 @@ export const climaView = ({
       ['Teléfono', selectedOT.telefonoContacto],
       ['Modo operación', labelOperationMode(selectedOT.operationMode)],
       ['Origen del pedido', labelOrigenPedido(selectedOT.origenPedido)],
+      ['Origen solicitud', labelOrigenSolicitud(selectedOT.origenSolicitud)],
+      ['Prioridad', labelPrioridadOperativa(selectedOT.prioridadOperativa)],
+      ['Bandeja / notificación', `${selectedOT.bandejaAsignada || '—'} → ${selectedOT.notificacionAsignadaA || '—'}`],
       ['Técnico', selectedOT.tecnicoAsignado],
       ['Tipo / subtipo', `${selectedOT.tipoServicio} / ${selectedOT.subtipoServicio}`],
       ['Fecha / hora', `${selectedOT.fecha} · ${selectedOT.hora}`],

@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { appendHistorial } from '../utils/historialUtil.js';
+import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,13 +53,40 @@ const deriveResponsable = (item) => {
   return null;
 };
 
+const mapLegacyOrigenSolicitud = (origenPedido) => {
+  const x = String(origenPedido || '').toLowerCase().trim();
+  if (x === 'whatsapp') return 'whatsapp';
+  if (x === 'correo' || x === 'email') return 'email';
+  if (x === 'llamada') return 'cliente_directo';
+  if (x === 'manual' || x === 'jarvis' || x === '') return 'interno';
+  return 'interno';
+};
+
+const bandejaFromTipo = (tipo) => (String(tipo || '').toLowerCase() === 'flota' ? 'gery' : 'romina');
+
 const ensureDefaults = (item) => {
   const now = new Date().toISOString();
   const creado = item.creadoEn || item.createdAt || null;
+  const tipo = String(item.tipoServicio || '').toLowerCase();
+  const origenSol =
+    String(item.origenSolicitud ?? '').trim() || mapLegacyOrigenSolicitud(item.origenPedido);
   const base = {
     ...item,
+    estado: normalizeOtEstadoStored(item.estado),
     operationMode: normalizeOperationMode(item.operationMode),
     origenPedido: String(item.origenPedido ?? '').trim(),
+    origenSolicitud: origenSol,
+    whatsappContactoNumero: String(item.whatsappContactoNumero ?? '').trim(),
+    whatsappContactoNombre: String(item.whatsappContactoNombre ?? '').trim(),
+    entradaExterna: Boolean(item.entradaExterna),
+    bandejaAsignada: String(item.bandejaAsignada || '').trim() || bandejaFromTipo(item.tipoServicio),
+    notificacionAsignadaA:
+      String(item.notificacionAsignadaA || '').trim() ||
+      (bandejaFromTipo(item.tipoServicio) === 'gery' ? 'Gery' : 'Romina'),
+    prioridadOperativa: ['alta', 'media', 'baja'].includes(String(item.prioridadOperativa || '').toLowerCase())
+      ? String(item.prioridadOperativa).toLowerCase()
+      : 'media',
+    pendienteRespuestaCliente: Boolean(item.pendienteRespuestaCliente),
     asignadoPor: item.asignadoPor != null && String(item.asignadoPor).trim() ? String(item.asignadoPor).trim() : null,
     responsableActual: deriveResponsable(item),
     pdfName: item.pdfName ?? null,
@@ -137,6 +165,7 @@ export const otRepository = {
       id,
       ...rest,
       operationMode: mode,
+      estado: rest.estado != null ? rest.estado : undefined,
       creadoEn: rest.creadoEn || now,
       createdAt: rest.createdAt || rest.creadoEn || now,
       updatedAt: now,
@@ -145,7 +174,7 @@ export const otRepository = {
       historial: appendHistorial(
         {},
         'alta',
-        `OT creada · ${rest.estado || 'pendiente'} · modo ${mode}`,
+        `OT creada · ${normalizeOtEstadoStored(rest.estado)} · modo ${mode}`,
         actor
       ),
     });
@@ -192,6 +221,11 @@ export const otRepository = {
       updated = touch(updated, 'origen', 'Origen del pedido actualizado', actor);
     }
 
+    if ('pendienteRespuestaCliente' in p) {
+      updated.pendienteRespuestaCliente = Boolean(p.pendienteRespuestaCliente);
+      updated = touch(updated, 'whatsapp', 'Pendiente respuesta cliente actualizado', actor);
+    }
+
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;
@@ -205,13 +239,14 @@ export const otRepository = {
     if (index === -1) return null;
 
     const prev = ensureDefaults(items[index]);
-    let updated = { ...prev, estado };
-    if (estado === 'terminado') {
+    const estadoN = normalizeOtEstadoStored(estado);
+    let updated = { ...prev, estado: estadoN };
+    if (isOtCerrada(estadoN)) {
       updated.cerradoEn = new Date().toISOString();
-    } else if (prev.estado === 'terminado' && estado !== 'terminado') {
+    } else if (isOtCerrada(prev.estado) && !isOtCerrada(estadoN)) {
       updated.cerradoEn = null;
     }
-    updated = touch(updated, 'estado', `${prev.estado} → ${estado}`, actor);
+    updated = touch(updated, 'estado', `${prev.estado} → ${estadoN}`, actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;
@@ -320,6 +355,54 @@ export const otRepository = {
 
     let updated = { ...ensureDefaults(items[index]), equipos };
     updated = touch(updated, 'equipos', 'Equipos / checklist / evidencias actualizados', actor);
+    updated = ensureDefaults(updated);
+    const next = [...items];
+    next[index] = updated;
+    await saveStore(next);
+    return updated;
+  },
+
+  async deleteById(id) {
+    const items = await loadStore();
+    const next = items.filter((item) => item.id !== id);
+    if (next.length === items.length) return null;
+    await saveStore(next);
+    return true;
+  },
+
+  async patchCore(id, patch, actor = 'sistema') {
+    const items = await loadStore();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    let updated = { ...ensureDefaults(items[index]) };
+    const p = patch || {};
+    const str = (k) => (p[k] != null ? String(p[k]).trim() : undefined);
+
+    if ('cliente' in p) updated.cliente = str('cliente') || null;
+    if ('direccion' in p) updated.direccion = str('direccion') || '';
+    if ('comuna' in p) updated.comuna = str('comuna') || '';
+    if ('contactoTerreno' in p) updated.contactoTerreno = str('contactoTerreno') || '';
+    if ('telefonoContacto' in p) updated.telefonoContacto = str('telefonoContacto') || '';
+    if ('tipoServicio' in p && p.tipoServicio) {
+      updated.tipoServicio = String(p.tipoServicio).toLowerCase() === 'flota' ? 'flota' : 'clima';
+      updated.bandejaAsignada = bandejaFromTipo(updated.tipoServicio);
+      updated.notificacionAsignadaA = updated.bandejaAsignada === 'gery' ? 'Gery' : 'Romina';
+    }
+    if ('subtipoServicio' in p) updated.subtipoServicio = str('subtipoServicio') || '';
+    if ('observaciones' in p) updated.observaciones = str('observaciones') || '';
+    if ('origenSolicitud' in p && p.origenSolicitud) updated.origenSolicitud = String(p.origenSolicitud).trim();
+    if ('origenPedido' in p) updated.origenPedido = str('origenPedido') || '';
+    if ('prioridadOperativa' in p && p.prioridadOperativa) {
+      const pr = String(p.prioridadOperativa).toLowerCase();
+      if (['alta', 'media', 'baja'].includes(pr)) updated.prioridadOperativa = pr;
+    }
+    if ('whatsappContactoNumero' in p) updated.whatsappContactoNumero = str('whatsappContactoNumero') || '';
+    if ('whatsappContactoNombre' in p) updated.whatsappContactoNombre = str('whatsappContactoNombre') || '';
+    if ('entradaExterna' in p) updated.entradaExterna = Boolean(p.entradaExterna);
+    if ('pendienteRespuestaCliente' in p) updated.pendienteRespuestaCliente = Boolean(p.pendienteRespuestaCliente);
+
+    updated = touch(updated, 'edicion', 'Datos principales de la OT actualizados', actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;

@@ -28,7 +28,7 @@ function isSameLocalDay(iso, ymd) {
 
 export const INGRESO_ESTADOS = ['pendiente', 'en_proceso', 'completo'];
 export const INGRESO_TIPOS = ['clima', 'flota'];
-export const INGRESO_ORIGENES = ['whatsapp', 'correo', 'llamada', 'manual'];
+export const INGRESO_ORIGENES = ['whatsapp', 'cliente_directo', 'interno', 'email'];
 export const INGRESO_PRIORIDADES = ['baja', 'media', 'alta'];
 /** manual | whatsapp_ingesta */
 export const INGRESO_SOURCE_KINDS = ['manual', 'whatsapp_ingesta'];

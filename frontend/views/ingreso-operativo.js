@@ -28,6 +28,9 @@ const URG_LABEL = { alta: 'Urgencia alta', media: 'Urgencia media', baja: 'Urgen
 
 const ORIGEN_LABEL = {
   whatsapp: 'WhatsApp',
+  cliente_directo: 'Cliente directo',
+  interno: 'Interno',
+  email: 'Email',
   correo: 'Correo',
   llamada: 'Llamada',
   manual: 'Manual',
@@ -35,8 +38,8 @@ const ORIGEN_LABEL = {
 
 const PRIO_LABEL = {
   baja: 'Prioridad baja',
-  media: 'Prioridad normal',
-  alta: 'Prioridad urgente',
+  media: 'Prioridad media',
+  alta: 'Prioridad alta',
 };
 
 const SUBTIPO_BY_TIPO = {
@@ -105,22 +108,23 @@ const buildOtPayloadFromIngresoForm = (form) => {
   const regionZona = form.elements.regionZona?.value?.trim() || '';
   const tipo = form.elements.tipo?.value || 'clima';
   const subtipo = form.elements.subtipo?.value?.trim() || '';
-  const origen = form.elements.origen?.value || 'manual';
+  const origen = form.elements.origen?.value || 'interno';
   const fechaSolicitud = form.elements.fechaSolicitud?.value || '';
   const horaSolicitud = form.elements.horaSolicitud?.value || '';
   const descripcion = form.elements.descripcion?.value?.trim() || '';
   const observaciones = form.elements.observaciones?.value?.trim() || '';
-  const prioridadUi = form.elements.prioridad?.value || 'normal';
+  const prioridadUi = form.elements.prioridad?.value || 'media';
+  const whatsappNum = form.elements.whatsappNumero?.value?.trim() || '';
+  const whatsappNom = form.elements.whatsappNombre?.value?.trim() || '';
   const fechaVisita = form.elements.fechaVisita?.value?.trim() || '';
   const horaVisita = form.elements.horaVisita?.value?.trim() || '';
   const operationMode = form.elements.operationMode?.value || 'manual';
   const otManualId = form.elements.otManualId?.value?.trim() || '';
   const tecnicoAsignado = resolveTecnicoIngreso(form);
 
-  const prioridadLine =
-    prioridadUi === 'urgente' ? 'Prioridad: urgente (operación)' : 'Prioridad: normal';
+  const prioridadLine = `Prioridad operativa: ${PRIO_LABEL[normalizePrioridadFromUi(prioridadUi)] || prioridadUi}`;
   const metaLines = [
-    `[Ingreso HNF · origen: ${origen} · registro solicitud ${fechaSolicitud} ${horaSolicitud || ''}]`,
+    `[Ingreso HNF · origenSolicitud: ${origen} · registro solicitud ${fechaSolicitud} ${horaSolicitud || ''}]`,
     prioridadLine,
     emailCorreo && `Correo cliente: ${emailCorreo}`,
     regionZona && `Región / zona: ${regionZona}`,
@@ -140,7 +144,11 @@ const buildOtPayloadFromIngresoForm = (form) => {
       tipoServicio: tipo,
       subtipoServicio: subtipo,
       operationMode: operationMode === 'automatic' ? 'automatic' : 'manual',
+      origenSolicitud: origen,
       origenPedido: origen,
+      prioridadOperativa: normalizePrioridadFromUi(prioridadUi),
+      whatsappContactoNumero: origen === 'whatsapp' ? whatsappNum : '',
+      whatsappContactoNombre: origen === 'whatsapp' ? whatsappNom : '',
       fecha: fechaSolicitud,
       hora: horaSolicitud || '09:00',
       observaciones: observacionesOt,
@@ -164,7 +172,7 @@ const buildOtPayloadFromIngresoForm = (form) => {
       horaSolicitud,
       descripcion,
       observaciones,
-      prioridad: normalizePrioridadFromUi(prioridadUi === 'urgente' ? 'urgente' : 'normal'),
+      prioridad: normalizePrioridadFromUi(prioridadUi),
       fechaVisita,
       horaVisita,
       operationMode: operationMode === 'automatic' ? 'automatic' : 'manual',
@@ -322,9 +330,9 @@ export const ingresoOperativoView = ({
   origenSel.required = true;
   [
     { value: 'whatsapp', label: 'WhatsApp' },
-    { value: 'correo', label: 'Correo electrónico' },
-    { value: 'llamada', label: 'Llamada telefónica' },
-    { value: 'manual', label: 'Manual / mostrador / otro' },
+    { value: 'cliente_directo', label: 'Cliente directo' },
+    { value: 'interno', label: 'Interno' },
+    { value: 'email', label: 'Email' },
   ].forEach((o) => {
     const opt = document.createElement('option');
     opt.value = o.value;
@@ -367,7 +375,23 @@ export const ingresoOperativoView = ({
   hH.textContent = 'Referencia operativa; podés ajustar si no la tenés exacta.';
   wHora.append(horaSol, hH);
 
-  secA.body.append(wOrigen, wFecha, wHora);
+  const wWaNum = mkField('whatsappNumero', 'WhatsApp · número de contacto *', 'tel', {
+    placeholder: 'Ej. +56 9 1234 5678',
+    hint: 'Obligatorio si el origen es WhatsApp (entrada externa).',
+  });
+  const wWaNom = mkField('whatsappNombre', 'WhatsApp · nombre contacto *', 'text', {
+    placeholder: 'Ej. Juan Pérez',
+    hint: 'Quien escribió o recibe el seguimiento por ese número.',
+  });
+  const syncWaFields = () => {
+    const on = origenSel.value === 'whatsapp';
+    wWaNum.style.display = on ? '' : 'none';
+    wWaNom.style.display = on ? '' : 'none';
+  };
+  origenSel.addEventListener('change', syncWaFields);
+  syncWaFields();
+
+  secA.body.append(wOrigen, wFecha, wHora, wWaNum, wWaNom);
 
   /* —— B · Cliente —— */
   const secB = mkSection(
@@ -533,12 +557,14 @@ export const ingresoOperativoView = ({
       hint: 'Qué pasó, qué pidió el cliente, dónde, con qué urgencia percibida.',
       required: true,
     }),
-    mkField('prioridad', 'Prioridad operativa', 'select', {
+    mkField('prioridad', 'Prioridad operativa *', 'select', {
       options: [
-        { value: 'normal', label: 'Normal' },
-        { value: 'urgente', label: 'Urgente' },
+        { value: 'media', label: 'Media' },
+        { value: 'baja', label: 'Baja' },
+        { value: 'alta', label: 'Alta' },
       ],
-      hint: 'Urgente = atención prioritaria hoy; queda marcado en la OT.',
+      hint: 'Obligatoria para crear la OT en el servidor.',
+      required: true,
     }),
     mkField('observaciones', 'Observaciones internas (opcional)', 'textarea', {
       rows: 2,
@@ -655,7 +681,7 @@ export const ingresoOperativoView = ({
   footer.append(submit, feedback, offlineNote);
 
   let wizardStep = 0;
-  const STEP_LABELS = ['Origen', 'Cliente', 'Servicio', 'Prioridad y detalle', 'Asignación'];
+  const STEP_LABELS = ['Entrada', 'Cliente', 'Servicio', 'Prioridad y detalle', 'Asignación'];
 
   const wrapWizardPanel = (sectionEl, idx) => {
     const d = document.createElement('div');
@@ -696,7 +722,7 @@ export const ingresoOperativoView = ({
     const tp = tipoSel.value === 'flota' ? 'Flota' : 'Clima';
     const sub = subtipoSel.value || '—';
     const prUi = form.elements.prioridad?.value;
-    const pr = prUi === 'urgente' ? 'Urgente' : 'Normal';
+    const pr = PRIO_LABEL[prUi] || prUi || '—';
     const tech = resolveTecnicoIngreso(form);
     const rows = [
       ['Origen', ol],
@@ -717,6 +743,46 @@ export const ingresoOperativoView = ({
       dl.append(dt, dd);
     }
   };
+
+  const validateWizardStep = (step) => {
+    if (step === 0) {
+      if (!fechaSol.value) return 'Completá la fecha de la solicitud (paso Entrada).';
+      if (!origenSel.value) return 'Seleccioná el origen.';
+      if (origenSel.value === 'whatsapp') {
+        const wn = form.elements.whatsappNumero?.value?.trim();
+        const wnm = form.elements.whatsappNombre?.value?.trim();
+        if (!wn) return 'WhatsApp requiere número de contacto.';
+        if (!wnm) return 'WhatsApp requiere nombre de contacto.';
+      }
+      return '';
+    }
+    if (step === 1) {
+      if (!clienteInp.value?.trim()) return 'Indicá el cliente (paso Cliente).';
+      if (!form.elements.contacto?.value?.trim()) return 'Indicá el contacto en terreno.';
+      if (!form.elements.telefono?.value?.trim()) return 'Indicá el teléfono.';
+      if (!form.elements.direccion?.value?.trim()) return 'Indicá la dirección.';
+      if (!form.elements.comuna?.value?.trim()) return 'Indicá la comuna.';
+      return '';
+    }
+    if (step === 2) {
+      if (!tipoSel.value) return 'Elegí Clima o Flota (paso Servicio).';
+      if (!subtipoSel.value?.trim()) return 'Elegí el subtipo de servicio.';
+      return '';
+    }
+    if (step === 3) {
+      const desc = form.elements.descripcion?.value?.trim() || '';
+      if (desc.length < 8) return 'Completá la descripción del pedido (paso Prioridad y detalle).';
+      const pr = form.elements.prioridad?.value;
+      if (!pr) return 'Seleccioná la prioridad operativa.';
+      return '';
+    }
+    return '';
+  };
+
+  const wizardErr = document.createElement('p');
+  wizardErr.className = 'hnf-ingreso-wizard__err form-feedback form-feedback--error';
+  wizardErr.setAttribute('role', 'alert');
+  wizardErr.hidden = true;
 
   const nav = document.createElement('div');
   nav.className = 'hnf-ingreso-wizard__nav';
@@ -752,6 +818,13 @@ export const ingresoOperativoView = ({
     }
   });
   btnNext.addEventListener('click', () => {
+    wizardErr.hidden = true;
+    const err = validateWizardStep(wizardStep);
+    if (err) {
+      wizardErr.textContent = err;
+      wizardErr.hidden = false;
+      return;
+    }
     if (wizardStep < STEP_LABELS.length - 1) {
       wizardStep += 1;
       syncWizard();
@@ -770,6 +843,7 @@ export const ingresoOperativoView = ({
     li.dataset.stepIndex = String(i);
     li.innerHTML = `<span class="hnf-ingreso-wizard__rail-n">${i + 1}</span><span class="hnf-ingreso-wizard__rail-t">${label}</span>`;
     li.addEventListener('click', () => {
+      wizardErr.hidden = true;
       wizardStep = i;
       syncWizard();
     });
@@ -778,7 +852,7 @@ export const ingresoOperativoView = ({
 
   const leftCol = document.createElement('div');
   leftCol.className = 'hnf-ingreso-wizard__col';
-  leftCol.append(stepper, stepsHost, nav);
+  leftCol.append(stepper, stepsHost, wizardErr, nav);
 
   const grid = document.createElement('div');
   grid.className = 'hnf-ingreso-cc';
@@ -1059,6 +1133,8 @@ export const ingresoOperativoView = ({
     techOther.value = '';
     techOther.hidden = true;
     modeSel.value = 'manual';
+    origenSel.value = 'interno';
+    syncWaFields();
     quickDetails.open = false;
   };
 
@@ -1094,6 +1170,12 @@ export const ingresoOperativoView = ({
     if (!payload.fecha) errs.push('Fecha de la solicitud.');
     if (!snapshot.descripcion || snapshot.descripcion.length < 8) {
       errs.push('Descripción del pedido (al menos una frase clara, ej. 8 caracteres o más).');
+    }
+    if (!payload.origenSolicitud) errs.push('Origen de solicitud.');
+    if (!payload.prioridadOperativa) errs.push('Prioridad operativa.');
+    if (payload.origenSolicitud === 'whatsapp') {
+      if (!payload.whatsappContactoNumero) errs.push('Número WhatsApp.');
+      if (!payload.whatsappContactoNombre) errs.push('Nombre contacto WhatsApp.');
     }
 
     if (errs.length) {
