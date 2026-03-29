@@ -23306,6 +23306,65 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
   gap: 0.35rem;
   margin-top: 0.5rem;
 }
+.hnf-maestro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.35rem 0;
+}
+.hnf-maestro-chip {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+.hnf-maestro-dest-wrap {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.65rem;
+}
+.hnf-maestro-dest-meta p {
+  margin: 0.15rem 0;
+}
+.hnf-maestro-dest-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+.hnf-bandeja-maestro__h {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+.hnf-bandeja-maestro__row {
+  margin-bottom: 0.5rem;
+}
+.hnf-bandeja-maestro__act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.hnf-bandeja-maestro__hdr {
+  margin-bottom: 0.25rem;
+}
+.hnf-bandeja-maestro__corr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+.jarvis-hq__maestro-intake {
+  margin-bottom: 0.65rem;
+  padding: 0.65rem 0.85rem;
+}
+.jarvis-hq__maestro-intake-ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+}
 .hnf-maestro-jarvis {
   margin-bottom: 1rem;
   padding: 0.65rem 0.85rem;

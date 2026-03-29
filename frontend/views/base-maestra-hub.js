@@ -3,6 +3,7 @@
  */
 
 import { appConfig } from '../config/app.config.js';
+import { getStoredOperatorName } from '../config/operator.config.js';
 import {
   canAccessClientesManual,
   canAccessDirectorioInterno,
@@ -90,6 +91,43 @@ function textoResumenUltimaAprobacion(d) {
     })
     .filter(Boolean)
     .join(' · ');
+}
+
+const DESTINOS_FINAL_SELECT = [
+  { v: 'clima', l: 'Clima → Romina' },
+  { v: 'flota', l: 'Flota → Gery' },
+  { v: 'comercial', l: 'Comercial → Lyn' },
+  { v: 'administrativo', l: 'Administrativo → Romina' },
+];
+
+function maestroActorSlug() {
+  const raw = getStoredOperatorName().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  if (raw.includes('romina')) return 'romina';
+  if (raw.includes('gery')) return 'gery';
+  if (raw.includes('lyn')) return 'lyn';
+  if (raw.includes('hernan')) return 'hernan';
+  return 'admin';
+}
+
+function labelBandejaUi(b) {
+  const m = { romina: 'Romina', gery: 'Gery', lyn: 'Lyn', admin: 'Admin' };
+  return m[String(b || '').toLowerCase()] || b || '—';
+}
+
+function chipsDocumentoDestino(d) {
+  const out = [];
+  const cf = String(d.clasificacion_fuente || 'jarvis').toLowerCase();
+  if (cf === 'jarvis' && !d.destino_corregido_manual) out.push({ t: 'Detectado por Jarvis', k: 'jarvis' });
+  if (cf === 'manual' || d.destino_corregido_manual) out.push({ t: 'Corregido manualmente', k: 'manual' });
+  const ind = indicadorRevisionDocumento(d);
+  if (String(d.estado_revision || '').toLowerCase() === 'aprobado') {
+    if (ind.includes('creado')) out.push({ t: 'Aprobado y creado', k: 'aprobado-creado' });
+    else out.push({ t: 'Aprobado', k: 'aprobado' });
+  }
+  if (d.revision_manual_sugerida || ind.includes('Revisión manual')) {
+    out.push({ t: 'Revisión manual sugerida', k: 'revision' });
+  }
+  return out;
 }
 
 function readFileBase64(file) {
@@ -538,6 +576,100 @@ export const baseMaestraHubView = ({
         <p class="hnf-maestro-doc-ind small"><span class="hnf-maestro-doc-ind__tag">${esc(ind)}</span></p>
         <p class="small">${esc(d.resumen_jarvis || '—')}</p>
         <p class="muted small">Módulo sugerido: ${esc(d.modulo_destino_sugerido || '—')} · categoría ${esc(d.categoria_detectada || '—')}</p>`;
+
+      const allowedDest = new Set(DESTINOS_FINAL_SELECT.map((x) => x.v));
+      const badgesRow = document.createElement('div');
+      badgesRow.className = 'hnf-maestro-chips';
+      const paintChips = (doc) => {
+        badgesRow.replaceChildren();
+        for (const { t, k } of chipsDocumentoDestino(doc)) {
+          const sp = document.createElement('span');
+          sp.className = `hnf-maestro-chip hnf-maestro-chip--${k}`;
+          sp.textContent = t;
+          badgesRow.append(sp);
+        }
+      };
+
+      const destInfo = document.createElement('div');
+      destInfo.className = 'hnf-maestro-dest-meta';
+      const selDest = document.createElement('select');
+      selDest.className = 'hnf-cap-ingreso__input';
+      selDest.setAttribute('aria-label', 'Destino final');
+      for (const opt of DESTINOS_FINAL_SELECT) {
+        const o = document.createElement('option');
+        o.value = opt.v;
+        o.textContent = opt.l;
+        selDest.append(o);
+      }
+      const inpMotivoDest = document.createElement('input');
+      inpMotivoDest.className = 'hnf-cap-ingreso__input';
+      inpMotivoDest.placeholder = 'Motivo (obligatorio para corregir destino)';
+      const btnCorregirDest = document.createElement('button');
+      btnCorregirDest.type = 'button';
+      btnCorregirDest.className = 'secondary-button';
+      btnCorregirDest.textContent = 'Guardar corrección';
+      btnCorregirDest.disabled = offline;
+
+      const syncDestMeta = (doc) => {
+        destInfo.replaceChildren();
+        const det = doc.destino_detectado || doc.modulo_destino_sugerido || '—';
+        const p1 = document.createElement('p');
+        p1.textContent = `Destino detectado (Jarvis): ${det}`;
+        const p2 = document.createElement('p');
+        p2.textContent = `Destino final: ${doc.destino_final || '—'} · Bandeja actual: ${labelBandejaUi(doc.bandeja_destino)} · Clasificación: ${doc.clasificacion_fuente || '—'}`;
+        destInfo.append(p1, p2);
+        if (doc.corrected_at || doc.corrected_by) {
+          const p3 = document.createElement('p');
+          p3.textContent = `Última corrección de destino: ${doc.corrected_by || '—'} · ${doc.corrected_at ? new Date(doc.corrected_at).toLocaleString('es-CL') : '—'}`;
+          destInfo.append(p3);
+        }
+        const df = String(doc.destino_final || '').toLowerCase();
+        if (allowedDest.has(df)) selDest.value = df;
+        else {
+          const dd = String(doc.destino_detectado || '').toLowerCase();
+          selDest.value = allowedDest.has(dd) ? dd : 'administrativo';
+        }
+        paintChips(doc);
+      };
+      syncDestMeta(d);
+
+      btnCorregirDest.addEventListener('click', async () => {
+        const motivo = inpMotivoDest.value.trim();
+        if (!motivo) {
+          showFb('Ingresá un motivo breve para registrar la corrección de destino.', true);
+          return;
+        }
+        btnCorregirDest.disabled = true;
+        try {
+          const r = await maestroService.corregirDestinoDocumento(d.id, {
+            nuevo_destino: selDest.value,
+            motivo,
+            actor: maestroActorSlug(),
+          });
+          const doc = r?.documento || r;
+          const b = r?.bandeja_destino ?? doc?.bandeja_destino;
+          showFb(`Destino corregido y enviado a bandeja de ${labelBandejaUi(b)}`);
+          Object.assign(d, doc);
+          syncDestMeta(d);
+          inpMotivoDest.value = '';
+        } catch (e) {
+          showFb(e.message || 'Error al corregir destino', true);
+        } finally {
+          btnCorregirDest.disabled = offline;
+        }
+      });
+
+      const destWrap = document.createElement('div');
+      destWrap.className = 'hnf-maestro-dest-wrap tarjeta';
+      const labDest = document.createElement('p');
+      labDest.className = 'small';
+      labDest.innerHTML = '<strong>Destino operativo</strong>';
+      const rowSel = document.createElement('div');
+      rowSel.className = 'hnf-maestro-dest-row';
+      rowSel.append(selDest, inpMotivoDest, btnCorregirDest);
+      destWrap.append(labDest, destInfo, rowSel);
+      card.querySelector('.hnf-maestro-doc-ind')?.after(badgesRow, destWrap);
+
       const vinc = d.jarvis_vinculacion && typeof d.jarvis_vinculacion === 'object' ? d.jarvis_vinculacion : {};
       const relWrap = document.createElement('div');
       relWrap.className = 'hnf-maestro-doc-rel';
@@ -820,7 +952,7 @@ export const baseMaestraHubView = ({
             showFb(e.message || 'Error', true);
           }
         }),
-        mkBtn('Guardar corrección', async () => {
+        mkBtn('Guardar vínculos e IDs', async () => {
           try {
             await maestroService.patchDocumento(d.id, {
               entidad_relacionada_tipo: inpTipo.value.trim() || null,
@@ -831,7 +963,7 @@ export const baseMaestraHubView = ({
               vehiculo_id: inpVeh.value.trim() || null,
               tecnico_id: inpTec.value.trim() || null,
             });
-            showFb('Corrección guardada.');
+            showFb('Vínculos e IDs guardados.');
             await refresh();
           } catch (e) {
             showFb(e.message || 'Error', true);

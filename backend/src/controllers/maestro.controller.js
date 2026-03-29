@@ -18,6 +18,21 @@ const filterByQ = (list, q, pick) => {
   return list.filter((x) => pick(x).some((s) => String(s || '').toLowerCase().includes(q)));
 };
 
+const maestroListQuery = (request) => {
+  try {
+    const u = new URL(request.url || '/', 'http://localhost');
+    return {
+      limit: u.searchParams.get('limit') || undefined,
+      offset: u.searchParams.get('offset') || undefined,
+      estado: u.searchParams.get('estado') || undefined,
+      destino: u.searchParams.get('destino') || undefined,
+      pendiente: u.searchParams.get('pendiente') || undefined,
+    };
+  } catch {
+    return {};
+  }
+};
+
 export const getMaestroContactos = async (request, response) => {
   const all = await maestroService.listContactos();
   const q = qParam(request);
@@ -97,17 +112,17 @@ export const patchMaestroVehiculo = async (request, response) => {
 };
 
 export const getMaestroDocumentos = async (request, response) => {
-  const all = await maestroService.listDocumentos();
+  const all = await maestroService.listDocumentosVista();
   const q = qParam(request);
   const data = filterByQ(all, q, (x) => [
     x.nombre_archivo,
     x.resumen_jarvis,
     x.estado_revision,
     x.modulo_destino_sugerido,
-  ]).map((d) => {
-    const { ruta_interna, texto_match_sample, ...rest } = d;
-    return { ...rest, tiene_archivo: Boolean(ruta_interna) };
-  });
+    x.destino_final,
+    x.bandeja_destino,
+    x.destino_detectado,
+  ]);
   sendSuccess(response, 200, data, { resource: 'maestro/documentos' });
 };
 
@@ -125,12 +140,32 @@ export const postMaestroDocumentosRepararVinculos = async (request, response) =>
   sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'reparar_vinculos' });
 };
 
+export const patchMaestroDocumentoCorregirDestino = async (request, response) => {
+  const actor = getRequestActor(request);
+  const r = await maestroService.corregirDestinoDocumento(request.params?.id, request.body || {}, actor);
+  if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
+  if (r.error) return sendError(response, 404, r.error);
+  sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'corregir_destino' });
+};
+
 export const patchMaestroDocumento = async (request, response) => {
   const actor = getRequestActor(request);
   const r = await maestroService.patchDocumento(request.params?.id, request.body || {}, actor);
   if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
   if (r.error) return sendError(response, 404, r.error);
   sendSuccess(response, 200, r, { resource: 'maestro/documentos', action: 'patch' });
+};
+
+export const getMaestroBandeja = async (request, response) => {
+  const slug = String(request.params?.responsable || '').toLowerCase();
+  const r = await maestroService.listBandejaResponsable(slug, maestroListQuery(request));
+  if (r.errors) return sendError(response, 400, 'Inválido', { validations: r.errors });
+  sendSuccess(response, 200, r, { resource: `maestro/bandeja/${slug}` });
+};
+
+export const getMaestroIntakeOperativoResumen = async (_request, response) => {
+  const data = await maestroService.getResumenIntakeMaestroDocumentos();
+  sendSuccess(response, 200, data, { resource: 'maestro/intake-operativo/resumen' });
 };
 
 export const postMaestroDocumentoAprobar = async (request, response) => {

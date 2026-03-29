@@ -28,4 +28,6 @@ export const apiEndpoints = {
   maestroDocumentos: '/maestro/documentos',
   maestroDocumentosIngesta: '/maestro/documentos/ingesta',
   maestroDocumentosRepararVinculos: '/maestro/documentos/reparar-vinculos',
+  maestroBandeja: '/maestro/bandeja',
+  maestroIntakeOperativoResumen: '/maestro/intake-operativo/resumen',
 };

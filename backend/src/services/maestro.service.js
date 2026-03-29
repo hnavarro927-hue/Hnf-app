@@ -16,6 +16,15 @@ import { maestroContactoRepository } from '../repositories/maestroContacto.repos
 import { maestroDocumentoRepository } from '../repositories/maestroDocumento.repository.js';
 import { maestroTecnicoRepository } from '../repositories/maestroTecnico.repository.js';
 import { maestroVehiculoRepository } from '../repositories/maestroVehiculo.repository.js';
+import {
+  computeDestinoFieldsForDocument,
+  documentoTieneRevisionManualSugerida,
+  labelBandejaHumano,
+  labelDestinoHumano,
+  MAESTRO_DESTINOS,
+  normalizeDestinoModulo,
+  resolveBandejaFinal,
+} from '../domain/maestro-document-destino.engine.js';
 import { hnfOperativoIntegradoService } from './hnfOperativoIntegrado.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +71,17 @@ async function buildMaestroJarvisContext() {
     personal: personal.map((p) => ({ id: p.id, nombreCompleto: p.nombreCompleto, nombre: p.nombreCompleto })),
     vehiculos,
     tecnicos,
+  };
+}
+
+function aplicarDestinoJarvisNuevo(moduloSugerido) {
+  const { destino_final, bandeja_destino, area_detectada } = resolveBandejaFinal(moduloSugerido);
+  return {
+    destino_detectado: destino_final,
+    area_detectada,
+    destino_final,
+    bandeja_destino,
+    clasificacion_fuente: 'jarvis',
   };
 }
 
@@ -807,6 +827,21 @@ export const maestroService = {
     const all = await maestroDocumentoRepository.findAll();
     return [...all].sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
   },
+
+  async listDocumentosVista() {
+    const all = await this.listDocumentos();
+    return all.map((d) => {
+      const c = computeDestinoFieldsForDocument(d);
+      const { ruta_interna, texto_match_sample, ...rest } = d;
+      return {
+        ...rest,
+        ...c,
+        revision_manual_sugerida: documentoTieneRevisionManualSugerida(d),
+        tiene_archivo: Boolean(ruta_interna),
+      };
+    });
+  },
+
   async getDocumento(id) {
     return maestroDocumentoRepository.findById(id);
   },
@@ -898,6 +933,7 @@ export const maestroService = {
         tecnico_id: vinc.autoTecnicoId,
         historial_revision,
         texto_match_sample: String(jarvis.texto_match_sample || '').slice(0, 8000),
+        ...aplicarDestinoJarvisNuevo(jarvis.modulo_destino_sugerido),
       };
 
       const created = await maestroDocumentoRepository.create(row, actor);
@@ -1121,6 +1157,16 @@ export const maestroService = {
       const detalleHist = JSON.stringify({ origen, antes: before, despues: after }).slice(0, 1950);
       const historial_revision = appendHistorialRevision(cur, 'reparacion_historica_jarvis', detalleHist, actor);
 
+      const dj = aplicarDestinoJarvisNuevo(cur.modulo_destino_sugerido);
+      const destinoPatch = {};
+      if (!cur.bandeja_destino || !cur.destino_final) {
+        destinoPatch.destino_final = dj.destino_final;
+        destinoPatch.bandeja_destino = dj.bandeja_destino;
+        destinoPatch.area_detectada = dj.area_detectada;
+        destinoPatch.clasificacion_fuente = cur.clasificacion_fuente || 'jarvis';
+        if (!cur.destino_detectado) destinoPatch.destino_detectado = dj.destino_detectado;
+      }
+
       await maestroDocumentoRepository.update(
         docId,
         {
@@ -1128,6 +1174,7 @@ export const maestroService = {
           jarvis_vinculacion,
           relational_engine_version: vinc.version,
           historial_revision,
+          ...destinoPatch,
         },
         actor
       );
@@ -1191,6 +1238,183 @@ export const maestroService = {
     if (vinc.autoContactoId) next.contacto_id = vinc.autoContactoId;
     if (vinc.autoVehiculoId) next.vehiculo_id = vinc.autoVehiculoId;
     if (vinc.autoTecnicoId) next.tecnico_id = vinc.autoTecnicoId;
+    next.area_detectada = normalizeDestinoModulo(jarvis.modulo_destino_sugerido);
+    next.destino_detectado =
+      cur.destino_detectado != null && String(cur.destino_detectado).trim()
+        ? normalizeDestinoModulo(cur.destino_detectado)
+        : normalizeDestinoModulo(jarvis.modulo_destino_sugerido);
+    if (String(cur.clasificacion_fuente || 'jarvis') !== 'manual') {
+      const r = resolveBandejaFinal(jarvis.modulo_destino_sugerido);
+      next.destino_final = r.destino_final;
+      next.bandeja_destino = r.bandeja_destino;
+      next.clasificacion_fuente = 'jarvis';
+    } else {
+      const df = normalizeDestinoModulo(cur.destino_final || cur.modulo_destino_sugerido);
+      const rMan = resolveBandejaFinal(df);
+      next.destino_final = rMan.destino_final;
+      next.bandeja_destino = rMan.bandeja_destino;
+      next.clasificacion_fuente = 'manual';
+    }
     return maestroDocumentoRepository.update(id, next, actor);
+  },
+
+  async corregirDestinoDocumento(id, body, actorHeader) {
+    const cur = await maestroDocumentoRepository.findById(id);
+    if (!cur) return { error: 'No encontrado' };
+    const nuevo = normalizeDestinoModulo(body?.nuevo_destino);
+    if (!MAESTRO_DESTINOS.includes(nuevo)) return { errors: ['nuevo_destino debe ser clima|flota|comercial|administrativo'] };
+    const motivo = String(body?.motivo || '').trim().slice(0, 500);
+    if (!motivo) return { errors: ['motivo obligatorio (breve)'] };
+    const actorEff = String(body?.actor || actorHeader || '').trim().slice(0, 80) || actorHeader || 'sistema';
+
+    const destino_anterior = normalizeDestinoModulo(cur.destino_final || cur.modulo_destino_sugerido);
+    const destino_detectado =
+      cur.destino_detectado != null && String(cur.destino_detectado).trim()
+        ? normalizeDestinoModulo(cur.destino_detectado)
+        : normalizeDestinoModulo(cur.modulo_destino_sugerido);
+    const r = resolveBandejaFinal(nuevo);
+    const now = new Date().toISOString();
+    const detalle = JSON.stringify({
+      destino_anterior,
+      destino_nuevo: nuevo,
+      motivo,
+      actor: actorEff,
+      timestamp: now,
+    }).slice(0, 1950);
+    const historial_revision = appendHistorialRevision(cur, 'correccion_destino_jarvis', detalle, actorEff);
+
+    const updated = await maestroDocumentoRepository.update(
+      id,
+      {
+        destino_detectado,
+        area_detectada: normalizeDestinoModulo(cur.modulo_destino_sugerido),
+        destino_final: r.destino_final,
+        bandeja_destino: r.bandeja_destino,
+        clasificacion_fuente: 'manual',
+        destino_corregido_manual: nuevo,
+        motivo_correccion: motivo,
+        corrected_at: now,
+        corrected_by: actorEff,
+        historial_revision,
+      },
+      actorEff
+    );
+    return { ok: true, documento: updated, bandeja_destino: r.bandeja_destino, destino_final: r.destino_final };
+  },
+
+  async listBandejaResponsable(slug, query = {}) {
+    const key = String(slug || '').toLowerCase();
+    if (!['romina', 'gery', 'lyn', 'admin'].includes(key)) return { errors: ['bandeja inválida'] };
+    const all = await maestroDocumentoRepository.findAll();
+    const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 300);
+    const offset = Math.max(Number(query.offset) || 0, 0);
+    const estadoF = query.estado ? String(query.estado).toLowerCase() : '';
+    const destinoF = query.destino ? String(query.destino).toLowerCase() : '';
+    const pendiente = query.pendiente;
+    const today = new Date().toISOString().slice(0, 10);
+
+    let rows = all.map((d) => {
+      const c = computeDestinoFieldsForDocument(d);
+      const revision_manual_sugerida = documentoTieneRevisionManualSugerida(d);
+      const { ruta_interna, texto_match_sample, ...rest } = d;
+      return {
+        id: rest.id,
+        nombre_archivo: rest.nombre_archivo,
+        tipo_archivo: rest.tipo_archivo,
+        categoria_detectada: rest.categoria_detectada,
+        cliente_probable: rest.cliente_probable,
+        contacto_probable: rest.contacto_probable,
+        patente_probable: rest.patente_probable,
+        tecnico_probable: rest.tecnico_probable,
+        destino_detectado: c.destino_detectado,
+        destino_final: c.destino_final,
+        bandeja_destino: c.bandeja_destino,
+        area_detectada: c.area_detectada,
+        clasificacion_fuente: c.clasificacion_fuente,
+        modulo_destino_sugerido: rest.modulo_destino_sugerido,
+        estado_revision: rest.estado_revision,
+        ultima_aprobacion_jarvis: rest.ultima_aprobacion_jarvis,
+        revision_manual_sugerida,
+        destino_corregido_manual: rest.destino_corregido_manual,
+        motivo_correccion: rest.motivo_correccion,
+        corrected_at: rest.corrected_at,
+        corrected_by: rest.corrected_by,
+        createdAt: rest.createdAt,
+        updatedAt: rest.updatedAt,
+        tiene_archivo: Boolean(ruta_interna),
+        aprobado_hoy:
+          String(rest.estado_revision || '').toLowerCase() === 'aprobado' &&
+          String(rest.updatedAt || '').slice(0, 10) === today,
+      };
+    });
+
+    if (key !== 'admin') {
+      rows = rows.filter((d) => String(d.bandeja_destino).toLowerCase() === key);
+    }
+    if (estadoF) rows = rows.filter((d) => String(d.estado_revision || '').toLowerCase() === estadoF);
+    if (destinoF) rows = rows.filter((d) => String(d.destino_final) === destinoF);
+    if (pendiente === 'true' || pendiente === true) {
+      rows = rows.filter((d) => String(d.estado_revision || '').toLowerCase() !== 'aprobado');
+    }
+    if (pendiente === 'false' || pendiente === false) {
+      rows = rows.filter((d) => String(d.estado_revision || '').toLowerCase() === 'aprobado');
+    }
+
+    rows.sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+    const total = rows.length;
+    const slice = rows.slice(offset, offset + limit);
+    return { total, limit, offset, documentos: slice };
+  },
+
+  async getResumenIntakeMaestroDocumentos() {
+    const all = await maestroDocumentoRepository.findAll();
+    const today = new Date().toISOString().slice(0, 10);
+    const pend = { romina: 0, gery: 0, lyn: 0 };
+    let revision_manual_sugerida = 0;
+    const idsCorregidosHoy = new Set();
+    const ejemplos = [];
+
+    for (const d of all) {
+      const c = computeDestinoFieldsForDocument(d);
+      if (documentoTieneRevisionManualSugerida(d)) revision_manual_sugerida += 1;
+      const hist = Array.isArray(d.historial_revision) ? d.historial_revision : [];
+      if (hist.some((h) => h.tipo === 'correccion_destino_jarvis' && String(h.at || '').slice(0, 10) === today)) {
+        idsCorregidosHoy.add(d.id);
+      }
+      if (String(d.estado_revision || '').toLowerCase() !== 'aprobado') {
+        const b = String(c.bandeja_destino || '').toLowerCase();
+        if (b === 'romina') pend.romina += 1;
+        else if (b === 'gery') pend.gery += 1;
+        else if (b === 'lyn') pend.lyn += 1;
+      }
+    }
+
+    for (const d of all) {
+      const hist = [...(Array.isArray(d.historial_revision) ? d.historial_revision : [])].reverse();
+      const ev = hist.find((h) => h.tipo === 'correccion_destino_jarvis');
+      if (ev && ejemplos.length < 5) {
+        try {
+          const p = JSON.parse(ev.detalle || '{}');
+          const det = normalizeDestinoModulo(d.modulo_destino_sugerido);
+          const b = resolveBandejaFinal(p.destino_nuevo).bandeja_destino;
+          ejemplos.push({
+            documento_id: d.id,
+            archivo: d.nombre_archivo,
+            texto: `Jarvis detectó ${labelDestinoHumano(det)}, corregido manualmente a ${labelDestinoHumano(p.destino_nuevo)} y enviado a bandeja ${labelBandejaHumano(b)}.`,
+          });
+        } catch {
+          ejemplos.push({ documento_id: d.id, archivo: d.nombre_archivo, texto: ev.detalle || '' });
+        }
+      }
+    }
+
+    return {
+      pendientes_romina: pend.romina,
+      pendientes_gery: pend.gery,
+      pendientes_lyn: pend.lyn,
+      documentos_destino_corregido_hoy: idsCorregidosHoy.size,
+      revision_manual_sugerida,
+      ejemplos_correccion: ejemplos,
+    };
   },
 };

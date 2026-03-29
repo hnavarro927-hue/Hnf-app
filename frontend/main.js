@@ -38,6 +38,9 @@ import { jarvisVaultView } from './views/jarvis-vault.js';
 import { ingresoOperativoView } from './views/ingreso-operativo.js';
 import { hnfCoreHubView } from './views/hnf-core-hub.js';
 import { baseMaestraHubView } from './views/base-maestra-hub.js';
+import { bandejaRominaView } from './views/bandeja-romina.js';
+import { bandejaGeryView } from './views/bandeja-gery.js';
+import { bandejaLynView } from './views/bandeja-lyn.js';
 import { finanzasOperativoView } from './views/finanzas-operativo.js';
 import { equipoOperativoView } from './views/equipo-operativo.js';
 import { controlGerencialView } from './views/control-gerencial.js';
@@ -287,6 +290,9 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'control-gerencial',
   'hnf-core',
   'base-maestra',
+  'bandeja-romina',
+  'bandeja-gery',
+  'bandeja-lyn',
   'finanzas',
   'equipo',
 ]);
@@ -353,6 +359,7 @@ const minimalOperationalViewData = () => {
     maestroConductores: [],
     maestroVehiculos: [],
     maestroDocumentos: [],
+    maestroIntakeResumen: null,
   };
   base.hnfAdn = buildHnfAdnSnapshot(base);
   return base;
@@ -398,6 +405,7 @@ const loadFullOperationalDataImpl = async () => {
     maestroConductoresRaw,
     maestroVehiculosRaw,
     maestroDocumentosRaw,
+    maestroIntakeResumenRaw,
   ] = await Promise.all([
     healthService.getStatus().catch(toListEnvelope(healthFallback)),
     otService.getAll().catch(toListEnvelope({ data: [] })),
@@ -435,6 +443,7 @@ const loadFullOperationalDataImpl = async () => {
     maestroService.getConductores().catch(() => []),
     maestroService.getVehiculos().catch(() => []),
     maestroService.getDocumentos().catch(() => []),
+    maestroService.getIntakeOperativoResumen().catch(() => null),
   ]);
 
   const emptyOutlookFeed = {
@@ -490,6 +499,8 @@ const loadFullOperationalDataImpl = async () => {
   const maestroConductores = Array.isArray(maestroConductoresRaw) ? maestroConductoresRaw : [];
   const maestroVehiculos = Array.isArray(maestroVehiculosRaw) ? maestroVehiculosRaw : [];
   const maestroDocumentos = Array.isArray(maestroDocumentosRaw) ? maestroDocumentosRaw : [];
+  const maestroIntakeResumen =
+    maestroIntakeResumenRaw && typeof maestroIntakeResumenRaw === 'object' ? maestroIntakeResumenRaw : null;
 
   let jarvisOperativeEvents = [];
   try {
@@ -534,6 +545,7 @@ const loadFullOperationalDataImpl = async () => {
     maestroConductores,
     maestroVehiculos,
     maestroDocumentos,
+    maestroIntakeResumen,
   };
   payload.hnfAdn = buildHnfAdnSnapshot(payload);
   return payload;
@@ -578,6 +590,21 @@ const viewRegistry = {
 
   'base-maestra': {
     render: baseMaestraHubView,
+    load: loadFullOperationalData,
+  },
+
+  'bandeja-romina': {
+    render: bandejaRominaView,
+    load: loadFullOperationalData,
+  },
+
+  'bandeja-gery': {
+    render: bandejaGeryView,
+    load: loadFullOperationalData,
+  },
+
+  'bandeja-lyn': {
+    render: bandejaLynView,
     load: loadFullOperationalData,
   },
 
@@ -1588,6 +1615,9 @@ const render = () => {
           'whatsapp',
           'hnf-core',
           'base-maestra',
+          'bandeja-romina',
+          'bandeja-gery',
+          'bandeja-lyn',
           'documentos-tecnicos',
           'technical-documents',
           'panel-operativo-vivo',
