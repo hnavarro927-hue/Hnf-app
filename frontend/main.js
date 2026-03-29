@@ -1434,6 +1434,7 @@ const render = () => {
         activeView: state.activeView,
         apiBaseLabel: formatApiBaseLabel(),
         integrationStatus: state.integrationStatus,
+        lastDataRefreshAt: state.lastSuccessfulFetchAt,
         onNavigate: (viewId) => navigateToView(viewId),
         deployStatusElement: getHnfDeployIndicatorElement(),
         navItems: getNavItemsForRole(resolveOperatorRole()),

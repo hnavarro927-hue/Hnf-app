@@ -26,6 +26,32 @@ const esc = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+const CC_PIPE_STEPS = [
+  { label: 'Solicitud' },
+  { label: 'Clasificación' },
+  { label: 'Asignación' },
+  { label: 'Ejecución' },
+  { label: 'Informe' },
+  { label: 'Cierre' },
+];
+
+function pipelineActiveIndex(estado) {
+  const e = String(estado || '');
+  if (e === 'recibido') return 0;
+  if (e === 'en_proceso') return 3;
+  if (e === 'pendiente_aprobacion' || e === 'observado') return 2;
+  if (e === 'aprobado' || e === 'enviado') return 4;
+  if (e === 'cerrado') return 5;
+  return 1;
+}
+
+function coreCardSemaphoreClass(estado) {
+  const e = String(estado || '');
+  if (e === 'cerrado') return 'hnf-core-card--sem-cerrado';
+  if (e === 'recibido') return 'hnf-core-card--sem-abierto';
+  return 'hnf-core-card--sem-proceso';
+}
+
 /**
  * Core HNF — solicitudes (Kanban + lista) + pestañas Finanzas / Equipo (datos operativos existentes).
  */
@@ -35,7 +61,7 @@ export const hnfCoreHubView = ({
   navigateToView,
 } = {}) => {
   const root = document.createElement('div');
-  root.className = 'hnf-core-hub';
+  root.className = 'hnf-core-hub hnf-core-hub--command-center';
 
   const role = resolveOperatorRole();
   const tabDefs = JARVIS_TAB_DEF.filter((d) => d.visible(role));
@@ -49,8 +75,157 @@ export const hnfCoreHubView = ({
 
   const header = document.createElement('header');
   header.className = 'hnf-core-hub__head';
-  header.innerHTML = `<h1 class="hnf-core-hub__title">Clientes y validación</h1>
-    <p class="hnf-core-hub__sub muted">Solicitudes, memoria confirmada y directorio · ${stats.lineaNucleo}</p>`;
+  header.innerHTML = `<h1 class="hnf-core-hub__title">Command Center · Clientes y validación</h1>
+    <p class="hnf-core-hub__sub muted">Bandeja inteligente, trazabilidad y módulos operativos · ${stats.lineaNucleo}</p>`;
+
+  let deckRefs = null;
+
+  const syncCommandDeck = () => {
+    if (!deckRefs) return;
+    const st = computeHnfCoreSolicitudStats(list);
+    const climaN = list.filter((x) => x.tipo === 'clima').length;
+    const flotaN = list.filter((x) => x.tipo === 'flota' || x.tipo === 'comercial').length;
+    const otsN = Array.isArray(data?.planOts)
+      ? data.planOts.length
+      : Array.isArray(data?.ots?.data)
+        ? data.ots.data.length
+        : 0;
+    deckRefs.climaEl.textContent = `${climaN} solicitudes · ${otsN} OT en corte`;
+    deckRefs.flotaEl.textContent = `${flotaN} solicitudes flota/comercial`;
+    deckRefs.ctrlEl.textContent = `${st.pendienteAprobacion} aprobación · ${st.observados} observados · ${st.enRiesgo} riesgo`;
+  };
+
+  const renderCommandDeck = () => {
+    const deck = document.createElement('section');
+    deck.className = 'hnf-cc-deck';
+    deck.setAttribute('aria-label', 'Módulos Clima, Flota y Gerencia');
+
+    const iconFan = `<svg class="hnf-cc-mod__icon-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`;
+    const iconTruck = `<svg class="hnf-cc-mod__icon-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 16V5H3v11h2m8 0h2m-6 0a2 2 0 104 0m-4 0H7m8 0v-3h4l3 3v3h-3m-7 0a2 2 0 104 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const iconChart = `<svg class="hnf-cc-mod__icon-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19V5M8 17V9m4 8v-6m4 6v-9m4 13V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+
+    const mkCard = ({ modClass, iconHtml, eyebrow, title, lead, statEl, btns }) => {
+      const art = document.createElement('article');
+      art.className = `hnf-cc-mod ${modClass}`;
+      const ic = document.createElement('div');
+      ic.className = 'hnf-cc-mod__icon';
+      ic.innerHTML = iconHtml;
+      const bd = document.createElement('div');
+      bd.className = 'hnf-cc-mod__body';
+      const eb = document.createElement('p');
+      eb.className = 'hnf-cc-mod__eyebrow';
+      eb.textContent = eyebrow;
+      const h = document.createElement('h2');
+      h.className = 'hnf-cc-mod__title';
+      h.textContent = title;
+      const p = document.createElement('p');
+      p.className = 'hnf-cc-mod__lead muted';
+      p.textContent = lead;
+      const st = document.createElement('p');
+      st.className = 'hnf-cc-mod__pulse';
+      st.append(statEl);
+      const row = document.createElement('div');
+      row.className = 'hnf-cc-mod__actions';
+      for (const b of btns) row.append(b);
+      bd.append(eb, h, p, st, row);
+      art.append(ic, bd);
+      return art;
+    };
+
+    const spanClima = document.createElement('span');
+    const spanFlota = document.createElement('span');
+    const spanCtrl = document.createElement('span');
+    deckRefs = { climaEl: spanClima, flotaEl: spanFlota, ctrlEl: spanCtrl, deck };
+
+    const b = (label, onClick) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'hnf-cc-mod__chip';
+      btn.textContent = label;
+      btn.addEventListener('click', onClick);
+      return btn;
+    };
+
+    deck.append(
+      mkCard({
+        modClass: 'hnf-cc-mod--clima',
+        iconHtml: iconFan,
+        eyebrow: 'Operación · Romina',
+        title: 'Clima',
+        lead: 'Mantención de equipos de climatización y visitas HVAC.',
+        statEl: spanClima,
+        btns: [
+          b('AIRE', () => navigateToView?.('clima')),
+          b('TÉCNICO', () => navigateToView?.('clima')),
+          b('PREVENTIVO', () => navigateToView?.('clima')),
+        ],
+      }),
+      mkCard({
+        modClass: 'hnf-cc-mod--flota',
+        iconHtml: iconTruck,
+        eyebrow: 'Operación · Gery',
+        title: 'Flota',
+        lead: 'Mantenciones, traslados, revisiones y trazabilidad 360°.',
+        statEl: spanFlota,
+        btns: [
+          b('LOGÍSTICA', () => navigateToView?.('flota')),
+          b('LEGAL', () => navigateToView?.('flota')),
+          b('TRACKING', () => navigateToView?.('flota')),
+        ],
+      }),
+      mkCard({
+        modClass: 'hnf-cc-mod--gerencia',
+        iconHtml: iconChart,
+        eyebrow: 'Operación · Control',
+        title: 'Gerencia',
+        lead: 'Supervisión total Romina + Gery y solicitudes entrantes.',
+        statEl: spanCtrl,
+        btns: [
+          b('OMNICANAL', () => navigateToView?.('hnf-core')),
+          b('KPIs', () => navigateToView?.('control-gerencial')),
+          b('FINANZAS', () => navigateToView?.('finanzas')),
+        ],
+      })
+    );
+    syncCommandDeck();
+    return deck;
+  };
+
+  const renderJarvisBlock = () => {
+    const box = document.createElement('section');
+    box.className = 'hnf-cc-jarvis';
+    box.setAttribute('aria-label', 'Jarvis IA · sugerencias para Control');
+    const inner = document.createElement('div');
+    inner.className = 'hnf-cc-jarvis__inner';
+    inner.innerHTML = `<div class="hnf-cc-jarvis__head">
+        <span class="hnf-cc-jarvis__badge">JARVIS IA</span>
+        <h3 class="hnf-cc-jarvis__title">Decisiones recomendadas · Control</h3>
+      </div>
+      <ul class="hnf-cc-jarvis__list" id="hnf-cc-jarvis-lines"></ul>
+      <button type="button" class="secondary-button hnf-cc-jarvis__cta" id="hnf-cc-jarvis-open">Abrir Jarvis HQ</button>`;
+    const ul = inner.querySelector('#hnf-cc-jarvis-lines');
+    const refreshLines = () => {
+      const st = computeHnfCoreSolicitudStats(list);
+      const lines = [
+        st.pendienteAprobacion > 0 &&
+          `${st.pendienteAprobacion} solicitud(es) esperando aprobación gerencial — priorizar bandeja.`,
+        st.observados > 0 && `${st.observados} caso(s) observados — revisar contexto antes de avanzar.`,
+        st.enRiesgo > 0 && `${st.enRiesgo} ítem(s) con prioridad alta/crítica u observado — vigilar SLA.`,
+        'Revisá canales WhatsApp / correo en Ingreso y Bandeja para cerrar el circuito omnicanal.',
+      ].filter(Boolean);
+      ul.replaceChildren();
+      for (const line of lines.length ? lines : ['Operación estable. Mantener ritmo de validación y envío a cliente.']) {
+        const li = document.createElement('li');
+        li.textContent = line;
+        ul.append(li);
+      }
+    };
+    refreshLines();
+    inner.querySelector('#hnf-cc-jarvis-open')?.addEventListener('click', () => navigateToView?.('jarvis'));
+    box.append(inner);
+    box.refreshJarvisLines = refreshLines;
+    return box;
+  };
 
   const tabs = document.createElement('div');
   tabs.className = 'hnf-core-hub__tabs';
@@ -87,6 +262,8 @@ export const hnfCoreHubView = ({
   const body = document.createElement('div');
   body.className = 'hnf-core-hub__body';
 
+  let jarvisBlock = null;
+
   const feedback = document.createElement('p');
   feedback.className = 'form-feedback';
   feedback.hidden = true;
@@ -110,7 +287,9 @@ export const hnfCoreHubView = ({
     filtered = filterSolicitudesForRole(list, role);
     stats = computeHnfCoreSolicitudStats(list);
     const sub = header.querySelector('.hnf-core-hub__sub');
-    if (sub) sub.textContent = `Solicitudes, validación y directorio · ${stats.lineaNucleo}`;
+    if (sub) sub.textContent = `Bandeja inteligente y trazabilidad · ${stats.lineaNucleo}`;
+    syncCommandDeck();
+    jarvisBlock?.refreshJarvisLines?.();
     renderBody();
   };
 
@@ -195,6 +374,7 @@ export const hnfCoreHubView = ({
   const renderCard = (s) => {
     const card = document.createElement('article');
     card.className = 'hnf-core-card';
+    card.classList.add(coreCardSemaphoreClass(s.estado));
     const pct = solicitudProgressPct(s);
     const dem = demoraAlertaSolicitud(s);
     if (dem?.nivel === 'critico') card.classList.add('hnf-core-card--delay-crit');
@@ -208,6 +388,20 @@ export const hnfCoreHubView = ({
     const cli = document.createElement('p');
     cli.className = 'hnf-core-card__cli';
     cli.textContent = s.cliente || '—';
+
+    const pipeIdx = pipelineActiveIndex(s.estado);
+    const pipeline = document.createElement('div');
+    pipeline.className = 'hnf-core-card__pipeline';
+    pipeline.setAttribute('aria-label', 'Pipeline operativo');
+    CC_PIPE_STEPS.forEach((step, i) => {
+      const sp = document.createElement('span');
+      sp.className = 'hnf-core-card__pipe-step';
+      if (i < pipeIdx) sp.classList.add('hnf-core-card__pipe-step--done');
+      else if (i === pipeIdx) sp.classList.add('hnf-core-card__pipe-step--active');
+      else sp.classList.add('hnf-core-card__pipe-step--pending');
+      sp.textContent = step.label;
+      pipeline.append(sp);
+    });
 
     const resp = document.createElement('p');
     resp.className = 'hnf-core-card__resp';
@@ -280,7 +474,7 @@ export const hnfCoreHubView = ({
     histBtn.textContent = 'Historial';
     histBtn.addEventListener('click', () => openHistorial(s));
 
-    card.append(top, cli, resp, bar, chk, actions, histBtn);
+    card.append(top, cli, pipeline, resp, bar, chk, actions, histBtn);
     return card;
   };
 
@@ -522,6 +716,9 @@ export const hnfCoreHubView = ({
   syncToolbar();
   renderBody();
 
-  root.append(header, tabs, toolbar, feedback, form, body, modalHost);
+  const commandDeck = renderCommandDeck();
+  jarvisBlock = renderJarvisBlock();
+
+  root.append(header, commandDeck, jarvisBlock, tabs, toolbar, feedback, form, body, modalHost);
   return root;
 };

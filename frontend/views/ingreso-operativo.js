@@ -186,15 +186,14 @@ export const ingresoOperativoView = ({
   integrationStatus,
 } = {}) => {
   const root = document.createElement('section');
-  root.className = 'hnf-cap-ingreso hnf-op-view hnf-op-view--ingreso';
+  root.className = 'hnf-cap-ingreso hnf-cap-ingreso--command hnf-op-view hnf-op-view--ingreso';
 
   const head = document.createElement('header');
   head.className = 'hnf-cap-ingreso__head';
   head.innerHTML = `
-    <h1 class="hnf-cap-ingreso__title">Ingreso · punto de entrada operativo</h1>
+    <h1 class="hnf-cap-ingreso__title">Command Center · Ingreso omnicanal</h1>
     <p class="muted hnf-cap-ingreso__lead">
-      Acá registrás <strong>lo que entró</strong> (WhatsApp, correo, llamada o manual) y <strong>se crea la orden de trabajo (OT)</strong> en el sistema.
-      Eso alimenta <strong>Jarvis</strong>, <strong>Clima</strong> y <strong>Flota</strong> según el tipo que elijas. Abajo seguís viendo las ingestas de WhatsApp del día para validar.
+      Flujo guiado: <strong>origen → cliente → servicio → prioridad → asignación</strong>. La <strong>OT</strong> se crea en el servidor al finalizar; abajo tenés la <strong>bandeja del día</strong> (WhatsApp + altas).
     </p>
   `;
 
@@ -635,8 +634,6 @@ export const ingresoOperativoView = ({
 
   secE.body.append(wMode, wOt, wTech);
 
-  form.append(secA.sec, secB.sec, secC.sec, secD.sec, secE.sec);
-
   const footer = document.createElement('div');
   footer.className = 'hnf-ingreso-intake__footer';
   const submit = document.createElement('button');
@@ -656,7 +653,143 @@ export const ingresoOperativoView = ({
   feedback.hidden = true;
 
   footer.append(submit, feedback, offlineNote);
-  form.append(footer);
+
+  let wizardStep = 0;
+  const STEP_LABELS = ['Origen', 'Cliente', 'Servicio', 'Prioridad y detalle', 'Asignación'];
+
+  const wrapWizardPanel = (sectionEl, idx) => {
+    const d = document.createElement('div');
+    d.className = 'hnf-ingreso-wizard__panel';
+    d.dataset.wizardStep = String(idx);
+    d.hidden = idx !== 0;
+    d.append(sectionEl);
+    return d;
+  };
+
+  const stepsHost = document.createElement('div');
+  stepsHost.className = 'hnf-ingreso-wizard__panels';
+  stepsHost.append(
+    wrapWizardPanel(secA.sec, 0),
+    wrapWizardPanel(secB.sec, 1),
+    wrapWizardPanel(secC.sec, 2),
+    wrapWizardPanel(secD.sec, 3),
+    wrapWizardPanel(secE.sec, 4)
+  );
+
+  const preview = document.createElement('aside');
+  preview.className = 'hnf-ingreso-cc-preview';
+  preview.setAttribute('aria-label', 'Vista previa de la OT');
+  const previewInner = document.createElement('div');
+  previewInner.className = 'hnf-ingreso-cc-preview__sticky';
+  const previewTitle = document.createElement('h3');
+  previewTitle.className = 'hnf-ingreso-cc-preview__title';
+  previewTitle.textContent = 'Resumen de OT';
+  const dl = document.createElement('dl');
+  dl.className = 'hnf-ingreso-cc-preview__dl';
+  previewInner.append(previewTitle, dl);
+  preview.append(previewInner);
+
+  const updatePreview = () => {
+    const o = origenSel.value;
+    const ol = ORIGEN_LABEL[o] || o || '—';
+    const cli = clienteInp.value?.trim() || '—';
+    const tp = tipoSel.value === 'flota' ? 'Flota' : 'Clima';
+    const sub = subtipoSel.value || '—';
+    const prUi = form.elements.prioridad?.value;
+    const pr = prUi === 'urgente' ? 'Urgente' : 'Normal';
+    const tech = resolveTecnicoIngreso(form);
+    const rows = [
+      ['Origen', ol],
+      ['Cliente', cli],
+      ['Servicio', `${tp} · ${sub}`],
+      ['Prioridad', pr],
+      ['Asignación', tech],
+      ['Fecha solicitud', `${fechaSol.value || '—'} ${horaSol.value || ''}`.trim()],
+    ];
+    dl.replaceChildren();
+    for (const [k, v] of rows) {
+      const dt = document.createElement('dt');
+      dt.className = 'hnf-ingreso-cc-preview__dt';
+      dt.textContent = k;
+      const dd = document.createElement('dd');
+      dd.className = 'hnf-ingreso-cc-preview__dd';
+      dd.textContent = v;
+      dl.append(dt, dd);
+    }
+  };
+
+  const nav = document.createElement('div');
+  nav.className = 'hnf-ingreso-wizard__nav';
+  const btnPrev = document.createElement('button');
+  btnPrev.type = 'button';
+  btnPrev.className = 'secondary-button';
+  btnPrev.textContent = 'Anterior';
+  const btnNext = document.createElement('button');
+  btnNext.type = 'button';
+  btnNext.className = 'secondary-button';
+  btnNext.textContent = 'Siguiente';
+
+  const syncWizard = () => {
+    stepsHost.querySelectorAll('.hnf-ingreso-wizard__panel').forEach((p, i) => {
+      p.hidden = i !== wizardStep;
+    });
+    stepper.querySelectorAll('.hnf-ingreso-wizard__rail-item').forEach((li, i) => {
+      li.classList.toggle('hnf-ingreso-wizard__rail-item--active', i === wizardStep);
+      li.classList.toggle('hnf-ingreso-wizard__rail-item--done', i < wizardStep);
+    });
+    btnPrev.disabled = wizardStep === 0;
+    const last = wizardStep === STEP_LABELS.length - 1;
+    btnNext.textContent = last ? 'Ir a crear OT' : 'Siguiente';
+    btnNext.classList.toggle('primary-button', last);
+    btnNext.classList.toggle('secondary-button', !last);
+    updatePreview();
+  };
+
+  btnPrev.addEventListener('click', () => {
+    if (wizardStep > 0) {
+      wizardStep -= 1;
+      syncWizard();
+    }
+  });
+  btnNext.addEventListener('click', () => {
+    if (wizardStep < STEP_LABELS.length - 1) {
+      wizardStep += 1;
+      syncWizard();
+    } else {
+      submit.focus();
+    }
+  });
+
+  nav.append(btnPrev, btnNext);
+
+  const stepper = document.createElement('ol');
+  stepper.className = 'hnf-ingreso-wizard__rail';
+  STEP_LABELS.forEach((label, i) => {
+    const li = document.createElement('li');
+    li.className = 'hnf-ingreso-wizard__rail-item';
+    li.dataset.stepIndex = String(i);
+    li.innerHTML = `<span class="hnf-ingreso-wizard__rail-n">${i + 1}</span><span class="hnf-ingreso-wizard__rail-t">${label}</span>`;
+    li.addEventListener('click', () => {
+      wizardStep = i;
+      syncWizard();
+    });
+    stepper.append(li);
+  });
+
+  const leftCol = document.createElement('div');
+  leftCol.className = 'hnf-ingreso-wizard__col';
+  leftCol.append(stepper, stepsHost, nav);
+
+  const grid = document.createElement('div');
+  grid.className = 'hnf-ingreso-cc';
+  grid.append(leftCol, preview);
+
+  form.addEventListener('input', updatePreview);
+  form.addEventListener('change', updatePreview);
+
+  form.append(grid, footer);
+  syncWizard();
+
   formCard.append(form);
 
   const listHost = document.createElement('div');

@@ -24,6 +24,22 @@ const statusModifiers = (integrationStatus) => {
   return 'shell-status--idle';
 };
 
+const formatLastSyncLabel = (lastDataRefreshAt) => {
+  if (lastDataRefreshAt == null || lastDataRefreshAt === '') return 'Sin sincronizar aún';
+  const t = Number(lastDataRefreshAt);
+  const d = Number.isFinite(t) ? new Date(t) : new Date(lastDataRefreshAt);
+  const ms = d.getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return 'Sin sincronizar aún';
+  return d.toLocaleString('es-CL', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+};
+
 export const createShell = ({
   activeView,
   onNavigate,
@@ -31,11 +47,12 @@ export const createShell = ({
   integrationStatus,
   deployStatusElement = null,
   navItems = null,
-}) => {
+  lastDataRefreshAt = null,
+} = {}) => {
   const items =
     Array.isArray(navItems) && navItems.length > 0 ? navItems : HNF_COMMAND_NAV_FULL;
   const element = document.createElement('div');
-  element.className = 'shell';
+  element.className = 'shell shell--command-center';
   if (typeof window !== 'undefined' && isTabletMode()) {
     element.classList.add('shell--tablet');
   }
@@ -84,6 +101,17 @@ export const createShell = ({
   statusText.textContent = statusCopy(integrationStatus);
   statusRow.append(dot, statusText);
 
+  const syncLive = document.createElement('div');
+  syncLive.className = 'shell-sync-live';
+  syncLive.setAttribute('aria-live', 'polite');
+  const syncLab = document.createElement('span');
+  syncLab.className = 'shell-sync-live__label';
+  syncLab.textContent = 'Última sincronización';
+  const syncVal = document.createElement('span');
+  syncVal.className = 'shell-sync-live__value';
+  syncVal.textContent = formatLastSyncLabel(lastDataRefreshAt);
+  syncLive.append(syncLab, syncVal);
+
   const apiRow = document.createElement('p');
   apiRow.className = 'shell-api shell-api--compact';
   const apiLab = document.createElement('span');
@@ -91,7 +119,7 @@ export const createShell = ({
   apiLab.textContent = 'API';
   apiRow.append(apiLab, document.createTextNode(` ${apiBaseLabel || '—'}`));
 
-  header.append(brand, statusRow, apiRow);
+  header.append(brand, statusRow, syncLive, apiRow);
   if (deployStatusElement) {
     deployStatusElement.classList.add('shell-deploy-status');
     header.append(deployStatusElement);
@@ -114,7 +142,10 @@ export const createShell = ({
     main.className = 'nav-item__label';
     main.textContent = item.label;
     button.append(icon, main);
-    if (item.id === activeView) button.classList.add('active');
+    if (item.id === activeView) {
+      button.classList.add('active');
+      button.setAttribute('aria-current', 'page');
+    }
     button.addEventListener('click', () => onNavigate(item.id));
     nav.append(button);
   });
