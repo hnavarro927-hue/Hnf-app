@@ -173,7 +173,17 @@ export const createShell = ({
   content.className = 'content';
   content.setAttribute('role', 'main');
 
+  const viewport = document.createElement('div');
+  viewport.className = 'content__viewport';
+  viewport.setAttribute('role', 'region');
+  viewport.setAttribute('aria-label', 'Contenido principal');
+
+  const rail = document.createElement('aside');
+  rail.className = 'hnf-jarvis-operational-rail';
+  rail.setAttribute('aria-label', 'Jarvis operativo');
+
+  content.append(viewport, rail);
   element.append(sidebar, content);
 
-  return { element, content };
+  return { element, content, viewport, rail };
 };

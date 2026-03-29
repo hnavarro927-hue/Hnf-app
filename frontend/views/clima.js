@@ -4,7 +4,14 @@ import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
-import { formatAllCloseBlockersMessage, otCanClose } from '../utils/ot-evidence.js';
+import {
+  formatAllCloseBlockersMessage,
+  getEvidenceGaps,
+  getEquipoEvidenceBlock,
+  getQualityCloseGaps,
+  otCanClose,
+  otHasResponsible,
+} from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import {
   CLIMA_OT_FLOW_STAGES,
@@ -457,6 +464,178 @@ const resolveTecnicoFromAltaForm = (form) => {
   const otro = form.elements.tecnicoOtro?.value?.trim() || '';
   if (preset === '__otro__') return otro || 'Por asignar';
   return preset || 'Por asignar';
+};
+
+const formatOtExecTs = (iso) => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return String(iso);
+  }
+};
+
+const countEvidenciaFase = (ot, phase) => {
+  const eqs = ot.equipos || [];
+  if (eqs.length) {
+    let n = 0;
+    for (const eq of eqs) {
+      const arr = getEquipoEvidenceBlock(eq, phase);
+      n += arr.filter((e) => e?.url && String(e.url).trim()).length;
+    }
+    return n;
+  }
+  const key =
+    phase === 'antes'
+      ? 'fotografiasAntes'
+      : phase === 'durante'
+        ? 'fotografiasDurante'
+        : 'fotografiasDespues';
+  const arr = ot[key];
+  return Array.isArray(arr) ? arr.filter((e) => e?.url && String(e.url).trim()).length : 0;
+};
+
+const countChecklistPendiente = (ot) => {
+  let pending = 0;
+  for (const eq of ot.equipos || []) {
+    for (const it of mergeEquipoChecklist(eq)) {
+      if (!it.realizado) pending += 1;
+    }
+  }
+  return pending;
+};
+
+const operativoSemaforo = (ot) => {
+  const st = String(ot.estado || '')
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  if (['terminado', 'cerrada', 'cerrado'].includes(st)) {
+    return { cls: 'ot-exec-signal--neutral', label: 'Cerrada / terminada', dot: 'off' };
+  }
+  if (!otHasResponsible(ot) || getEvidenceGaps(ot).length) {
+    return { cls: 'ot-exec-signal--red', label: 'Crítico: técnico o evidencia', dot: 'red' };
+  }
+  if (getQualityCloseGaps(ot).length || st === 'pendiente_validacion') {
+    return { cls: 'ot-exec-signal--yellow', label: 'Calidad o validación', dot: 'yellow' };
+  }
+  if (otCanClose(ot)) {
+    return { cls: 'ot-exec-signal--green', label: 'Lista para cierre', dot: 'green' };
+  }
+  return { cls: 'ot-exec-signal--yellow', label: 'Completar requisitos', dot: 'yellow' };
+};
+
+const truncateExec = (s, n = 200) => {
+  const t = String(s || '').trim();
+  if (!t) return '—';
+  return t.length > n ? `${t.slice(0, n)}…` : t;
+};
+
+/**
+ * Panel ejecutivo persistente en detalle OT (Clima).
+ */
+const buildOtExecutiveSummaryCard = (ot, { economicsSaved = false } = {}) => {
+  const article = document.createElement('article');
+  article.className = 'ot-exec-summary-card';
+  const head = document.createElement('header');
+  head.className = 'ot-exec-summary-card__head';
+  const h = document.createElement('h3');
+  h.className = 'ot-exec-summary-card__title';
+  h.textContent = 'Resumen ejecutivo · OT';
+  const sig = operativoSemaforo(ot);
+  const signal = document.createElement('div');
+  signal.className = `ot-exec-signal ${sig.cls}`;
+  const dot = document.createElement('span');
+  dot.className = `ot-exec-signal__dot ot-exec-signal__dot--${sig.dot}`;
+  const lab = document.createElement('span');
+  lab.textContent = sig.label;
+  signal.append(dot, lab);
+  head.append(h, signal);
+
+  const grid = document.createElement('div');
+  grid.className = 'ot-exec-summary-card__grid';
+  const row = (k, v) => {
+    const d = document.createElement('div');
+    d.className = 'ot-exec-kv';
+    const sk = document.createElement('span');
+    sk.className = 'ot-exec-kv__k';
+    sk.textContent = k;
+    const sv = document.createElement('strong');
+    sv.className = 'ot-exec-kv__v';
+    const val = v == null || v === '' ? '—' : String(v);
+    sv.textContent = val;
+    d.append(sk, sv);
+    return d;
+  };
+
+  const stNorm = String(ot.estado || '').toLowerCase().replace(/\s+/g, '_');
+  const validacionCierre =
+    stNorm === 'pendiente_validacion'
+      ? 'Pendiente validación'
+      : ['cerrada', 'terminado', 'cerrado'].includes(stNorm)
+        ? 'Cierre registrado'
+        : 'En curso';
+
+  const creadoRaw = ot.createdAt || ot.creadoEn || ot.fechaCreacion || ot.fecha || ot.fechaVisita;
+  const eqCount = (ot.equipos || []).filter((e) => e && Object.keys(e).length).length;
+
+  grid.append(
+    row('Nº OT', ot.id),
+    row('Estado', ot.estado || '—'),
+    row('Prioridad', labelPrioridadOperativa(ot.prioridadOperativa)),
+    row('Cliente', ot.cliente),
+    row('Sucursal / sitio', ot.sucursal || ot.sitio || ot.nombreSucursal),
+    row('Comuna', ot.comuna),
+    row('Dirección', ot.direccion),
+    row('Origen pedido', `${labelOrigenSolicitud(ot.origenSolicitud)} · ${labelOrigenPedido(ot.origenPedido)}`),
+    row('Técnico asignado', ot.tecnicoAsignado),
+    row('Modo asignación', labelOperationMode(ot.operationMode === 'automatic' ? 'automatic' : 'manual')),
+    row('Subtipo trabajo', ot.subtipoServicio),
+    row('Creación', creadoRaw ? formatOtExecTs(creadoRaw) : '—'),
+    row('Última actualización', formatOtExecTs(ot.updatedAt)),
+    row(
+      'Checklist pendiente',
+      countChecklistPendiente(ot) ? `${countChecklistPendiente(ot)} ítem(es)` : 'Sin pendientes'
+    ),
+    row(
+      'Fotos · antes / durante / después',
+      `${countEvidenciaFase(ot, 'antes')} / ${countEvidenciaFase(ot, 'durante')} / ${countEvidenciaFase(ot, 'despues')}`
+    ),
+    row('Equipos cargados', eqCount ? `${eqCount} equipo(s)` : 'Sin equipos'),
+    row('Texto técnico (resumen)', truncateExec(ot.resumenTrabajo, 220)),
+    row('Observaciones / cierre', truncateExec(ot.observaciones, 220)),
+    row('Validación de cierre', validacionCierre),
+    row('Economía informada', economicsSaved ? 'Guardada en sesión' : 'Pendiente de guardar (informe)')
+  );
+
+  article.append(head, grid);
+  return article;
+};
+
+const DETAIL_STAGE_HERO = {
+  entrada: {
+    title: 'Entrada · sitio y contacto',
+    lede: 'Datos del cliente, ubicación e historial reciente. Base para clasificar y asignar.',
+  },
+  clasificacion: {
+    title: 'Clasificación operativa',
+    lede: 'Origen, prioridad y tipo de intervención. Alineá la OT con el flujo comercial y técnico.',
+  },
+  asignacion: {
+    title: 'Asignación y estado',
+    lede: 'Estado en servidor, técnico y modo manual o Jarvis. Definí responsable antes de ejecución.',
+  },
+  ejecucion: {
+    title: 'Ejecución en terreno',
+    lede: 'Textos, equipos y evidencia fotográfica antes / durante / después.',
+  },
+  informe: {
+    title: 'Informe y economía',
+    lede: 'Checklist de calidad, vista previa al cliente y generación de PDF.',
+  },
+  cierre: {
+    title: 'Cierre formal',
+    lede: 'Validación final, cierre de OT y eliminación (solo admin).',
+  },
 };
 
 const buildOtOperationalSummarySection = (ot) => {
@@ -950,7 +1129,7 @@ const mountClimaOtDetailFlow = (
 
   detailCard.classList.add('ot-flow-app', 'ot-flow-app--detail');
   const flowRoot = document.createElement('div');
-  flowRoot.className = 'ot-flow-app__inner';
+  flowRoot.className = 'ot-flow-app__inner ot-flow-app__inner--command';
 
   const compactHeader = document.createElement('header');
   compactHeader.className = 'ot-saas-sticky ot-flow-compact-header';
@@ -990,6 +1169,28 @@ const mountClimaOtDetailFlow = (
   const jarvisNext = document.createElement('p');
   jarvisNext.className = 'ot-flow-jarvis__next';
   jarvisAside.append(jt, jarvisUl, jarvisNext);
+
+  const execSummaryAside = document.createElement('aside');
+  execSummaryAside.className = 'ot-flow-exec-summary';
+  execSummaryAside.setAttribute('aria-label', 'Resumen ejecutivo de la orden');
+
+  const progressWrap = document.createElement('div');
+  progressWrap.className = 'ot-flow-progress-bar-wrap';
+  progressWrap.setAttribute('aria-hidden', 'true');
+  const progressFill = document.createElement('div');
+  progressFill.className = 'ot-flow-progress-bar__fill';
+  progressWrap.append(progressFill);
+
+  const stageHero = document.createElement('div');
+  stageHero.className = 'ot-flow-stage-hero';
+
+  const validationBanner = document.createElement('div');
+  validationBanner.className = 'ot-flow-validation-banner';
+  validationBanner.hidden = true;
+  validationBanner.setAttribute('role', 'alert');
+
+  const stageRow = document.createElement('div');
+  stageRow.className = 'ot-flow-command-stage-row';
 
   const stageBody = document.createElement('div');
   stageBody.className = 'ot-flow-stage-body';
@@ -1369,21 +1570,56 @@ const mountClimaOtDetailFlow = (
 
   stageBody.append(p0, p1, p2, p3, p4, p5);
 
+  stageRow.append(jarvisAside, stageBody);
+
   const footer = document.createElement('div');
   footer.className = 'ot-flow-footer';
   const btnPrev = document.createElement('button');
   btnPrev.type = 'button';
   btnPrev.className = 'secondary-button ot-flow-footer__btn';
   btnPrev.textContent = 'Anterior';
+  const btnSaveStage = document.createElement('button');
+  btnSaveStage.type = 'button';
+  btnSaveStage.className = 'secondary-button ot-flow-footer__btn ot-flow-footer__btn--save';
+  btnSaveStage.textContent = 'Guardar etapa';
+  btnSaveStage.hidden = Boolean(ro);
   const footMsg = document.createElement('p');
   footMsg.className = 'ot-flow-footer__msg muted';
   const btnNext = document.createElement('button');
   btnNext.type = 'button';
   btnNext.className = 'primary-button ot-flow-footer__btn';
   btnNext.textContent = 'Siguiente etapa';
-  footer.append(btnPrev, footMsg, btnNext);
+  footer.append(btnPrev, btnSaveStage, footMsg, btnNext);
 
   const panels = [p0, p1, p2, p3, p4, p5];
+
+  const paintExecSummary = () => {
+    const base = { ...selectedOT, ...draftEntradaOt() };
+    const merged = detailStageIdx >= 3 ? { ...base, ...draftExecOt() } : base;
+    execSummaryAside.replaceChildren(
+      buildOtExecutiveSummaryCard(merged, { economicsSaved: otEconomicsSaved })
+    );
+  };
+
+  btnSaveStage.addEventListener('click', async () => {
+    if (ro) return;
+    validationBanner.hidden = true;
+    validationBanner.textContent = '';
+    try {
+      if (detailStageIdx === 0) await flushEntrada();
+      if (detailStageIdx === 2) await flushAsignacion();
+      if (detailStageIdx === 3) await flushEjecucion();
+      footMsg.textContent = 'Etapa guardada.';
+      actions?.showFeedback?.({ type: 'success', message: footMsg.textContent });
+    } catch {
+      footMsg.textContent = 'No se pudo guardar esta etapa.';
+      validationBanner.textContent = footMsg.textContent;
+      validationBanner.hidden = false;
+      actions?.showFeedback?.({ type: 'error', message: footMsg.textContent });
+      return;
+    }
+    paintExecSummary();
+  });
 
   const renderJarvis = () => {
     jarvisUl.innerHTML = '';
@@ -1407,11 +1643,31 @@ const mountClimaOtDetailFlow = (
       btn.classList.toggle('is-done', i < n);
       btn.disabled = !ro && i > n;
     });
+    const pct = ((n + 1) / CLIMA_OT_FLOW_STAGES.length) * 100;
+    progressFill.style.width = `${pct}%`;
+
+    const stMeta = CLIMA_OT_FLOW_STAGES[n];
+    const heroMeta = DETAIL_STAGE_HERO[stMeta.id] || { title: stMeta.label, lede: '' };
+    stageHero.replaceChildren();
+    const ey = document.createElement('span');
+    ey.className = 'ot-flow-stage-hero__eyebrow';
+    ey.textContent = `Etapa ${n + 1} de ${CLIMA_OT_FLOW_STAGES.length} · ${stMeta.label}`;
+    const h2 = document.createElement('h2');
+    h2.className = 'ot-flow-stage-hero__title';
+    h2.textContent = heroMeta.title;
+    const sub = document.createElement('p');
+    sub.className = 'ot-flow-stage-hero__lede';
+    sub.textContent = heroMeta.lede;
+    stageHero.append(ey, h2, sub);
+
     btnPrev.disabled = n === 0;
     btnNext.hidden = n === CLIMA_OT_FLOW_STAGES.length - 1 || ro;
     btnNext.textContent = n === 4 ? 'Ir a cierre' : 'Siguiente etapa';
     footMsg.textContent = '';
+    validationBanner.hidden = true;
+    validationBanner.textContent = '';
     renderJarvis();
+    paintExecSummary();
   };
 
   CLIMA_OT_FLOW_STAGES.forEach((st, i) => {
@@ -1458,13 +1714,26 @@ const mountClimaOtDetailFlow = (
 
     if (!v.ok) {
       footMsg.textContent = v.message;
+      validationBanner.textContent = v.message;
+      validationBanner.hidden = false;
       actions?.showFeedback?.({ type: 'error', message: v.message });
       return;
     }
     setDetailStage(detailStageIdx + 1);
   });
 
-  flowRoot.append(compactHeader, progressNav, jarvisAside, stageBody, footer);
+  const mainColumn = document.createElement('div');
+  mainColumn.className = 'ot-flow-command-main';
+  mainColumn.append(
+    compactHeader,
+    progressWrap,
+    progressNav,
+    stageHero,
+    validationBanner,
+    stageRow,
+    footer
+  );
+  flowRoot.append(execSummaryAside, mainColumn);
   detailCard.append(flowRoot);
   setDetailStage(detailStageIdx);
 };

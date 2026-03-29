@@ -135,6 +135,8 @@ export const jarvisHqView = ({
       navigateToView,
       reloadApp: refresh,
       getPulseState: pulseSnap,
+      integrationStatus,
+      lastDataRefreshAt,
     })
   );
   return root;

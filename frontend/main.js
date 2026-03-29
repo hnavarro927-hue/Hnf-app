@@ -129,6 +129,7 @@ import {
   classifyOutlookMessage,
 } from './domain/outlook-intelligence.js';
 import { createHnfAutoDeployIndicator } from './components/hnf-auto-deploy-indicator.js';
+import { mountHnfJarvisOperationalRail } from './components/hnf-jarvis-operational-rail.js';
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   window.__HNF_DEV_CONSOLE_ERRORS__ = window.__HNF_DEV_CONSOLE_ERRORS__ || [];
@@ -1510,7 +1511,7 @@ const render = () => {
         });
       };
 
-      shell.content.className = `content content--view-${state.activeView}`;
+      shell.content.className = `content content--view-${state.activeView} content--command-layout`;
       if (typeof document !== 'undefined' && document.body) {
         document.body.classList.toggle('hnf-view--control-operativo', false);
         document.body.classList.toggle(
@@ -1609,7 +1610,9 @@ const render = () => {
         if (!currentView?.render) {
           throw new Error(`Vista desconocida: ${state.activeView}`);
         }
-        shell.content.append(currentView.render(viewProps));
+        const vp = shell.viewport || shell.content;
+        vp.replaceChildren();
+        vp.append(currentView.render(viewProps));
       } catch (err) {
         console.error('[HNF] Error al renderizar la vista', state.activeView, err);
         const fall = document.createElement('div');
@@ -1630,7 +1633,20 @@ const render = () => {
           void loadViewData();
         });
         fall.append(t, m, b);
-        shell.content.append(fall);
+        const vp2 = shell.viewport || shell.content;
+        vp2.replaceChildren();
+        vp2.append(fall);
+      }
+
+      if (shell.rail) {
+        mountHnfJarvisOperationalRail(shell.rail, {
+          activeView: state.activeView,
+          data: state.viewData,
+          integrationStatus: state.integrationStatus,
+          lastDataRefreshAt: state.lastSuccessfulFetchAt,
+          navigateToView,
+          selectedOTId: state.selectedOTId,
+        });
       }
 
       app.append(shell.element);
