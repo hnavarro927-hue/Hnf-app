@@ -4,6 +4,7 @@ import { otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import { createHnfGerenciaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-registro.js';
+import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -102,6 +103,7 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate, relo
         <div class="hnf-cap-control__actions" id="hnf-control-actions"></div>
       </div>
     </div>
+    <div class="hnf-cap-control__disciplina" id="hnf-control-disciplina"></div>
   `;
 
   const headEl = root.querySelector('.hnf-cap-control__head');
@@ -143,6 +145,11 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate, relo
     mkBtn('Ingreso operativo', () => navigateToView?.('ingreso-operativo')),
     mkBtn('Mando principal (OT en vivo)', () => intelNavigate?.({ view: 'jarvis', focusMando: true }))
   );
+
+  const discHost = root.querySelector('#hnf-control-disciplina');
+  if (discHost) {
+    discHost.append(createHnfDisciplinaTecnicosPanel(list, { navigateToView }));
+  }
 
   return root;
 };

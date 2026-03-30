@@ -5,6 +5,7 @@
 
 import { expenseService } from '../services/expense.service.js';
 import { ocDocumentosService } from '../services/oc-documentos.service.js';
+import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import {
   buildMatrizActividad,
   buildMatrizKpis,
@@ -16,6 +17,7 @@ import {
   listOcRecientes,
   unidadNegocioResumen,
 } from '../domain/hnf-matriz-snapshot.js';
+import { buildDisciplinaTecnicosSnapshot } from '../domain/hnf-tecnico-evidencia-disciplina.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -63,6 +65,8 @@ export const matrizHnfView = ({
   const events = m.events || [];
   const auditRows = m.auditRows || [];
   const tiendas = Array.isArray(m.tiendas) ? m.tiendas : [];
+  const otsList = Array.isArray(ots) ? ots : [];
+  const snapDisciplina = buildDisciplinaTecnicosSnapshot(otsList);
 
   const userLabel = authLabel || '—';
   const sysOk = integrationStatus === 'conectado';
@@ -93,6 +97,11 @@ export const matrizHnfView = ({
   const ag = el('div', 'hnf-matriz-alerts');
   ag.append(
     pill('OT fuera de agenda / SLA (heurística)', countOtFueraSla(ots), 'hnf-matriz-pill--alert'),
+    pill(
+      'Técnicos · evidencia incompleta (bajo umbral Clima)',
+      snapDisciplina.alertasBajoCumplimiento.length,
+      snapDisciplina.alertasBajoCumplimiento.length ? 'hnf-matriz-pill--alert' : ''
+    ),
     pill('Gastos pendientes de aprobación', countGastosPendientesAprobacion(expenses)),
     pill('Rendiciones / solicitudes en revisión', countRendicionesPendientes(solicitudes)),
     pill('Leads sin respuesta (+72 h)', countLeadsSinRespuesta(leads))
@@ -164,6 +173,14 @@ export const matrizHnfView = ({
   un.append(ug);
   root.append(un);
 
+  /* —— Disciplina técnica (evidencia Clima) —— */
+  const discSec = section(
+    'Disciplina técnica (evidencia Clima)',
+    'Por técnico: OT con fotos antes, durante y después completas vs incompletas. Misma regla que el cierre de OT.'
+  );
+  discSec.append(createHnfDisciplinaTecnicosPanel(otsList, { navigateToView }));
+  root.append(discSec);
+
   /* —— Finanzas —— */
   const fin = section(
     'Control financiero',
@@ -190,10 +207,26 @@ export const matrizHnfView = ({
   );
   fg.append(saldo);
   const tec = el('div', 'hnf-matriz-fin-item');
-  tec.append(
-    el('strong', '', 'Técnicos con deuda'),
-    el('p', 'muted small', 'No hay entidad de deuda por técnico en el sistema.')
-  );
+  tec.append(el('strong', '', 'Disciplina evidencia (Clima)'));
+  if (snapDisciplina.global.totalOts === 0) {
+    tec.append(el('p', 'muted small', 'Sin OT Clima con técnico asignado.'));
+  } else {
+    tec.append(
+      el(
+        'p',
+        'muted small',
+        `Global: ${snapDisciplina.global.porcentajeCumplimiento}% (${snapDisciplina.global.completas}/${snapDisciplina.global.totalOts} OT completas).`
+      )
+    );
+    if (snapDisciplina.alertasBajoCumplimiento.length) {
+      const w = el(
+        'p',
+        'hnf-matriz-disciplina-warn small',
+        `Alerta: ${snapDisciplina.alertasBajoCumplimiento.length} técnico(s) bajo el umbral de cumplimiento.`
+      );
+      tec.append(w);
+    }
+  }
   fg.append(tec);
   const comp = el('div', 'hnf-matriz-fin-item');
   const recentOc = listOcRecientes(ocList, 4);
