@@ -82,6 +82,10 @@ export const otModel = {
     'margenEstimadoRatio',
     'incluidaEnCierreMensual',
     'cierreMensualId',
+    /** Revisión gerencial Lyn (Clima / Flota, OT cerrada). */
+    'aprobacionLynEstado',
+    'listoEnviarCliente',
+    'lynAprobacionHistorial',
   ],
   statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada', 'finalizada', 'facturada'],
   origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],

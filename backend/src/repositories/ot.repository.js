@@ -2,6 +2,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bandejaFromTipoServicio, notificacionAsignadaFromBandeja } from '../domain/hnf-ot-bandeja.js';
+import {
+  debeEntrarColaLynAlCerrar,
+  normalizeAprobacionLynEstado,
+} from '../domain/ot-lyn-aprobacion.engine.js';
 import { calcularEstimadosMensuales } from '../domain/ot-facturacion.engine.js';
 import { appendHistorial } from '../utils/historialUtil.js';
 import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
@@ -159,6 +163,22 @@ const ensureDefaults = (item) => {
             return Number.isFinite(n) ? Math.round(n * 10000) / 10000 : null;
           })()
         : null,
+    aprobacionLynEstado: (() => {
+      const explicit = normalizeAprobacionLynEstado(item.aprobacionLynEstado);
+      if (explicit) return explicit;
+      const tipo = String(item.tipoServicio || '').toLowerCase();
+      const est = normalizeOtEstadoStored(item.estado);
+      if ((tipo === 'clima' || tipo === 'flota') && isOtCerrada(est)) {
+        return 'pendiente_revision_lyn';
+      }
+      return null;
+    })(),
+    listoEnviarCliente: (() => {
+      const ap = normalizeAprobacionLynEstado(item.aprobacionLynEstado);
+      if (ap === 'aprobado_lyn') return true;
+      return Boolean(item.listoEnviarCliente);
+    })(),
+    lynAprobacionHistorial: Array.isArray(item.lynAprobacionHistorial) ? item.lynAprobacionHistorial : [],
   };
   const eco = computeOtEconomics(base);
   const est = calcularEstimadosMensuales(eco);
@@ -314,7 +334,48 @@ export const otRepository = {
     } else if (isOtCerrada(prev.estado) && !isOtCerrada(estadoN)) {
       updated.cerradoEn = null;
     }
+    if (debeEntrarColaLynAlCerrar(updated, estadoN)) {
+      updated.aprobacionLynEstado = 'pendiente_revision_lyn';
+      updated.listoEnviarCliente = false;
+    }
     updated = touch(updated, 'estado', `${prev.estado} → ${estadoN}`, actor);
+    updated = ensureDefaults(updated);
+    const next = [...items];
+    next[index] = updated;
+    await saveStore(next);
+    return updated;
+  },
+
+  async applyLynAprobacion(id, { nuevoEstado, listoEnviarCliente, entradaHistorial }, actor = 'sistema') {
+    const items = await loadStore();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    let updated = { ...ensureDefaults(items[index]) };
+    const prevEstadoLyn = updated.aprobacionLynEstado ?? null;
+    if (nuevoEstado != null && String(nuevoEstado).length) {
+      const n = normalizeAprobacionLynEstado(nuevoEstado);
+      updated.aprobacionLynEstado = n || String(nuevoEstado).trim();
+    }
+    if (listoEnviarCliente !== undefined) {
+      updated.listoEnviarCliente = Boolean(listoEnviarCliente);
+    }
+    const hist = Array.isArray(updated.lynAprobacionHistorial) ? [...updated.lynAprobacionHistorial] : [];
+    if (entradaHistorial && typeof entradaHistorial === 'object') {
+      hist.push({
+        at: entradaHistorial.at || new Date().toISOString(),
+        actor: String(entradaHistorial.actor || actor).slice(0, 120),
+        accion: String(entradaHistorial.accion || '').slice(0, 80),
+        comentario: String(entradaHistorial.comentario ?? '').slice(0, 2000),
+        estadoAnterior: entradaHistorial.estadoAnterior ?? prevEstadoLyn,
+        estadoNuevo: entradaHistorial.estadoNuevo ?? updated.aprobacionLynEstado,
+      });
+    }
+    while (hist.length > 80) hist.shift();
+    updated.lynAprobacionHistorial = hist;
+
+    const detalle = `Lyn · ${entradaHistorial?.accion || 'acción'} · ${prevEstadoLyn ?? '—'} → ${updated.aprobacionLynEstado ?? '—'}`;
+    updated = touch(updated, 'lyn_aprobacion', detalle, actor);
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;

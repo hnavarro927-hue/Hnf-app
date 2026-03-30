@@ -14,7 +14,7 @@ export const HNF_FULL_NAV_ORDER = [
   'bandeja-canal',
   'bandeja-romina',
   'bandeja-gery',
-  'bandeja-lyn',
+  'lyn-aprobacion',
   'clima',
   'planificacion',
   'flota',

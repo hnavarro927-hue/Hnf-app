@@ -2,6 +2,7 @@ import {
   createOT,
   deleteOT,
   getAllOT,
+  getOTById,
   patchOTCore,
   patchOTEvidences,
   patchOTEquipos,
@@ -11,18 +12,22 @@ import {
   patchOTOperational,
   updateOTStatus,
 } from '../controllers/ot.controller.js';
+import { getLynCola, patchLynAprobacion } from '../controllers/otLynAprobacion.controller.js';
 
 export const otRoutes = [
+  { method: 'GET', path: '/ots/lyn-aprobacion/cola', handler: getLynCola },
   {
     method: 'GET',
     path: '/ots',
     handler: getAllOT,
   },
+  { method: 'GET', path: '/ots/:id', handler: getOTById },
   {
     method: 'POST',
     path: '/ots',
     handler: createOT,
   },
+  { method: 'PATCH', path: '/ots/:id/lyn-aprobacion', handler: patchLynAprobacion },
   {
     method: 'PATCH',
     path: '/ots/:id',

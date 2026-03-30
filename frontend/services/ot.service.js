@@ -1,8 +1,11 @@
 import { apiEndpoints } from '../config/api-endpoints.js';
 import { httpClient } from './http-client.js';
 
+const unwrap = (r) => (r && r.data !== undefined ? r.data : r);
+
 export const otService = {
   getAll: () => httpClient.get(apiEndpoints.ots),
+  getById: (id) => httpClient.get(`${apiEndpoints.ots}/${encodeURIComponent(id)}`).then(unwrap),
   create: (payload) => httpClient.post(apiEndpoints.ots, payload),
   patchCore: (id, payload) =>
     httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}`, payload),

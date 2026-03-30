@@ -251,6 +251,10 @@ export const otService = {
     return otRepository.findAll();
   },
 
+  async getById(id) {
+    return otRepository.findById(id);
+  },
+
   async create(data, actor = 'sistema') {
     const validation = validateOTPayload(data);
     if (!validation.valid) {

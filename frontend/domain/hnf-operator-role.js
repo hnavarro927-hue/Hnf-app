@@ -17,7 +17,7 @@ export const HNF_BASE_MAESTRA_NAV = { id: 'base-maestra', icon: '▦', label: 'B
 /** Bandejas operativas de documentos Base Maestra / Jarvis (por responsable). */
 export const HNF_BANDEJA_ROMINA_NAV = { id: 'bandeja-romina', icon: '▤', label: 'Bandeja Romina' };
 export const HNF_BANDEJA_GERY_NAV = { id: 'bandeja-gery', icon: '▤', label: 'Bandeja Gery' };
-export const HNF_BANDEJA_LYN_NAV = { id: 'bandeja-lyn', icon: '▤', label: 'Bandeja Lyn' };
+export const HNF_BANDEJA_LYN_NAV = { id: 'lyn-aprobacion', icon: '✓', label: 'Cola Lyn (OT)' };
 
 const pick = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 

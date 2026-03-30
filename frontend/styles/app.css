@@ -24296,3 +24296,205 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
 .hnf-matriz-quick__btn:hover {
   border-color: rgba(255, 255, 255, 0.28);
 }
+
+.hnf-matriz-lyn-actions {
+  margin-top: 0.75rem;
+}
+
+/* Cola Lyn — aprobación OT */
+.hnf-lyn-cola {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 0.5rem 1.5rem;
+}
+.hnf-lyn-cola__head {
+  margin-bottom: 1rem;
+}
+.hnf-lyn-cola__title {
+  font-size: 1.35rem;
+  margin: 0 0 0.35rem;
+}
+.hnf-lyn-cola__intro {
+  margin: 0;
+  max-width: 40rem;
+}
+.hnf-lyn-cola__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+.hnf-lyn-cola__toolbar-label {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+.hnf-lyn-cola__select {
+  min-width: 16rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+}
+.hnf-lyn-cola__layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 38%);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .hnf-lyn-cola__layout {
+    grid-template-columns: 1fr;
+  }
+}
+.hnf-lyn-cola__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.hnf-lyn-cola__table th,
+.hnf-lyn-cola__table td {
+  text-align: left;
+  padding: 0.4rem 0.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: top;
+}
+.hnf-lyn-cola__table th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+.hnf-lyn-cola__row--sel {
+  background: rgba(58, 134, 255, 0.12);
+}
+.hnf-lyn-cola__cell-comment {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hnf-lyn-cola__badge {
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.hnf-lyn-cola__badge--clima {
+  background: rgba(58, 134, 255, 0.25);
+  color: #b8d4ff;
+}
+.hnf-lyn-cola__badge--flota {
+  background: rgba(0, 194, 168, 0.22);
+  color: #9cf5e8;
+}
+.hnf-lyn-cola__btn-mini {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.78rem;
+  min-height: auto;
+}
+.hnf-lyn-cola__panel {
+  position: sticky;
+  top: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-lg, 12px);
+  padding: 0.9rem 1rem 1.1rem;
+  background: rgba(10, 14, 24, 0.75);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+}
+.hnf-lyn-cola__panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.hnf-lyn-cola__panel-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.hnf-lyn-cola__dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+.hnf-lyn-cola__dl dt {
+  opacity: 0.65;
+  margin: 0;
+}
+.hnf-lyn-cola__dl dd {
+  margin: 0;
+}
+.hnf-lyn-cola__sec {
+  font-size: 0.82rem;
+  margin: 0.75rem 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+.hnf-lyn-cola__pre {
+  margin: 0;
+  padding: 0.5rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  max-height: 8rem;
+  overflow: auto;
+}
+.hnf-lyn-cola__ok {
+  color: #6ee7b7;
+  font-size: 0.82rem;
+  margin: 0.25rem 0;
+}
+.hnf-lyn-cola__warn {
+  color: #fcd34d;
+  font-size: 0.82rem;
+  margin: 0.25rem 0;
+}
+.hnf-lyn-cola__checklist {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+}
+.hnf-lyn-cola__hist {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.hnf-lyn-cola__actions {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.hnf-lyn-cola__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.5rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+.hnf-lyn-cola__action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.hnf-lyn-cola__nav-ot {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}

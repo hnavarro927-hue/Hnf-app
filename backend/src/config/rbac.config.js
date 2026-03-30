@@ -37,7 +37,7 @@ export const MODULE_ACCESS = {
     'base-maestra',
     'ordenes-compra',
     'control-gerencial',
-    'bandeja-lyn',
+    'lyn-aprobacion',
     'documentos-tecnicos',
     'hnf-core',
     'planificacion',
@@ -86,6 +86,7 @@ export const ACTION_ACCESS = {
   'operativo.flow': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
   /** Registro de revisión / control operativo (Lyn, Hernán; admin incluido por consistencia). */
   'control.registro_lyn': ['admin', 'hernan', 'lyn'],
+  'lyn.aprobacion_ot': ['admin', 'hernan', 'lyn'],
 };
 
 /**

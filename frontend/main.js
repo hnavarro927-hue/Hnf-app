@@ -53,7 +53,7 @@ import { hnfCoreHubView } from './views/hnf-core-hub.js';
 import { baseMaestraHubView } from './views/base-maestra-hub.js';
 import { bandejaRominaView } from './views/bandeja-romina.js';
 import { bandejaGeryView } from './views/bandeja-gery.js';
-import { bandejaLynView } from './views/bandeja-lyn.js';
+import { lynAprobacionColaView } from './views/lyn-aprobacion-cola.js';
 import { finanzasOperativoView } from './views/finanzas-operativo.js';
 import { equipoOperativoView } from './views/equipo-operativo.js';
 import { controlGerencialView } from './views/control-gerencial.js';
@@ -311,7 +311,6 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'base-maestra',
   'bandeja-romina',
   'bandeja-gery',
-  'bandeja-lyn',
   'finanzas',
   'equipo',
 ]);
@@ -675,9 +674,9 @@ const viewRegistry = {
     load: loadFullOperationalData,
   },
 
-  'bandeja-lyn': {
-    render: bandejaLynView,
-    load: loadFullOperationalData,
+  'lyn-aprobacion': {
+    render: lynAprobacionColaView,
+    load: async () => ({}),
   },
 
   finanzas: {
@@ -1765,7 +1764,7 @@ const render = () => {
           'base-maestra',
           'bandeja-romina',
           'bandeja-gery',
-          'bandeja-lyn',
+          'lyn-aprobacion',
           'documentos-tecnicos',
           'technical-documents',
           'panel-operativo-vivo',
@@ -1784,6 +1783,7 @@ const render = () => {
           finanzas: 'finanzas',
           'ordenes-compra': 'comercial',
           'operacion-control': 'control',
+          'lyn-aprobacion': 'control',
         };
         const useOpShell = opCommandViews.has(state.activeView) && state.activeView !== 'jarvis';
         document.body.classList.toggle('hnf-op-command', useOpShell);
@@ -1998,6 +1998,7 @@ const viewIdFromLocation = () => {
   const seg = h.split('/')[0].split('?')[0];
   let mapped = seg === 'dashboard' ? 'jarvis' : seg;
   if (mapped === 'jarvis-intake') mapped = 'bandeja-canal';
+  if (mapped === 'bandeja-lyn') mapped = 'lyn-aprobacion';
   if (mapped === 'flujo-operativo-unificado' || mapped === 'control-operativo-tiempo-real') {
     mapped = 'jarvis';
   }

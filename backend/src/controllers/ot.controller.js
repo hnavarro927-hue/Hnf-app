@@ -13,6 +13,14 @@ export const getAllOT = async (request, response) => {
   });
 };
 
+export const getOTById = async (request, response) => {
+  const item = await otService.getById(request.params.id);
+  if (!item) {
+    return sendError(response, 404, 'OT no encontrada.', { resource: 'ots' });
+  }
+  sendSuccess(response, 200, item, { resource: 'ots', action: 'getOne' });
+};
+
 export const createOT = async (request, response) => {
   const actor = getRequestActor(request);
   const item = await otService.create(request.body || {}, actor);

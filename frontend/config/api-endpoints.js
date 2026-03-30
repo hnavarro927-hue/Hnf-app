@@ -1,6 +1,7 @@
 export const apiEndpoints = {
   health: '/health',
   ots: '/ots',
+  otsLynAprobacionCola: '/ots/lyn-aprobacion/cola',
   clients: '/clients',
   vehicles: '/vehicles',
   expenses: '/expenses',

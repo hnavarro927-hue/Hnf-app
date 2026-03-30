@@ -140,6 +140,7 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate, relo
     return b;
   };
   act.append(
+    mkBtn('Cola Lyn (aprobación OT)', () => navigateToView?.('lyn-aprobacion')),
     mkBtn('Ver inteligencia (Jarvis)', () => intelNavigate?.({ view: 'jarvis' })),
     mkBtn('Ejecución OT (Clima)', () => navigateToView?.('clima')),
     mkBtn('Ingreso operativo', () => navigateToView?.('ingreso-operativo')),

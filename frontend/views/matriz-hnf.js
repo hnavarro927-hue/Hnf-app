@@ -95,8 +95,18 @@ export const matrizHnfView = ({
     'Conteos en tiempo real desde datos cargados; no incluye umbrales SLA personalizados por contrato.'
   );
   const ag = el('div', 'hnf-matriz-alerts');
+  const lynPendientesRevision = otsList.filter(
+    (o) =>
+      ['clima', 'flota'].includes(String(o.tipoServicio || '').toLowerCase()) &&
+      String(o.aprobacionLynEstado || '') === 'pendiente_revision_lyn'
+  ).length;
   ag.append(
     pill('OT fuera de agenda / SLA (heurística)', countOtFueraSla(ots), 'hnf-matriz-pill--alert'),
+    pill(
+      'OT pendientes revisión Lyn (Clima/Flota cerradas)',
+      lynPendientesRevision,
+      lynPendientesRevision ? 'hnf-matriz-pill--alert' : ''
+    ),
     pill(
       'Técnicos · evidencia incompleta (bajo umbral Clima)',
       snapDisciplina.alertasBajoCumplimiento.length,
@@ -172,6 +182,23 @@ export const matrizHnfView = ({
   }
   un.append(ug);
   root.append(un);
+
+  /* —— Cola Lyn (aprobación OT) —— */
+  const lynSec = section(
+    'Aprobación Lyn (OT Clima / Flota)',
+    'Cola operativa: pendiente, observado, devuelto, aprobado. Acciones auditadas en servidor.'
+  );
+  const lynRow = el('div', 'hnf-matriz-lyn-actions');
+  const lynBtn = el('button', 'primary-button', 'Abrir cola de aprobación Lyn');
+  if (canModule(allowedModules, 'lyn-aprobacion')) {
+    lynBtn.addEventListener('click', () => navigateToView?.('lyn-aprobacion'));
+  } else {
+    lynBtn.disabled = true;
+    lynBtn.title = 'Sin acceso al módulo';
+  }
+  lynRow.append(lynBtn);
+  lynSec.append(lynRow);
+  root.append(lynSec);
 
   /* —— Disciplina técnica (evidencia Clima) —— */
   const discSec = section(
