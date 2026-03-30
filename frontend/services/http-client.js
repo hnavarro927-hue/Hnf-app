@@ -1,9 +1,9 @@
-import { appConfig } from '../config/app.config.js';
+import { resolveApiUrl } from '../config/app.config.js';
 import { getSessionToken } from '../config/auth-token.storage.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
 import { fetchWithRetry } from '../domain/hnf-network.js';
 
-const buildUrl = (path) => `${appConfig.apiBaseUrl}${path}`;
+const buildUrl = (path) => resolveApiUrl(path);
 
 const actorHeaders = () => {
   const name = getStoredOperatorName();
@@ -54,6 +54,8 @@ const request = async (path, options = {}) => {
     const err = new Error(msg.trim());
     err.status = response.status;
     err.validations = vals;
+    err.responsePayload = data;
+    err.requestUrl = buildUrl(path);
     throw err;
   }
 

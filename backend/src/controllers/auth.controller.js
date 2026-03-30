@@ -1,4 +1,5 @@
-import { buildMePayload, login, logout } from '../services/auth.service.js';
+import { allowAuthDebugEndpoints } from '../config/runtimeEnv.js';
+import { buildMePayload, listUsersSanitizedForDebug, login, logout } from '../services/auth.service.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 
 const clientIp = (request) => {
@@ -40,4 +41,15 @@ export const postAuthLogout = async (request, response) => {
 export const getAuthMe = async (request, response) => {
   const payload = buildMePayload(request.hnfAuth);
   sendSuccess(response, 200, payload, { resource: 'auth/me' });
+};
+
+export const getAuthDebugUsers = async (request, response) => {
+  if (!allowAuthDebugEndpoints()) {
+    return sendError(response, 404, 'No encontrado.', { code: 'NOT_FOUND' });
+  }
+  const users = await listUsersSanitizedForDebug();
+  sendSuccess(response, 200, users, {
+    resource: 'auth/debug-users',
+    note: 'Solo disponible cuando NODE_ENV≠production. No incluye contraseñas.',
+  });
 };

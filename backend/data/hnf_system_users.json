@@ -5,10 +5,10 @@
     "username": "hernan",
     "rol": "hernan",
     "activo": true,
-    "passwordHash": "scrypt$BePcypn4XnHXA/JycGx67Q==$U3h1EcOKl1CHbKurh2G3fbERFh1aif0AsTRMxRiorckaDgaEzlVnY8ZchgtfqOCdFucD5uhHEJS5ndJJ2UDZow==",
+    "passwordHash": "scrypt$XhNbRsFmug38RjLqCRFNmQ==$tAIQ+bWzUH0UCrZenaDTd7JhlNzS7v1JPORkLK2kRhgR30m8t7Ix+oS0b3+ZtCHLikRXdWpZBvvDgkAQLHM18Q==",
     "ultimoAccesoAt": null,
     "id": "USR-1",
     "creadoAt": "2026-03-29T23:47:39.045Z",
-    "actualizadoAt": "2026-03-29T23:47:39.045Z"
+    "actualizadoAt": "2026-03-30T15:36:09.645Z"
   }
 ]

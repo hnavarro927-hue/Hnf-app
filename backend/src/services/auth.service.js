@@ -5,10 +5,13 @@ import {
   getModuleListForRole,
   roleCanPerformAction,
 } from '../config/rbac.config.js';
+import { allowAuthLoginDebugHints } from '../config/runtimeEnv.js';
 import { sessionRepository } from '../repositories/session.repository.js';
 import { systemUserRepository } from '../repositories/systemUser.repository.js';
 import { hashPassword, verifyPassword } from '../utils/password.util.js';
 import { auditService } from './audit.service.js';
+
+const truthyEnv = (v) => v === '1' || String(v || '').toLowerCase() === 'true';
 
 const sessionDays = Number(process.env.HNF_SESSION_DAYS || 30);
 const SESSION_MS = (Number.isFinite(sessionDays) && sessionDays > 0 ? sessionDays : 30) * 86400000;
@@ -47,28 +50,70 @@ export function buildMePayload(authContext) {
 
 let bootstrapPromise = null;
 
+async function createHernanWithBootstrapPassword() {
+  const pwd = process.env.HNF_BOOTSTRAP_ADMIN_PASSWORD || 'hnf-cambiar-2026';
+  const hash = hashPassword(pwd);
+  await systemUserRepository.create({
+    nombre: 'Hernán',
+    email: 'hernan@hnf.local',
+    username: 'hernan',
+    rol: 'hernan',
+    activo: true,
+    passwordHash: hash,
+    ultimoAccesoAt: null,
+  });
+}
+
+/**
+ * Garantiza cuenta canónica `hernan` si el archivo tiene otros usuarios pero no este.
+ */
+async function ensureHernanUserPresent() {
+  const existing = await systemUserRepository.findByUsername('hernan');
+  if (existing) return;
+  await createHernanWithBootstrapPassword();
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[HNF Auth] Usuario «hernan» creado (faltaba en hnf_system_users.json). Contraseña inicial: HNF_BOOTSTRAP_ADMIN_PASSWORD o valor por defecto de bootstrap.'
+  );
+}
+
+/**
+ * Solo fuera de NODE_ENV=production. Opt-in: HNF_DEV_RESET_HERNAN_ON_BOOT=1.
+ * Sincroniza el hash con HNF_BOOTSTRAP_ADMIN_PASSWORD (o default) para desbloquear entornos locales.
+ */
+async function maybeResetHernanPasswordOnBoot() {
+  if (!allowAuthLoginDebugHints()) return;
+  if (!truthyEnv(process.env.HNF_DEV_RESET_HERNAN_ON_BOOT)) return;
+  const u = await systemUserRepository.findByUsername('hernan');
+  if (!u) return;
+  const pwd = process.env.HNF_BOOTSTRAP_ADMIN_PASSWORD || 'hnf-cambiar-2026';
+  await systemUserRepository.update(u.id, { passwordHash: hashPassword(pwd) });
+  // eslint-disable-next-line no-console
+  console.warn('[HNF Auth] HNF_DEV_RESET_HERNAN_ON_BOOT: contraseña de «hernan» actualizada al arranque (solo no-producción).');
+}
+
 export async function ensureBootstrapAdmin() {
   if (bootstrapPromise) return bootstrapPromise;
   bootstrapPromise = (async () => {
     const users = await systemUserRepository.findAll();
-    if (users.length > 0) return;
-    const pwd = process.env.HNF_BOOTSTRAP_ADMIN_PASSWORD || 'hnf-cambiar-2026';
-    const hash = hashPassword(pwd);
-    await systemUserRepository.create({
-      nombre: 'Hernán',
-      email: 'hernan@hnf.local',
-      username: 'hernan',
-      rol: 'hernan',
-      activo: true,
-      passwordHash: hash,
-      ultimoAccesoAt: null,
-    });
-    // eslint-disable-next-line no-console
-    console.warn(
-      '[HNF Auth] Usuario inicial creado (username: hernan). Definí HNF_BOOTSTRAP_ADMIN_PASSWORD y cambiá la contraseña desde Usuarios.'
-    );
+    if (users.length === 0) {
+      await createHernanWithBootstrapPassword();
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[HNF Auth] Usuario inicial creado (username: hernan). Definí HNF_BOOTSTRAP_ADMIN_PASSWORD y cambiá la contraseña desde Usuarios.'
+      );
+    } else {
+      await ensureHernanUserPresent();
+    }
+    await maybeResetHernanPasswordOnBoot();
   })();
   return bootstrapPromise;
+}
+
+/** Lista usuarios sin secretos (solo para GET /auth/debug-users en no-producción). */
+export async function listUsersSanitizedForDebug() {
+  const users = await systemUserRepository.findAll();
+  return users.map((u) => sanitizeUser(u));
 }
 
 function newSessionToken() {
@@ -79,10 +124,20 @@ export async function login(username, password, requestMeta = {}) {
   await ensureBootstrapAdmin();
   const u = await systemUserRepository.findByUsername(username);
   if (!u || u.activo === false) {
-    return { ok: false, code: 'INVALID', message: 'Usuario o contraseña incorrectos.' };
+    return {
+      ok: false,
+      code: 'INVALID',
+      message: 'Usuario o contraseña incorrectos.',
+      debugHint: allowAuthLoginDebugHints() ? 'USER_MISSING_OR_INACTIVE' : undefined,
+    };
   }
   if (!verifyPassword(password, u.passwordHash)) {
-    return { ok: false, code: 'INVALID', message: 'Usuario o contraseña incorrectos.' };
+    return {
+      ok: false,
+      code: 'INVALID',
+      message: 'Usuario o contraseña incorrectos.',
+      debugHint: allowAuthLoginDebugHints() ? 'BAD_PASSWORD_HASH_MISMATCH' : undefined,
+    };
   }
   const token = newSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_MS).toISOString();

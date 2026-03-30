@@ -1,5 +1,5 @@
 import './styles/app.css';
-import { appConfig, formatApiBaseLabel } from './config/app.config.js';
+import { appConfig, formatApiBaseLabel, getLoginDebugContext } from './config/app.config.js';
 import { createShell } from './components/shell.js';
 import { authApiService } from './services/auth-api.service.js';
 import { usersService } from './services/users.service.js';
@@ -2089,6 +2089,7 @@ function mountLoginUi() {
   app.innerHTML = '';
   loginView(app, {
     bannerMessage: state.loginBanner || '',
+    loginDebug: import.meta.env.DEV ? getLoginDebugContext() : null,
     onSuccess: async ({ username, password }) => {
       await authApiService.login(username, password);
       const me = await authApiService.me();

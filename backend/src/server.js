@@ -134,6 +134,17 @@ const server = createServer(async (request, response) => {
   }
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(
+      `[HNF] Backend ya en ejecución: el puerto ${appConfig.port} está ocupado. No se inicia un segundo listener.`
+    );
+    process.exit(0);
+    return;
+  }
+  throw err;
+});
+
 (async () => {
   try {
     await ensureBootstrapAdmin();

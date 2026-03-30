@@ -26,6 +26,42 @@ export const appConfig = {
   apiBaseUrl: runtimeOverride || viteBuiltApi || '',
 };
 
+/** URL absoluta del path de API (sin hardcodear host: usa solo appConfig + origen del navegador). */
+export const resolveApiUrl = (path) => {
+  const p = String(path || '').startsWith('/') ? path : `/${path}`;
+  const base = String(appConfig.apiBaseUrl || '').replace(/\/$/, '');
+  if (base) return `${base}${p}`;
+  if (typeof globalThis.location !== 'undefined' && globalThis.location.origin) {
+    return `${String(globalThis.location.origin).replace(/\/$/, '')}${p}`;
+  }
+  return p;
+};
+
+/** Etiqueta para UI: LOCAL (bundle dev) vs PRODUCCIÓN (build optimizado). */
+export const getHnfRuntimeEnvironment = () =>
+  typeof import.meta !== 'undefined' && import.meta.env?.PROD ? 'PRODUCCIÓN' : 'LOCAL';
+
+export const getLoginDebugContext = () => ({
+  apiUrl: appConfig.apiBaseUrl
+    ? appConfig.apiBaseUrl
+    : typeof globalThis.location !== 'undefined'
+      ? `(relativo · ${globalThis.location.origin})`
+      : '—',
+  environment: getHnfRuntimeEnvironment(),
+});
+
+export const getApiActivaLabel = () => {
+  if (appConfig.apiBaseUrl) return appConfig.apiBaseUrl;
+  if (typeof globalThis.location !== 'undefined' && globalThis.location.origin) {
+    return `(relativo · ${globalThis.location.origin})`;
+  }
+  return '(sin base)';
+};
+
+if (typeof import.meta !== 'undefined') {
+  console.log(`API ACTIVA: ${getApiActivaLabel()}`);
+}
+
 /** Texto para UI (sidebar, dashboard). */
 export const formatApiBaseLabel = () => {
   const base = appConfig.apiBaseUrl;

@@ -1,3 +1,4 @@
+import { allowAuthDebugEndpoints } from '../config/runtimeEnv.js';
 import { resolveRbacRole } from '../config/rbac.config.js';
 import { getRequestActor } from '../utils/requestActor.js';
 import { resolveAuthFromBearer } from './auth.service.js';
@@ -8,6 +9,7 @@ const isPublicRoute = (method, pathname) => {
   if (pathname === '/health' && method === 'GET') return true;
   if (pathname === '/auth/login' && method === 'POST') return true;
   if (pathname === '/intake/externo' && method === 'POST') return true;
+  if (pathname === '/auth/debug-users' && method === 'GET' && allowAuthDebugEndpoints()) return true;
   return false;
 };
 
@@ -22,6 +24,10 @@ const bearerToken = (request) => {
  */
 export async function evaluateRequestAuth(request, pathname) {
   const method = String(request.method || 'GET').toUpperCase();
+
+  if (pathname === '/auth/debug-users' && method === 'GET' && !allowAuthDebugEndpoints()) {
+    return { ok: false, status: 404, message: 'No encontrado.', details: { code: 'NOT_FOUND' } };
+  }
 
   if (truthy(process.env.HNF_AUTH_DISABLED)) {
     return {

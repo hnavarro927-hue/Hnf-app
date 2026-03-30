@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: false,
       proxy: {
+        '^/auth(/|$)': { target: backend, changeOrigin: true },
         '^/(health|api|ots|clients|vehicles|expenses|clientes|tiendas|mantenciones|operational-calendar|technical-documents|commercial-opportunities|flota|outlook|whatsapp|historical-vault|jarvis-operative-events)(/|$)':
           {
             target: backend,
@@ -42,6 +43,7 @@ export default defineConfig(({ mode }) => {
       port: 4173,
       strictPort: false,
       proxy: {
+        '^/auth(/|$)': { target: backend, changeOrigin: true },
         '^/(health|api|ots|clients|vehicles|expenses|clientes|tiendas|mantenciones|operational-calendar|technical-documents|commercial-opportunities|flota|outlook|whatsapp|historical-vault|jarvis-operative-events)(/|$)':
           {
             target: backend,

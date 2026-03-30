@@ -1,7 +1,15 @@
+const escapeHtml = (s) =>
+  String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
 /**
  * Login interno HNF (sin IdP externo).
+ * @param {{ onSuccess?: Function, bannerMessage?: string, loginDebug?: { apiUrl: string, environment: string } | null }}=} opts
  */
-export const loginView = (root, { onSuccess, bannerMessage = '' } = {}) => {
+export const loginView = (root, { onSuccess, bannerMessage = '', loginDebug = null } = {}) => {
   root.innerHTML = '';
   root.className = 'hnf-login-root';
 
@@ -18,13 +26,16 @@ export const loginView = (root, { onSuccess, bannerMessage = '' } = {}) => {
   note.textContent =
     'Acceso operativo interno. Usuario y contraseña los asigna un administrador del sistema.';
 
-  if (bannerMessage) {
-    const b = document.createElement('p');
-    b.className = 'hnf-banner-warn';
-    b.style.cssText = 'padding:0.5rem 0.65rem;border-radius:6px;background:#3d2a1a;color:#ffd7a8;';
-    b.textContent = bannerMessage;
-    wrap.append(b);
-  }
+  const bannerEl = bannerMessage
+    ? (() => {
+        const b = document.createElement('p');
+        b.className = 'hnf-banner-warn';
+        b.style.cssText =
+          'padding:0.5rem 0.65rem;border-radius:6px;background:#3d2a1a;color:#ffd7a8;';
+        b.textContent = bannerMessage;
+        return b;
+      })()
+    : null;
 
   const err = document.createElement('p');
   err.className = 'hnf-login-error';
@@ -59,7 +70,18 @@ export const loginView = (root, { onSuccess, bannerMessage = '' } = {}) => {
   btn.textContent = 'Entrar';
 
   form.append(uLabel, user, pLabel, pass, btn);
-  wrap.append(h, note, err, form);
+
+  wrap.append(h, note);
+  if (bannerEl) wrap.append(bannerEl);
+  if (loginDebug) {
+    const dbg = document.createElement('div');
+    dbg.className = 'hnf-login-env-debug muted small';
+    dbg.style.cssText =
+      'margin-top:0.75rem;padding:0.5rem 0.65rem;border-radius:6px;border:1px solid rgba(255,255,255,0.12);font-family:ui-monospace,monospace;font-size:0.75rem;line-height:1.45;';
+    dbg.innerHTML = `<div><strong>API:</strong> ${escapeHtml(loginDebug.apiUrl)}</div><div><strong>ENTORNO:</strong> ${escapeHtml(loginDebug.environment)}</div>`;
+    wrap.append(dbg);
+  }
+  wrap.append(err, form);
   root.append(wrap);
 
   form.addEventListener('submit', async (e) => {
