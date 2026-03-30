@@ -39,6 +39,7 @@ export const lynAprobacionColaView = ({ navigateToView, reloadApp } = {}) => {
   let filas = [];
   let detalleOt = null;
   let seleccionId = null;
+  let enviandoInformeCliente = false;
 
   const toolbar = el('div', 'hnf-lyn-cola__toolbar');
   const sel = document.createElement('select');
@@ -144,9 +145,51 @@ export const lynAprobacionColaView = ({ navigateToView, reloadApp } = {}) => {
     add('Aprobación Lyn', ESTADO_LYN_LABEL[o.aprobacionLynEstado] || o.aprobacionLynEstado || '—');
     add('Listo enviar cliente', o.listoEnviarCliente ? 'Sí' : 'No');
     add('PDF informe', o.pdfName || o.pdfUrl ? `${o.pdfName || ''} ${o.pdfUrl ? '· URL' : ''}` : 'pendiente');
+    add('Enviado al cliente', o.enviadoCliente ? 'Sí' : 'No');
+    if (o.fechaEnvio) add('Fecha envío (simulado)', fmtDate(o.fechaEnvio));
+    if (o.enviadoPor) add('Enviado por', o.enviadoPor);
     panel.append(meta);
 
     const sec = (title) => el('h3', 'hnf-lyn-cola__sec', title);
+
+    if (String(o.aprobacionLynEstado || '') === 'aprobado_lyn') {
+      panel.append(sec('Envío al cliente'));
+      const envWrap = el('div', 'hnf-lyn-cola__envio');
+      const st = el('p', o.enviadoCliente ? 'hnf-lyn-cola__ok' : 'muted', '');
+      st.textContent = o.enviadoCliente ? '✅ Enviado a cliente' : 'Estado envío: pendiente';
+      envWrap.append(st);
+      if (o.enviadoCliente && o.fechaEnvio) {
+        envWrap.append(
+          el('p', 'muted small', `Registrado: ${fmtDate(o.fechaEnvio)}${o.enviadoPor ? ` · ${o.enviadoPor}` : ''}`)
+        );
+      }
+      const bSend = el(
+        'button',
+        'primary-button',
+        enviandoInformeCliente ? 'Enviando…' : 'Enviar informe al cliente'
+      );
+      bSend.type = 'button';
+      const pdfOk = Boolean(String(o.pdfUrl || '').trim());
+      const puedeEnviar = Boolean(o.listoEnviarCliente) && pdfOk && !o.enviadoCliente;
+      bSend.disabled = enviandoInformeCliente || !puedeEnviar;
+      bSend.addEventListener('click', async () => {
+        enviandoInformeCliente = true;
+        renderPanel();
+        try {
+          await otService.enviarInformeCliente(o.id);
+          await abrirDetalle(o.id);
+          void reloadApp?.();
+        } catch (e) {
+          alert(e?.message || 'No se pudo registrar el envío al cliente.');
+        } finally {
+          enviandoInformeCliente = false;
+          renderPanel();
+        }
+      });
+      envWrap.append(bSend);
+      panel.append(envWrap);
+    }
+
     panel.append(sec('Resumen técnico'));
     panel.append(el('pre', 'hnf-lyn-cola__pre', String(o.resumenTrabajo || 'sin dato').slice(0, 4000)));
     panel.append(sec('Recomendaciones'));

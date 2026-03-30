@@ -10,6 +10,7 @@ import {
   patchOTVisit,
   patchOTEconomics,
   patchOTOperational,
+  postEnviarCliente,
   updateOTStatus,
 } from '../controllers/ot.controller.js';
 import { getLynCola, patchLynAprobacion } from '../controllers/otLynAprobacion.controller.js';
@@ -28,6 +29,7 @@ export const otRoutes = [
     handler: createOT,
   },
   { method: 'PATCH', path: '/ots/:id/lyn-aprobacion', handler: patchLynAprobacion },
+  { method: 'POST', path: '/ots/:id/enviar-cliente', handler: postEnviarCliente },
   {
     method: 'PATCH',
     path: '/ots/:id',

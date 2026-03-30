@@ -1150,6 +1150,15 @@ const createEvidenceSection = (title, items = []) => {
   return article;
 };
 
+const fmtEnvioClienteFecha = (iso) => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return String(iso);
+  }
+};
+
 const mountClimaOtDetailFlow = (
   detailCard,
   contextRail,
@@ -1159,6 +1168,7 @@ const mountClimaOtDetailFlow = (
     ro,
     isClosingOT,
     isGeneratingPdf,
+    isEnviandoInformeCliente,
     isSavingEquipos,
     isPatchingOtOperational,
     otEconomicsSaved,
@@ -1573,7 +1583,41 @@ const mountClimaOtDetailFlow = (
   pdfTop.textContent = isGeneratingPdf ? 'Generando…' : 'Generar PDF';
   pdfTop.disabled = Boolean(isGeneratingPdf || isClosingOT);
   pdfTop.addEventListener('click', async () => actions.generatePdfFromOt(selectedOT));
-  p4.append(h4, checklistPanel, previewPanel, pdfTop);
+
+  const envioClienteBlock = document.createElement('article');
+  envioClienteBlock.className = 'ot-saas-block';
+  const aprobadoLyn = String(selectedOT.aprobacionLynEstado || '').trim() === 'aprobado_lyn';
+  envioClienteBlock.hidden = !aprobadoLyn;
+  const envioTit = document.createElement('h4');
+  envioTit.textContent = 'Envío al cliente (post-Lyn)';
+  const envioEstado = document.createElement('p');
+  envioEstado.className = 'muted';
+  const yaEnviado = Boolean(selectedOT.enviadoCliente);
+  const pdfListo = Boolean(String(selectedOT.pdfUrl || '').trim());
+  const listoEnviar = Boolean(selectedOT.listoEnviarCliente);
+  envioEstado.innerHTML = yaEnviado
+    ? '<strong>✅ Enviado a cliente</strong>'
+    : '<strong>Estado envío:</strong> Pendiente de envío';
+  const envioMeta = document.createElement('p');
+  envioMeta.className = 'small muted';
+  envioMeta.textContent = yaEnviado
+    ? `Fecha envío: ${fmtEnvioClienteFecha(selectedOT.fechaEnvio)} · Enviado por: ${String(selectedOT.enviadoPor || '—').trim()}`
+    : listoEnviar && pdfListo
+      ? 'Podés registrar el envío simulado (correo real en una fase posterior).'
+      : !pdfListo
+        ? 'Falta PDF en servidor: generá y guardá el informe antes de enviar.'
+        : 'La OT debe estar marcada como lista para enviar al cliente (listoEnviarCliente).';
+  const btnEnviarCliente = document.createElement('button');
+  btnEnviarCliente.type = 'button';
+  btnEnviarCliente.className = 'primary-button ot-flow-footer__btn';
+  btnEnviarCliente.textContent = isEnviandoInformeCliente ? 'Enviando…' : 'Enviar informe al cliente';
+  btnEnviarCliente.disabled = Boolean(
+    isEnviandoInformeCliente || yaEnviado || !listoEnviar || !pdfListo || isClosingOT
+  );
+  btnEnviarCliente.addEventListener('click', async () => actions.enviarInformeCliente(selectedOT));
+  envioClienteBlock.append(envioTit, envioEstado, envioMeta, btnEnviarCliente);
+
+  p4.append(h4, checklistPanel, previewPanel, pdfTop, envioClienteBlock);
 
   const p5 = mkPanel(5);
   const h5 = document.createElement('h3');
@@ -1914,6 +1958,7 @@ export const climaView = ({
   isClosingOT,
   isUploadingEvidence,
   isGeneratingPdf,
+  isEnviandoInformeCliente = false,
   isSavingEquipos,
   isSavingVisitText,
   isSavingOtEconomics,
@@ -2465,6 +2510,7 @@ export const climaView = ({
       ro: isOtEstadoCerradaUi(selectedOT.estado),
       isClosingOT,
       isGeneratingPdf,
+      isEnviandoInformeCliente,
       isSavingEquipos,
       isPatchingOtOperational,
       otEconomicsSaved,

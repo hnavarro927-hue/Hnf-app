@@ -882,6 +882,7 @@ const state = {
   isClosingOT: false,
   isUploadingEvidence: false,
   isGeneratingPdf: false,
+  isEnviandoInformeCliente: false,
   isSavingEquipos: false,
   isSavingVisitText: false,
   isSavingOtEconomics: false,
@@ -1372,6 +1373,28 @@ const createActions = () => ({
     }
   },
 
+  enviarInformeCliente: async (ot) => {
+    const id = ot?.id;
+    if (!id || state.isEnviandoInformeCliente) return;
+    state.isEnviandoInformeCliente = true;
+    state.otFeedback = null;
+    render();
+    try {
+      await otService.enviarInformeCliente(id);
+      state.otFeedback = { type: 'success', message: 'Informe enviado correctamente.' };
+      await loadViewData();
+    } catch (error) {
+      state.otFeedback = {
+        type: 'error',
+        message: error.message || 'No se pudo registrar el envío al cliente.',
+      };
+      render();
+    } finally {
+      state.isEnviandoInformeCliente = false;
+      render();
+    }
+  },
+
   generatePdfFromOt: async (ot) => {
     if (state.isGeneratingPdf) return;
     const id = ot?.id;
@@ -1807,6 +1830,7 @@ const render = () => {
         isClosingOT: state.isClosingOT,
         isUploadingEvidence: state.isUploadingEvidence,
         isGeneratingPdf: state.isGeneratingPdf,
+        isEnviandoInformeCliente: state.isEnviandoInformeCliente,
         isSavingEquipos: state.isSavingEquipos,
         isSavingVisitText: state.isSavingVisitText,
         isSavingOtEconomics: state.isSavingOtEconomics,

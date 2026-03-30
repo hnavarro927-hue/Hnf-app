@@ -6,6 +6,7 @@ import {
   runJarvisIntakeClassification,
 } from '../domain/jarvis-intake-engine.js';
 import { puedeEstadoFacturadaManual } from '../domain/ot-facturacion.engine.js';
+import { normalizeAprobacionLynEstado } from '../domain/ot-lyn-aprobacion.engine.js';
 import { suggestTechnicianAutomatic } from '../domain/jarvisOtAssignment.stub.js';
 import { jarvisIntakeService } from './jarvisIntake.service.js';
 import {
@@ -14,6 +15,7 @@ import {
 } from '../middlewares/file-upload.middleware.js';
 import { otModel } from '../models/ot.model.js';
 import { otRepository } from '../repositories/ot.repository.js';
+import { auditService } from './audit.service.js';
 import { isAdminActor } from '../utils/hnfActor.js';
 import {
   isOtCierreEstricto,
@@ -559,5 +561,60 @@ export const otService = {
       return { error: 'OT no encontrada.' };
     }
     return { ok: true };
+  },
+
+  /**
+   * Marca envío simulado al cliente (v1: sin SMTP). Requiere Lyn aprobado, listo enviar y pdfUrl.
+   */
+  async enviarInformeClienteSimulado(id, actor = 'sistema') {
+    const ot = await otRepository.findById(id);
+    if (!ot) {
+      return { error: 'OT no encontrada.', code: 'NOT_FOUND' };
+    }
+    const ap = normalizeAprobacionLynEstado(ot.aprobacionLynEstado);
+    if (ap !== 'aprobado_lyn') {
+      return {
+        error: 'Solo se puede enviar con aprobación Lyn en estado aprobado_lyn.',
+        code: 'LYN_NOT_APPROVED',
+      };
+    }
+    if (!ot.listoEnviarCliente) {
+      return {
+        error: 'La OT no está marcada como lista para enviar al cliente (listoEnviarCliente).',
+        code: 'NOT_READY',
+      };
+    }
+    const pdfUrl = String(ot.pdfUrl || '').trim();
+    if (!pdfUrl) {
+      return {
+        error: 'No hay PDF en el servidor (pdfUrl vacío). Generá y guardá el informe antes de enviar.',
+        code: 'NO_PDF',
+      };
+    }
+    if (ot.enviadoCliente) {
+      return { error: 'El informe ya fue enviado al cliente.', code: 'ALREADY_SENT' };
+    }
+
+    const actorLabel = String(actor || 'sistema').slice(0, 120);
+    const fechaEnvio = new Date().toISOString();
+    const updated = await otRepository.patchClienteEnvioSimulado(
+      id,
+      { enviadoCliente: true, fechaEnvio, enviadoPor: actorLabel },
+      actorLabel
+    );
+    if (!updated) {
+      return { error: 'OT no encontrada.', code: 'NOT_FOUND' };
+    }
+
+    await auditService.logCritical({
+      actor: actorLabel,
+      action: 'envio_cliente',
+      resource: 'ot',
+      resourceId: String(id),
+      meta: { fechaEnvio, pdfUrl: pdfUrl.slice(0, 240) },
+      result: 'ok',
+    });
+
+    return { ot: updated };
   },
 };

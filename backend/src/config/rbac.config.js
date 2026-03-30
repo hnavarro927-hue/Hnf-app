@@ -87,6 +87,8 @@ export const ACTION_ACCESS = {
   /** Registro de revisión / control operativo (Lyn, Hernán; admin incluido por consistencia). */
   'control.registro_lyn': ['admin', 'hernan', 'lyn'],
   'lyn.aprobacion_ot': ['admin', 'hernan', 'lyn'],
+  /** Simulación v1 de envío informe al cliente (PDF ya en servidor; sin SMTP). */
+  'ot.enviar_cliente': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
 };
 
 /**

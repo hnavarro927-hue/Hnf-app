@@ -2,6 +2,7 @@ import { otModel } from '../models/ot.model.js';
 import { otService } from '../services/ot.service.js';
 import { sendError, sendSuccess } from '../utils/http.js';
 import { getRequestActor } from '../utils/requestActor.js';
+import { assertAction } from '../utils/rbacHttp.js';
 
 export const getAllOT = async (request, response) => {
   const data = await otService.getAll();
@@ -210,6 +211,31 @@ export const patchOTCore = async (request, response) => {
   return sendSuccess(response, 200, result, {
     resource: 'ots',
     action: 'patchOTCore',
+  });
+};
+
+export const postEnviarCliente = async (request, response) => {
+  if (!assertAction(request, response, 'ot.enviar_cliente')) return;
+  const actor = request.hnfActor || getRequestActor(request);
+  const result = await otService.enviarInformeClienteSimulado(request.params.id, actor);
+
+  if (result.error) {
+    const code = result.code;
+    const status =
+      code === 'NOT_FOUND'
+        ? 404
+        : code === 'ALREADY_SENT'
+          ? 409
+          : 422;
+    return sendError(response, status, result.error, {
+      resource: 'ots',
+      code: code || 'ENVIO_CLIENTE',
+    });
+  }
+
+  return sendSuccess(response, 200, result.ot, {
+    resource: 'ots',
+    action: 'envio_cliente',
   });
 };
 

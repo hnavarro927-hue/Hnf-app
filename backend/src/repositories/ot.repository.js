@@ -179,6 +179,9 @@ const ensureDefaults = (item) => {
       return Boolean(item.listoEnviarCliente);
     })(),
     lynAprobacionHistorial: Array.isArray(item.lynAprobacionHistorial) ? item.lynAprobacionHistorial : [],
+    enviadoCliente: Boolean(item.enviadoCliente),
+    fechaEnvio: item.fechaEnvio != null && String(item.fechaEnvio).trim() ? String(item.fechaEnvio).trim() : null,
+    enviadoPor: item.enviadoPor != null && String(item.enviadoPor).trim() ? String(item.enviadoPor).trim().slice(0, 120) : null,
   };
   const eco = computeOtEconomics(base);
   const est = calcularEstimadosMensuales(eco);
@@ -339,6 +342,34 @@ export const otRepository = {
       updated.listoEnviarCliente = false;
     }
     updated = touch(updated, 'estado', `${prev.estado} → ${estadoN}`, actor);
+    updated = ensureDefaults(updated);
+    const next = [...items];
+    next[index] = updated;
+    await saveStore(next);
+    return updated;
+  },
+
+  async patchClienteEnvioSimulado(
+    id,
+    { enviadoCliente, fechaEnvio, enviadoPor },
+    actor = 'sistema'
+  ) {
+    const items = await loadStore();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    let updated = {
+      ...ensureDefaults(items[index]),
+      enviadoCliente: Boolean(enviadoCliente),
+      fechaEnvio: fechaEnvio != null ? String(fechaEnvio) : null,
+      enviadoPor: enviadoPor != null ? String(enviadoPor).slice(0, 120) : null,
+    };
+    updated = touch(
+      updated,
+      'envio_cliente',
+      `Informe marcado como enviado al cliente (simulado) · ${updated.fechaEnvio || ''}`,
+      actor
+    );
     updated = ensureDefaults(updated);
     const next = [...items];
     next[index] = updated;

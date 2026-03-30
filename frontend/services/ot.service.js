@@ -19,4 +19,9 @@ export const otService = {
     httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/economics`, payload),
   patchOperational: (id, payload) =>
     httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/operacion`, payload),
+  /** Simulación v1: marca enviadoCliente + auditoría (sin SMTP). */
+  enviarInformeCliente: (id) =>
+    httpClient
+      .post(`${apiEndpoints.ots}/${encodeURIComponent(id)}/enviar-cliente`, {})
+      .then(unwrap),
 };

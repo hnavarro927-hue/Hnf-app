@@ -86,6 +86,10 @@ export const otModel = {
     'aprobacionLynEstado',
     'listoEnviarCliente',
     'lynAprobacionHistorial',
+    /** Envío informe al cliente (simulado v1; sin SMTP). */
+    'enviadoCliente',
+    'fechaEnvio',
+    'enviadoPor',
   ],
   statusOptions: ['nueva', 'asignada', 'en_proceso', 'pendiente_validacion', 'cerrada', 'finalizada', 'facturada'],
   origenSolicitudOptions: ['whatsapp', 'cliente_directo', 'interno', 'email', 'llamada'],
