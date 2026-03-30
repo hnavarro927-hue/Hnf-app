@@ -57,6 +57,7 @@ import { bandejaLynView } from './views/bandeja-lyn.js';
 import { finanzasOperativoView } from './views/finanzas-operativo.js';
 import { equipoOperativoView } from './views/equipo-operativo.js';
 import { controlGerencialView } from './views/control-gerencial.js';
+import { matrizHnfView } from './views/matriz-hnf.js';
 import { hnfOperativoIntegradoService } from './services/hnf-operativo-integrado.service.js';
 import { maestroService } from './services/maestro.service.js';
 import { whatsappFeedService } from './services/whatsapp-feed.service.js';
@@ -70,6 +71,8 @@ import { ocDocumentosService } from './services/oc-documentos.service.js';
 import { operationalCalendarService } from './services/operational-calendar.service.js';
 import { operationalEventsService } from './services/operational-events.service.js';
 import { hnfCoreSolicitudesService } from './services/hnf-core-solicitudes.service.js';
+import { finanzasHnfService } from './services/finanzas-hnf.service.js';
+import { rbacHnfService } from './services/rbac-hnf.service.js';
 import {
   computeOperationalCalendarAlerts,
   defaultOperationalCalendarRange,
@@ -608,7 +611,45 @@ const loadTechnicalDocumentsView = async () => {
   };
 };
 
+const loadMatrizData = async () => {
+  const [otsR, expR, leadsR, solR, ocR, evR, audR, tiendasR] = await Promise.all([
+    otService.getAll().catch(() => ({ data: [] })),
+    expenseService.getAll().catch(() => ({ data: [] })),
+    commercialLeadsService.getAll().catch(() => []),
+    hnfCoreSolicitudesService.getAll({}).catch(() => []),
+    ocDocumentosService.list().catch(() => []),
+    operationalEventsService.listEvents().catch(() => []),
+    rbacHnfService.auditRecent(40).catch(() => []),
+    finanzasHnfService.getTiendas().catch(() => []),
+  ]);
+  const ots = otsR?.data ?? (Array.isArray(otsR) ? otsR : []);
+  const expenses = expR?.data ?? (Array.isArray(expR) ? expR : []);
+  const leads = Array.isArray(leadsR) ? leadsR : [];
+  const solicitudes = Array.isArray(solR) ? solR : [];
+  const ocList = Array.isArray(ocR) ? ocR : [];
+  const events = Array.isArray(evR) ? evR : [];
+  const auditRows = Array.isArray(audR) ? audR : [];
+  const tiendas = Array.isArray(tiendasR) ? tiendasR : [];
+  return {
+    matriz: {
+      ots,
+      expenses,
+      leads,
+      solicitudes,
+      ocList,
+      events,
+      auditRows,
+      tiendas,
+    },
+  };
+};
+
 const viewRegistry = {
+  'matriz-hnf': {
+    render: matrizHnfView,
+    load: loadMatrizData,
+  },
+
   'ingreso-operativo': {
     render: ingresoOperativoView,
     load: loadFullOperationalData,
@@ -1706,6 +1747,7 @@ const render = () => {
         opThemeClasses.forEach((c) => document.body.classList.remove(c));
 
         const opCommandViews = new Set([
+          'matriz-hnf',
           'ingreso-operativo',
           'bandeja-canal',
           'jarvis-intake',
@@ -1729,6 +1771,7 @@ const render = () => {
           'panel-operativo-vivo',
         ]);
         const opThemeByView = {
+          'matriz-hnf': 'control',
           'ingreso-operativo': 'ingreso',
           'bandeja-canal': 'bandeja',
           'jarvis-intake': 'bandeja',
@@ -1789,6 +1832,8 @@ const render = () => {
         usuariosFeedback: state.usuariosFeedback,
         auditoriaFeedback: state.auditoriaFeedback,
         onUsuariosAction: handleUsuariosAction,
+        allowedModules: Array.isArray(state.authMe?.modules) ? state.authMe.modules : [],
+        authLabel: state.authMe?.user?.nombre || state.authMe?.actor || '—',
       };
 
       try {

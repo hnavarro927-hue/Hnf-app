@@ -21,7 +21,11 @@ export const HNF_BANDEJA_LYN_NAV = { id: 'bandeja-lyn', icon: '▤', label: 'Ban
 
 const pick = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 
+/** Centro de control gerencial (Hernán / Lyn). Sin detalle operativo. */
+export const HNF_MATRIZ_NAV = { id: 'matriz-hnf', icon: '▣', label: 'Matriz HNF' };
+
 export const HNF_OS_NAV_ADMIN = [
+  HNF_MATRIZ_NAV,
   { id: 'jarvis', icon: '◉', label: 'Jarvis HQ' },
   { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
   { id: 'bandeja-canal', icon: '▣', label: 'Bandeja' },

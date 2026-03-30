@@ -8,6 +8,7 @@ const byId = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 
 /** Orden de negocio para rol con acceso total. */
 export const HNF_FULL_NAV_ORDER = [
+  'matriz-hnf',
   'jarvis',
   'ingreso-operativo',
   'bandeja-canal',
@@ -63,6 +64,10 @@ export function isViewAllowedForModules(modules, viewId) {
 
 export function defaultViewForModules(modules) {
   const mods = Array.isArray(modules) ? modules : [];
+  if (mods.includes('*')) {
+    const items = navItemsFromModules(modules);
+    return items.length ? items[0].id : 'sin-acceso';
+  }
   if (mods.includes('clima')) return 'clima';
   if (mods.includes('flota') && !mods.includes('clima')) return 'flota';
   const items = navItemsFromModules(modules);

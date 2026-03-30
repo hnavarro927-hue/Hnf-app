@@ -30,6 +30,7 @@ export const MODULE_ACCESS = {
   admin: ['*'],
   hernan: ['*'],
   lyn: [
+    'matriz-hnf',
     'jarvis',
     'oportunidades',
     'finanzas',
