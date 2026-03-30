@@ -3,6 +3,7 @@ import { listIngresosOperativosDelDia } from '../domain/ingreso-operativo-storag
 import { otCanClose } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import { createHnfGerenciaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
+import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-registro.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -10,7 +11,7 @@ const fmtMoney = (n) =>
 /**
  * Capa 4 — Control gerencial (Hernan). Resumen sin detalle de ejecución.
  */
-export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {}) => {
+export const controlGerencialView = ({ data, navigateToView, intelNavigate, reloadApp } = {}) => {
   const root = document.createElement('section');
   root.className = 'hnf-cap-control hnf-op-view hnf-op-view--control';
 
@@ -107,7 +108,9 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate } = {
   if (headEl) {
     const strip = createHnfOperationalFlowStrip(4);
     headEl.after(strip);
-    strip.after(createHnfGerenciaOpsIdentityCard());
+    const idCard = createHnfGerenciaOpsIdentityCard();
+    strip.after(idCard);
+    idCard.after(createHnfControlLynRegistroPanel({ reloadApp }));
   }
 
   const ul = root.querySelector('#hnf-control-resp');

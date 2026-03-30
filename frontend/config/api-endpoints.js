@@ -44,4 +44,5 @@ export const apiEndpoints = {
   commercialBorradorJarvis: '/commercial/borradores-correo/jarvis',
   rbacMe: '/rbac/me',
   auditRecent: '/audit/recent',
+  controlRegistroLyn: '/control/registro-lyn',
 };

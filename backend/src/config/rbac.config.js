@@ -47,11 +47,8 @@ export const MODULE_ACCESS = {
     'ingreso-operativo',
     'bandeja-romina',
     'clima',
-    'planificacion',
     'base-maestra',
     'documentos-tecnicos',
-    'ordenes-compra',
-    'hnf-core',
   ],
   gery: [
     'jarvis',
@@ -87,6 +84,8 @@ export const ACTION_ACCESS = {
   'users.manage': ['admin', 'hernan'],
   'hnfcore.access': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
   'operativo.flow': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  /** Registro de revisión / control operativo (Lyn, Hernán; admin incluido por consistencia). */
+  'control.registro_lyn': ['admin', 'hernan', 'lyn'],
 };
 
 /**

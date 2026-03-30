@@ -16933,6 +16933,71 @@ body.hnf-view--control-operativo #app {
   justify-content: center;
 }
 
+/* Registro operativo Lyn — Control gerencial */
+.hnf-control-lyn-registro {
+  margin: 0 0 1.5rem;
+  padding: 1.25rem 1.25rem 1.35rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 20, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 194, 168, 0.08) inset;
+}
+.hnf-control-lyn-registro__title {
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+.hnf-control-lyn-registro__intro {
+  margin: 0 0 1rem;
+  line-height: 1.45;
+  max-width: 52rem;
+}
+.hnf-control-lyn-registro__grid {
+  display: grid;
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .hnf-control-lyn-registro__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.hnf-control-lyn-registro__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hnf-control-lyn-registro__field--full {
+  grid-column: 1 / -1;
+}
+.hnf-control-lyn-registro__hint {
+  line-height: 1.35;
+}
+.hnf-control-lyn-registro__input,
+.hnf-control-lyn-registro__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  font: inherit;
+}
+.hnf-control-lyn-registro__textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+.hnf-control-lyn-registro__actions {
+  margin-top: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.hnf-control-lyn-registro__meta {
+  margin: 0;
+  flex: 1 1 12rem;
+}
+
 @media (min-width: 900px) and (orientation: landscape) {
   .hnf-cap-ingreso__grid {
     grid-template-columns: repeat(3, 1fr);

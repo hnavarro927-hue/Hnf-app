@@ -27,6 +27,7 @@ import { finanzasRoutes } from './finanzas.routes.js';
 import { ocPurchaseOrderRoutes } from './ocPurchaseOrder.routes.js';
 import { commercialWorkspaceRoutes } from './commercialWorkspace.routes.js';
 import { rbacRoutes } from './rbac.routes.js';
+import { controlLynRoutes } from './controlLyn.routes.js';
 
 export const routes = [
   ...authRoutes,
@@ -58,4 +59,5 @@ export const routes = [
   ...ocPurchaseOrderRoutes,
   ...commercialWorkspaceRoutes,
   ...rbacRoutes,
+  ...controlLynRoutes,
 ];

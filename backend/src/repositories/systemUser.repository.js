@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,16 +6,34 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.resolve(__dirname, '../../data/hnf_system_users.json');
 
 let cache = null;
+/** @type {number | null} */
+let cacheMtimeMs = null;
 
 async function load() {
-  if (cache) return cache;
   await mkdir(path.dirname(dataFile), { recursive: true });
+  let mtimeMs = null;
+  try {
+    const st = await stat(dataFile);
+    mtimeMs = st.mtimeMs;
+    if (cache != null && cacheMtimeMs === mtimeMs) {
+      return cache;
+    }
+  } catch {
+    mtimeMs = null;
+  }
+
   try {
     const raw = await readFile(dataFile, 'utf8');
     const j = JSON.parse(raw);
     cache = Array.isArray(j) ? j : [];
   } catch {
     cache = [];
+  }
+  try {
+    const st2 = await stat(dataFile);
+    cacheMtimeMs = st2.mtimeMs;
+  } catch {
+    cacheMtimeMs = mtimeMs ?? Date.now();
   }
   return cache;
 }
@@ -24,6 +42,12 @@ async function save(items) {
   cache = items;
   await mkdir(path.dirname(dataFile), { recursive: true });
   await writeFile(dataFile, `${JSON.stringify(items, null, 2)}\n`, 'utf8');
+  try {
+    const st = await stat(dataFile);
+    cacheMtimeMs = st.mtimeMs;
+  } catch {
+    cacheMtimeMs = Date.now();
+  }
 }
 
 const nextId = (list) => {
