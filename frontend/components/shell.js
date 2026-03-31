@@ -36,6 +36,40 @@ const NAV_TECH_ACCENT = {
   'documentos-tecnicos': 'jarvis',
 };
 
+/** Agrupación visual Modo Alien — sidebar por función (sin cambiar orden de negocio). */
+const VIEW_NAV_SECTION = {
+  'matriz-hnf': 'nucleo',
+  'centro-control': 'nucleo',
+  jarvis: 'nucleo',
+  'ingreso-operativo': 'nucleo',
+  'bandeja-canal': 'bandejas',
+  'bandeja-romina': 'bandejas',
+  'bandeja-gery': 'bandejas',
+  'lyn-aprobacion': 'bandejas',
+  clima: 'campo',
+  planificacion: 'campo',
+  flota: 'campo',
+  oportunidades: 'comercial',
+  'ordenes-compra': 'comercial',
+  'documentos-tecnicos': 'comercial',
+  'control-gerencial': 'gerencia',
+  finanzas: 'gerencia',
+  equipo: 'gerencia',
+  'hnf-core': 'sistema',
+  'base-maestra': 'sistema',
+  auditoria: 'sistema',
+  usuarios: 'sistema',
+};
+
+const NAV_SECTION_LABEL = {
+  nucleo: 'Núcleo operativo',
+  bandejas: 'Bandejas',
+  campo: 'Campo',
+  comercial: 'Comercial',
+  gerencia: 'Gerencia',
+  sistema: 'Sistema',
+};
+
 const statusModifiers = (integrationStatus) => {
   if (integrationStatus === 'conectado') return 'shell-status--ok';
   if (integrationStatus === 'sin conexión') return 'shell-status--bad';
@@ -198,7 +232,17 @@ export const createShell = ({
   nav.className = 'nav nav--mando';
   nav.setAttribute('aria-label', 'Navegación principal');
 
+  let lastNavSection = null;
   items.forEach((item) => {
+    const secKey = VIEW_NAV_SECTION[item.id];
+    if (secKey && secKey !== lastNavSection) {
+      lastNavSection = secKey;
+      const secEl = document.createElement('div');
+      secEl.className = 'nav-section__label';
+      secEl.textContent = NAV_SECTION_LABEL[secKey] || secKey;
+      nav.append(secEl);
+    }
+
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'nav-item nav-item--mando';
