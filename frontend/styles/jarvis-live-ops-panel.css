@@ -1,0 +1,148 @@
+/**
+ * Panel vivo Jarvis operador (control gerencial).
+ */
+
+.hnf-jarvis-live-ops {
+  --jlo-cyan: #22d3ee;
+  --jlo-glow: rgba(34, 211, 238, 0.15);
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 0.55rem;
+  background: linear-gradient(165deg, rgba(8, 40, 52, 0.4), rgba(9, 9, 11, 0.94));
+  box-shadow: 0 0 22px var(--jlo-glow);
+}
+
+.hnf-jarvis-nucleus .hnf-jarvis-live-ops {
+  margin-top: 0.5rem;
+}
+
+.hnf-jarvis-live-ops__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.hnf-jarvis-live-ops__title {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--jlo-cyan);
+  text-shadow: 0 0 12px var(--jlo-glow);
+}
+
+.hnf-jarvis-live-ops__pill {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hnf-jarvis-live-ops__pill--ok {
+  color: #a5f3fc;
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.hnf-jarvis-live-ops__pill--warn {
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.hnf-jarvis-live-ops__pill--bad {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.hnf-jarvis-live-ops__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.45rem 0.65rem;
+}
+
+.hnf-jarvis-live-ops__cell {
+  min-width: 0;
+}
+
+.hnf-jarvis-live-ops__k {
+  display: block;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #71717a;
+  margin-bottom: 0.2rem;
+}
+
+.hnf-jarvis-live-ops__v {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #e4e4e7;
+  word-break: break-word;
+}
+
+.hnf-jarvis-live-ops__v--accent {
+  color: var(--jlo-cyan);
+  font-weight: 600;
+}
+
+.hnf-jarvis-live-ops__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.55rem;
+  line-height: 1.35;
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-live-ops__details {
+  margin-top: 0.45rem;
+  font-size: 0.55rem;
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-live-ops__details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #d4d4d8;
+}
+
+.hnf-jarvis-live-ops__checks {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  list-style: disc;
+}
+
+.hnf-jarvis-live-ops__check {
+  margin-bottom: 0.25rem;
+}
+
+.hnf-jarvis-live-ops__check strong {
+  color: #e4e4e7;
+}
+
+.hnf-jarvis-live-ops__check--ok strong {
+  color: #a5f3fc;
+}
+
+.hnf-jarvis-live-ops__check--warning strong {
+  color: #fde68a;
+}
+
+.hnf-jarvis-live-ops__check--error strong {
+  color: #fecaca;
+}
+
+.hnf-jarvis-live-ops__check-detail {
+  display: block;
+  font-size: 0.5rem;
+  color: #71717a;
+  margin-top: 0.08rem;
+}

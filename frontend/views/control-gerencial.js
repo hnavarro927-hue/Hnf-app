@@ -7,6 +7,7 @@ import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-
 import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
 import { createJarvisCopilot } from '../components/jarvis-copilot.js';
+import { createJarvisLiveOpsPanel } from '../components/jarvis-live-ops-panel.js';
 import { createJarvisPresence, jarvisLineaDesdeIntegracion } from '../components/jarvis-presence.js';
 
 const fmtMoney = (n) =>
@@ -21,6 +22,7 @@ export const controlGerencialView = ({
   intelNavigate,
   reloadApp,
   integrationStatus,
+  lastDataRefreshAt,
 } = {}) => {
   const root = document.createElement('section');
   root.className = 'hnf-cap-control hnf-op-view hnf-op-view--control';
@@ -119,7 +121,9 @@ export const controlGerencialView = ({
   const jarvisHost = root.querySelector('#hnf-control-jarvis-nucleus');
   if (jarvisHost) {
     const jSig = buildJarvisGerencialSignals(list);
-    jarvisHost.append(
+    const mainRow = document.createElement('div');
+    mainRow.className = 'hnf-jarvis-nucleus__main-row';
+    mainRow.append(
       createJarvisPresence({
         linea: jarvisLineaDesdeIntegracion(integrationStatus),
         metrics: {
@@ -130,6 +134,15 @@ export const controlGerencialView = ({
         suggestion: jSig.suggestion,
       }),
       createJarvisCopilot({ focoOt: jSig.focoOt })
+    );
+    jarvisHost.append(
+      mainRow,
+      createJarvisLiveOpsPanel({
+        integrationStatus,
+        viewData: data,
+        lastDataRefreshAt,
+        focoOt: jSig.focoOt,
+      })
     );
   }
 

@@ -10,14 +10,21 @@
   padding: 0;
 }
 
+.hnf-jarvis-nucleus__main-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
 @media (min-width: 900px) {
-  .hnf-jarvis-nucleus {
+  .hnf-jarvis-nucleus__main-row {
     flex-direction: row;
     align-items: stretch;
     gap: 0.75rem;
   }
 
-  .hnf-jarvis-nucleus > * {
+  .hnf-jarvis-nucleus__main-row > * {
     flex: 1 1 0;
     min-width: 0;
   }
