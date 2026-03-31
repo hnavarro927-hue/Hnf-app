@@ -15,7 +15,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const dataDir = path.resolve(__dirname, '../../data');
-const dataFile = path.join(dataDir, 'ots.json');
+const dataFile = process.env.HNF_OT_DATA_PATH?.trim()
+  ? path.resolve(process.env.HNF_OT_DATA_PATH)
+  : path.join(dataDir, 'ots.json');
 
 let cache = null;
 

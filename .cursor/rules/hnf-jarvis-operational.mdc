@@ -1,0 +1,42 @@
+---
+description: Jarvis intake — pipeline OT, validaciones y pruebas sin relajar seguridad
+globs: backend/src/**/*jarvis*,backend/src/intake/**/*,backend/src/services/jarvisIntake*.js,scripts/hnf-jarvis*.mjs
+alwaysApply: false
+---
+
+# HNF — Jarvis operativo (intake → OT real)
+
+## Pipeline (ya cableado)
+
+1. **Entrada estructurada** → `POST /jarvis/intake` (`source`, `texto`|`descripcion`, `cliente`, opcionales dirección/comuna/tel/WhatsApp).
+2. **Clasificación** → `backend/src/intake/jarvis-intake.js` (flota antes que clima).
+3. **OT real** → `jarvisIntakeOperational.service.js` → `otService.create` → `backend/data/ots.json` (o `HNF_OT_DATA_PATH` si está definido).
+4. **Asignación** → clima → Romina, flota → Gery; estado inicial vía `estadoCoreOverride: pendiente` → almacenado como `nueva`.
+5. **Trazabilidad** → `jarvisIntakeTrace` + historial Jarvis (motor en `ot.service` / dominio).
+
+Lógica de negocio concentrada en **`backend/src/services/jarvisIntakeOperational.service.js`**. El controlador HTTP solo autentica y delega.
+
+## Validaciones al tocar este flujo (sin prompts repetidos)
+
+Ejecutar en la raíz del repo, en este orden:
+
+1. `npm run check:backend`
+2. `npm run verify:jarvis` — smoke aislado (no modifica `backend/data/ots.json`).
+3. Si el cambio afecta frontend o convenciones globales: `npm run validate:code` y/o `npm run check:frontend` (equivale a build + guard).
+
+Atajo full antes de PR grande: `npm run verify:jarvis:full`.
+
+## Seguridad
+
+- **`/jarvis/intake` no es público**: requiere sesión Bearer (o `HNF_AUTH_DISABLED=1` solo en local).
+- **No** añadir `isPublicRoute` para Jarvis salvo decisión explícita de producto.
+- **No** desactivar auth global ni usar “full access” en reglas Cursor.
+
+## WhatsApp / correo (preparación, no credenciales)
+
+- **WhatsApp**: ingesta existente `POST /whatsapp/ingest` (feed + lógica propia de matching OT). Para alinear 100 % con el pipeline Jarvis (misma heurística Romina/Gery) habría que invocar `createRealOtFromJarvisIntakeBody` desde el branch de alta de OT en `whatsappIngest.service.js` — cambio de producto; hasta entonces conviven dos rutas.
+- **Correo**: módulo Outlook (`/outlook/*`). Misma nota: integración explícita opcional llamando al servicio operativo con `source: 'email'`.
+
+## Variable útil
+
+- **`HNF_OT_DATA_PATH`**: ruta absoluta a un JSON de OT alternativo (tests, demos) sin tocar datos reales.

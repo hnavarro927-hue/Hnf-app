@@ -7,22 +7,27 @@ function detectarOrigen(input) {
 function clasificarArea(texto = '') {
   const t = texto.toLowerCase();
 
-  if (
-    t.includes('aire') ||
-    t.includes('clima') ||
-    t.includes('mantencion') ||
-    t.includes('equipo')
-  ) {
-    return 'clima';
-  }
-
+  // Flota primero: evita que palabras genéricas («mantención», «equipo») ganen sobre señales de flota.
   if (
     t.includes('traslado') ||
     t.includes('flota') ||
     t.includes('vehiculo') ||
+    t.includes('vehículo') ||
+    t.includes('camion') ||
+    t.includes('camión') ||
     t.includes('rt')
   ) {
     return 'flota';
+  }
+
+  if (
+    t.includes('aire') ||
+    t.includes('clima') ||
+    t.includes('mantencion') ||
+    t.includes('mantención') ||
+    t.includes('equipo')
+  ) {
+    return 'clima';
   }
 
   return 'indefinido';
