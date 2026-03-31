@@ -1,13 +1,13 @@
 /**
- * Pipeline operativo Jarvis: intake estructurado → validación dominio → OT real (ots.json)
- * → asignación Romina/Gery (clima/flota) → trazabilidad (jarvisIntakeTrace vía otService.create).
+ * Pipeline operativo Jarvis: intake estructurado → validación → clasificación → OT real
+ * → asignación Romina/Gery → trazabilidad (jarvisIntakeTrace vía otService.create).
  */
 import { createRequire } from 'node:module';
 
 import { otService } from './ot.service.js';
 
 const require = createRequire(import.meta.url);
-const { crearOTDesdeInput } = require('../intake/jarvis-intake');
+const { clasificarArea } = require('../intake/jarvis-intake');
 
 export const mapJarvisSourceToOrigenSolicitud = (source) => {
   const s = String(source ?? '')
@@ -20,23 +20,37 @@ export const mapJarvisSourceToOrigenSolicitud = (source) => {
 };
 
 /**
- * @param {Record<string, unknown>} body - Payload HTTP (texto|descripcion, cliente, source, …)
+ * @param {Record<string, unknown>} body - Payload HTTP (texto, cliente, source, …)
  * @param {string} actor - Actor HNF (sesión / legado)
  * @returns {Promise<{ ok: true, ot: object } | { ok: false, errors: string[] }>}
  */
 export async function createRealOtFromJarvisIntakeBody(body, actor) {
-  const texto = String(body?.texto ?? body?.descripcion ?? '').trim();
-  const cliente = String(body?.cliente ?? '').trim() || null;
+  const texto = String(body?.texto ?? '').trim();
+  const cliente = String(body?.cliente ?? '').trim();
+
+  if (!texto) {
+    return { ok: false, errors: ['El campo texto es obligatorio.'] };
+  }
+  if (!cliente) {
+    return { ok: false, errors: ['El campo cliente es obligatorio.'] };
+  }
+
+  const area = clasificarArea(texto);
+  const responsable = area === 'clima' ? 'Romina' : 'Gery';
+
+  console.log('JARVIS DECISION:', {
+    area,
+    responsable,
+    cliente: body.cliente,
+  });
+
   const origenSolicitud = mapJarvisSourceToOrigenSolicitud(body?.source);
   const origenPedido = String(body?.source ?? 'manual')
     .trim()
     .slice(0, 120);
 
-  const draft = crearOTDesdeInput({ ...body, texto: texto || body?.texto });
-  const area = draft.area;
-  const tipoServicio = area === 'flota' ? 'flota' : area === 'clima' ? 'clima' : 'clima';
-  const tecnicoAsignado =
-    area === 'clima' ? 'Romina' : area === 'flota' ? 'Gery' : 'Por asignar';
+  const tipoServicio = area === 'flota' ? 'flota' : 'clima';
+  const tecnicoAsignado = responsable;
 
   const now = new Date();
   const fecha = now.toISOString().slice(0, 10);
@@ -45,7 +59,7 @@ export async function createRealOtFromJarvisIntakeBody(body, actor) {
   const prioridadOperativa = ['alta', 'media', 'baja'].includes(pr) ? pr : 'media';
 
   const payload = {
-    cliente: cliente || 'Sin cliente',
+    cliente,
     direccion: String(body?.direccion ?? '').trim() || 'Por definir',
     comuna: String(body?.comuna ?? '').trim() || 'Sin comuna',
     contactoTerreno: String(body?.contactoTerreno ?? '').trim() || cliente || 'Contacto',

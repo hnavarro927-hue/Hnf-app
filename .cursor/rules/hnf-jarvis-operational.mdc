@@ -9,7 +9,7 @@ alwaysApply: false
 ## Pipeline (ya cableado)
 
 1. **Entrada estructurada** → `POST /jarvis/intake` (`source`, `texto`|`descripcion`, `cliente`, opcionales dirección/comuna/tel/WhatsApp).
-2. **Clasificación** → `backend/src/intake/jarvis-intake.js` (flota antes que clima).
+2. **Clasificación** → `backend/src/intake/jarvis-intake.js` (`clasificarArea`: señales clima primero, luego flota; default clima).
 3. **OT real** → `jarvisIntakeOperational.service.js` → `otService.create` → `backend/data/ots.json` (o `HNF_OT_DATA_PATH` si está definido).
 4. **Asignación** → clima → Romina, flota → Gery; estado inicial vía `estadoCoreOverride: pendiente` → almacenado como `nueva`.
 5. **Trazabilidad** → `jarvisIntakeTrace` + historial Jarvis (motor en `ot.service` / dominio).
@@ -28,9 +28,13 @@ Atajo full antes de PR grande: `npm run verify:jarvis:full`.
 
 ## Seguridad
 
-- **`/jarvis/intake` no es público**: requiere sesión Bearer (o `HNF_AUTH_DISABLED=1` solo en local).
-- **No** añadir `isPublicRoute` para Jarvis salvo decisión explícita de producto.
+- **`/jarvis/intake`**: por defecto requiere auth normal (Bearer, etc.). Solo es público si **`JARVIS_PUBLIC=true`** (valor exacto).
+- **`HNF_AUTH_DISABLED=1`**: modo local sin sesión; no usar en producción.
 - **No** desactivar auth global ni usar “full access” en reglas Cursor.
+
+## Payload mínimo
+
+- **`texto`** y **`cliente`** obligatorios; si falta alguno → **400**.
 
 ## WhatsApp / correo (preparación, no credenciales)
 

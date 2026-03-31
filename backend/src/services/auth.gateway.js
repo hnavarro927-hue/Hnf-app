@@ -10,6 +10,9 @@ const isPublicRoute = (method, pathname) => {
   if (pathname === '/auth/login' && method === 'POST') return true;
   if (pathname === '/intake/externo' && method === 'POST') return true;
   if (pathname === '/auth/debug-users' && method === 'GET' && allowAuthDebugEndpoints()) return true;
+  if (pathname === '/jarvis/intake' && method === 'POST' && process.env.JARVIS_PUBLIC === 'true') {
+    return true;
+  }
   return false;
 };
 
