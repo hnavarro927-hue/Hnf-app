@@ -56,7 +56,12 @@ export function createControlLayout({
     onNavigate,
   });
 
-  const jarvisLine = buildOperationalJarvisLine(activeView, viewData);
+  let jarvisLine = '—';
+  try {
+    jarvisLine = buildOperationalJarvisLine(activeView, viewData) || '—';
+  } catch {
+    jarvisLine = '—';
+  }
   const contextStrip = createOperationalContextStrip({
     jarvisLine,
     activeView,

@@ -1,12 +1,13 @@
 /**
- * Carril Kanban operativo HNF — única fuente para shell principal y matrix-core.
- * Campos: estado, tipoServicio, aprobacionLynEstado, enviadoCliente.
+ * Carril Kanban operativo HNF — alineado al flujo OT de 6 estados.
+ * `estadoOperativo` (persistido en local) tiene prioridad; si no, se deriva del modelo API/Lyn.
  */
+
+import { getEffectiveEstadoOperativo, mapLegacyOtToEstadoOperativo } from './hnf-ot-state-engine.js';
 
 export const KANBAN_LANE_IDS = [
   'ingreso',
   'en_proceso',
-  'pendiente_aprobacion',
   'observado',
   'aprobado',
   'enviado',
@@ -17,36 +18,12 @@ export const KANBAN_LANE_IDS = [
 export function mapOtToLane(ot) {
   if (!ot || typeof ot !== 'object') return 'ingreso';
 
-  const estado = String(ot.estado ?? '')
+  const eo = String(ot.estadoOperativo ?? '')
     .trim()
     .toLowerCase();
-  const lyn = String(ot.aprobacionLynEstado ?? '')
-    .trim()
-    .toLowerCase();
-  const tipo = String(ot.tipoServicio ?? '')
-    .trim()
-    .toLowerCase();
-  const ambitoLyn = tipo === 'clima' || tipo === 'flota';
-  const enviado = Boolean(ot.enviadoCliente);
+  if (KANBAN_LANE_IDS.includes(eo)) return eo;
 
-  if (estado === 'facturada' || estado === 'finalizada') return 'cerrado';
-  if (lyn === 'rechazado_lyn') return 'cerrado';
-
-  if (enviado) return 'enviado';
-  if (lyn === 'aprobado_lyn') return 'aprobado';
-  if (lyn === 'observado_lyn') return 'observado';
-  if (lyn === 'pendiente_revision_lyn') return 'pendiente_aprobacion';
-  if (lyn === 'devuelto_operaciones') return 'en_proceso';
-
-  if (estado === 'cerrada') {
-    if (ambitoLyn && !lyn) return 'pendiente_aprobacion';
-    return 'cerrado';
-  }
-
-  if (estado === 'en_proceso') return 'en_proceso';
-  if (estado === 'pendiente_validacion' || estado === 'nueva' || estado === 'asignada') {
-    return 'ingreso';
-  }
-
-  return 'ingreso';
+  return mapLegacyOtToEstadoOperativo(ot);
 }
+
+export { getEffectiveEstadoOperativo };

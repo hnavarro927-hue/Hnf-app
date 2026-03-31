@@ -1,12 +1,11 @@
 import '../styles/hnf-operational-kanban.css';
-import { KANBAN_LANE_IDS, mapOtToLane } from '../domain/ot-kanban-lanes.js';
+import { KANBAN_LANE_IDS, getEffectiveEstadoOperativo, mapOtToLane } from '../domain/ot-kanban-lanes.js';
 
 export const DEFAULT_KANBAN_LANE_LABELS = {
   ingreso: 'Ingreso',
   en_proceso: 'En proceso',
-  pendiente_aprobacion: 'Pend. aprobación',
   observado: 'Observado',
-  aprobado: 'Aprobado',
+  aprobado: 'Aprobado / Lyn',
   enviado: 'Enviado',
   cerrado: 'Cerrado',
 };
@@ -47,6 +46,7 @@ function techLabel(ot) {
  * @param {(ot: object) => void} [options.onAssignTech]
  * @param {(ot: object) => void} [options.onChangeState]
  * @param {(ot: object, shell: HTMLElement) => void} [options.onDetail]
+ * @param {(ot: object, targetLaneId: string) => void} [options.onDropOnLane]
  * @returns {{ element: HTMLElement, setActiveShell: (shell: HTMLElement | null) => void }}
  */
 export function createKanbanBoard(options) {
@@ -57,6 +57,7 @@ export function createKanbanBoard(options) {
     onAssignTech,
     onChangeState,
     onDetail,
+    onDropOnLane,
   } = options;
 
   const root = el('hnf-kb');
@@ -120,8 +121,35 @@ export function createKanbanBoard(options) {
     head.append(t, c);
 
     const cards = el('hnf-kb__lane-cards');
+    if (typeof onDropOnLane === 'function') {
+      cards.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      cards.addEventListener('drop', (e) => {
+        e.preventDefault();
+        let payload = null;
+        try {
+          payload = JSON.parse(e.dataTransfer.getData('application/hnf-ot') || 'null');
+        } catch {
+          payload = null;
+        }
+        const oid = payload?.id;
+        if (oid == null) return;
+        const dropped = ots.find((x) => String(x?.id) === String(oid));
+        if (dropped) onDropOnLane(dropped, laneId);
+      });
+    }
+
     for (const ot of byLane[laneId] || []) {
       const shell = el(`hnf-kb__card ${tipoClass(ot.tipoServicio)}`);
+      if (typeof onDropOnLane === 'function') {
+        shell.setAttribute('draggable', 'true');
+        shell.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('application/hnf-ot', JSON.stringify({ id: ot.id }));
+          e.dataTransfer.effectAllowed = 'move';
+        });
+      }
       const tap = el('hnf-kb__card-tap', 'button');
       tap.type = 'button';
       tap.setAttribute('aria-label', `Seleccionar ${String(ot.id || '')}`);
@@ -157,7 +185,8 @@ export function createKanbanBoard(options) {
       }
 
       const est = el('hnf-kb__card-estado');
-      est.textContent = String(ot.estado || '—');
+      const fl = getEffectiveEstadoOperativo(ot);
+      est.textContent = `Flujo: ${fl}`;
 
       tap.append(idEl, cli, grid, chips, est);
       tap.addEventListener('click', () => {

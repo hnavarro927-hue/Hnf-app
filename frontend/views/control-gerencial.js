@@ -7,6 +7,9 @@ import { createHnfGerenciaOpsIdentityCard } from '../components/hnf-brand-ops-st
 import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-registro.js';
 import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
+import { mergePlanOtsWithFlow } from '../domain/hnf-ot-flow-storage.js';
+import { OT_ESTADO_FLUJO } from '../domain/hnf-ot-operational-model.js';
+import { buildOtFlowMetrics, getEffectiveEstadoOperativo } from '../domain/hnf-ot-state-engine.js';
 import { createJarvisCopilot } from '../components/jarvis-copilot.js';
 import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { createJarvisLiveOpsPanel } from '../components/jarvis-live-ops-panel.js';
@@ -47,11 +50,10 @@ export const controlGerencialView = ({
   kpis.classList.add('hnf-ccd__kpis-stack');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
-  const list = Array.isArray(raw) ? raw : [];
+  const list = mergePlanOtsWithFlow(Array.isArray(raw) ? raw : []);
+  const flowMx = buildOtFlowMetrics(list);
 
-  const abiertas = list.filter(
-    (o) => !['terminado', 'cerrada', 'cerrado'].includes(String(o.estado || '').toLowerCase())
-  );
+  const abiertas = list.filter((o) => getEffectiveEstadoOperativo(o) !== 'cerrado');
   const pendientes = list.filter((o) => o.estado === 'pendiente');
   const enProceso = list.filter((o) => o.estado === 'en proceso');
   const listasCierre = list.filter(
@@ -112,6 +114,16 @@ export const controlGerencialView = ({
   appendKpi(kpiGrid, 'WhatsApp (hoy)', String(waHoy));
   appendKpi(kpiGrid, 'Dinero en riesgo', `$${fmtMoney(agg.dinero_en_riesgo)}`);
   appendKpi(kpiGrid, 'Ingresos locales hoy', String(ingresosHoy.length));
+  appendKpi(kpiGrid, 'Activas (flujo OT)', String(flowMx.activas));
+  appendKpi(kpiGrid, 'Cerradas (flujo)', String(flowMx.cerradas));
+  appendKpi(kpiGrid, 'Riesgo simulado', String(flowMx.riesgoSimulado));
+
+  const flowBreak = document.createElement('p');
+  flowBreak.className = 'muted small';
+  flowBreak.style.gridColumn = '1 / -1';
+  flowBreak.style.marginTop = '4px';
+  flowBreak.textContent = `OT por estado (flujo): ${OT_ESTADO_FLUJO.map((k) => `${k}=${flowMx.byEstado[k] ?? 0}`).join(' · ')}`;
+  kpiGrid.append(flowBreak);
 
   const jSig = buildJarvisGerencialSignals(list);
   const jarvisBrandSub = 'Jarvis | Integridad Operativa HNF';

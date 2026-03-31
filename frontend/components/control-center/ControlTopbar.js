@@ -80,6 +80,22 @@ export function createControlTopbar({
   const right = document.createElement('div');
   right.className = 'hnf-cc-topbar__right';
 
+  const quickSlot = document.createElement('div');
+  quickSlot.className = 'hnf-cc-topbar__quick-slot';
+  quickSlot.setAttribute('aria-hidden', 'true');
+  quickSlot.title = 'Acciones rápidas';
+
+  const jarvisCtl = document.createElement('button');
+  jarvisCtl.type = 'button';
+  jarvisCtl.className = `hnf-cc-topbar__jarvis${activeView === 'jarvis' ? ' hnf-cc-topbar__jarvis--on' : ''}`;
+  jarvisCtl.setAttribute('aria-label', 'Jarvis HQ');
+  jarvisCtl.textContent = activeView === 'jarvis' ? 'Jarvis · activo' : 'Jarvis';
+  if (activeView === 'jarvis') {
+    jarvisCtl.disabled = true;
+  } else {
+    jarvisCtl.addEventListener('click', () => onNavigate?.('jarvis'));
+  }
+
   const pill = document.createElement('span');
   const pillMod = String(integrationStatus || 'idle')
     .toLowerCase()

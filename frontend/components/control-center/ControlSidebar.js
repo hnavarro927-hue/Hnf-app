@@ -43,8 +43,12 @@ export function createControlSidebar({
   navItems = null,
   lastDataRefreshAt = null,
 } = {}) {
-  const items =
+  let items =
     Array.isArray(navItems) && navItems.length > 0 ? navItems : HNF_COMMAND_NAV_FULL;
+  items = (Array.isArray(items) ? items : []).filter(
+    (x) => x && typeof x === 'object' && String(x.id ?? '').length > 0
+  );
+  if (!items.length) items = HNF_COMMAND_NAV_FULL;
 
   const aside = document.createElement('aside');
   aside.className = 'hnf-cc-sidebar hnf-cc-rail';
@@ -57,6 +61,7 @@ export function createControlSidebar({
   toggle.setAttribute('aria-expanded', 'true');
   toggle.textContent = '☰';
   toggle.addEventListener('click', () => {
+    if (!layoutRoot?.classList) return;
     const collapsed = layoutRoot.classList.toggle('hnf-cc-layout--collapsed');
     toggle.setAttribute('aria-expanded', String(!collapsed));
   });
@@ -186,7 +191,7 @@ export function createControlSidebar({
     lab.className = 'hnf-cc-nav__btn-label';
     lab.textContent = item.label;
     btn.append(ic, lab);
-    btn.addEventListener('click', () => onNavigate(item.id));
+    btn.addEventListener('click', () => onNavigate?.(item?.id));
     parent.append(btn);
   };
 

@@ -6,9 +6,8 @@ import { OtCard } from './OtCard.jsx';
 const LANE_LABEL = {
   ingreso: 'Ingreso',
   en_proceso: 'En proceso',
-  pendiente_aprobacion: 'Pend. aprobación',
   observado: 'Observado',
-  aprobado: 'Aprobado',
+  aprobado: 'Aprob. / Lyn',
   enviado: 'Enviado',
   cerrado: 'Cerrado',
 };

@@ -8,6 +8,7 @@ import {
   appendUniversalIntakeItem,
   listUniversalIntakeItems,
 } from '../domain/jarvis-universal-intake-storage.js';
+import { createOtFromIntakeFlow } from '../domain/hnf-ot-flow-storage.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import {
   listStarkDocuments,
@@ -316,6 +317,14 @@ export function jarvisUniversalIntakeView({
       declaredSource: srcSel.value || null,
       ...route,
     });
+    if (String(route.destination || '').toLowerCase() === 'ot') {
+      createOtFromIntakeFlow({
+        text: ta.value,
+        descripcion: ta.value.slice(0, 2000),
+        cliente: route.client || cliIn.value || '',
+        area: route.area,
+      });
+    }
     resultHost.replaceChildren();
     resultHost.append(renderRouteBox(route, '(solo cola local; no se envió al servidor.)'));
     renderList();
@@ -349,6 +358,14 @@ export function jarvisUniversalIntakeView({
         resultHost.append(
           renderRouteBox(router, `(registro ${pack.record?.id || '—'} en índice Stark, auditoría central.)`)
         );
+        if (String(router.destination || '').toLowerCase() === 'ot') {
+          createOtFromIntakeFlow({
+            text: ta.value,
+            descripcion: (ta.value || pack.record?.notas || '').slice(0, 2000),
+            cliente: router.client || cliIn.value || '',
+            area: router.area,
+          });
+        }
       } else {
         const ok = el('hnf-jarvis-intake__route-box', 'p');
         ok.textContent = 'Subida completada.';

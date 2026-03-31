@@ -19,9 +19,62 @@ import {
 } from '../domain/hnf-operativa-reglas.js';
 import { computeJarvisAlienKpisSimple } from '../domain/jarvis-alien-kpis.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
+import { mergePlanOtsWithFlow, persistEstadoOperativo } from '../domain/hnf-ot-flow-storage.js';
+import { getEffectiveEstadoOperativo, validTargetEstados } from '../domain/hnf-ot-state-engine.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 
 const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
+
+function mountFlowEstadoPicker(ot, laneLabels, reloadApp) {
+  const cur = getEffectiveEstadoOperativo(ot);
+  const choices = validTargetEstados(cur).filter((x) => x !== cur);
+  if (!choices.length) {
+    window.alert(`Estado flujo: ${cur}. No hay paso adyacente disponible.`);
+    return;
+  }
+  const backdrop = document.createElement('div');
+  backdrop.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:120;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const card = document.createElement('div');
+  card.style.cssText =
+    'background:#0f172a;border:1px solid rgba(34,211,238,.35);border-radius:14px;padding:18px;max-width:360px;width:100%;';
+  const t = document.createElement('p');
+  t.style.cssText = 'margin:0 0 12px;font-size:14px;color:#e2e8f0;';
+  t.textContent = `Cambiar estado del flujo OT (actual: ${cur})`;
+  const sel = document.createElement('select');
+  sel.style.cssText =
+    'width:100%;padding:10px;margin-bottom:14px;border-radius:8px;background:#020617;color:#e2e8f0;border:1px solid #334155;';
+  for (const c of choices) {
+    const o = document.createElement('option');
+    o.value = c;
+    o.textContent = laneLabels[c] || c;
+    sel.append(o);
+  }
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'secondary-button';
+  cancel.textContent = 'Cancelar';
+  const ok = document.createElement('button');
+  ok.type = 'button';
+  ok.className = 'primary-button';
+  ok.textContent = 'Aplicar';
+  cancel.addEventListener('click', () => backdrop.remove());
+  ok.addEventListener('click', () => {
+    const r = persistEstadoOperativo(ot, sel.value);
+    backdrop.remove();
+    if (!r.ok) window.alert(r.error || 'No se pudo aplicar');
+    else if (typeof reloadApp === 'function') void reloadApp();
+  });
+  row.append(cancel, ok);
+  card.append(t, sel, row);
+  backdrop.append(card);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  });
+  document.body.append(backdrop);
+}
 
 function el(className, tag = 'div') {
   const n = document.createElement(tag);
@@ -114,6 +167,7 @@ function renderTabBody(ot, tabId) {
     const rows = [
       ['Tipo', ot.tipoServicio],
       ['Subtipo', ot.subtipoServicio],
+      ['Estado flujo', getEffectiveEstadoOperativo(ot)],
       ['Estado', ot.estado],
       ['Prioridad operativa', ot.prioridadOperativa || '—'],
       ['Prioridad sugerida (Jarvis)', ot.prioridadSugerida || '—'],
@@ -188,7 +242,7 @@ export function centroControlAlienView(props) {
       ? otsEnvelope
       : [];
   const br = getSessionBackendRole() || 'admin';
-  const ots = filtrarOtsPorRolBackend(otsRaw, br);
+  const ots = mergePlanOtsWithFlow(filtrarOtsPorRolBackend(otsRaw, br));
 
   const section = el(
     'hnf-cc hnf-cc-mando hnf-cck-surface hnf-op-shell hnf-op-view hnf-op-view--mando',
@@ -274,9 +328,12 @@ export function centroControlAlienView(props) {
       else navigateToView?.('bandeja-romina');
     },
     onChangeState: (ot) => {
-      const ts = String(ot.tipoServicio || '').toLowerCase();
-      if (ts === 'flota') navigateToView?.('flota');
-      else navigateToView?.('clima', { otId: ot.id });
+      mountFlowEstadoPicker(ot, DEFAULT_KANBAN_LANE_LABELS, reloadApp);
+    },
+    onDropOnLane: (ot, laneId) => {
+      const r = persistEstadoOperativo(ot, laneId);
+      if (!r.ok) window.alert(r.error || 'No se pudo mover de columna');
+      else if (typeof reloadApp === 'function') void reloadApp();
     },
     onDetail: (ot, shell) => {
       openDrawer(ot, shell);

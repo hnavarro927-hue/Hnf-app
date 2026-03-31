@@ -1,5 +1,3 @@
-import { mapOtToLane } from './ot-kanban-lanes.js';
-
 /**
  * Señales agregadas para presencia Jarvis en panel gerencial (solo datos de OT reales).
  */
@@ -30,7 +28,12 @@ export function countOtsUrgentes(list) {
 /** @param {object[]} list */
 export function countOtsPendienteAprobacion(list) {
   if (!Array.isArray(list)) return 0;
-  return list.filter((o) => mapOtToLane(o) === 'pendiente_aprobacion').length;
+  return list.filter((o) => {
+    const lyn = String(o?.aprobacionLynEstado ?? '')
+      .trim()
+      .toLowerCase();
+    return lyn === 'pendiente_revision_lyn';
+  }).length;
 }
 
 /**
