@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "busboy": "^1.6.0",
     "pdf-parse": "^1.1.1"
   },
   "scripts": {

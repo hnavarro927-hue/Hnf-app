@@ -9,6 +9,10 @@ import {
   listUniversalIntakeItems,
 } from '../domain/jarvis-universal-intake-storage.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import {
+  listStarkDocuments,
+  uploadStarkDocument,
+} from '../services/stark-documents.service.js';
 
 const DEST_LABEL = {
   ot: 'OT / operaciones',
@@ -17,6 +21,15 @@ const DEST_LABEL = {
   documentos_cliente: 'Documentos cliente',
   evidencia: 'Evidencia OT',
   bandeja_revision: 'Bandeja por revisar',
+};
+
+const DEST_STARK_LABEL = {
+  compras: 'Compras',
+  finanzas: 'Finanzas',
+  cliente_documentos: 'Documentos cliente',
+  evidencia: 'Evidencia OT',
+  OT: 'OT / operaciones',
+  bandeja_revision_jarvis: 'Bandeja revisión Jarvis',
 };
 
 const ENTRY_LABEL = {
@@ -45,23 +58,23 @@ function el(className, tag = 'div') {
 }
 
 /**
- * Ingesta universal Jarvis — reemplaza el flujo principal del módulo ingreso-operativo.
+ * Ingesta universal Jarvis — router local + subida multipart Stark Integrity (servidor).
  */
 export function jarvisUniversalIntakeView({
   data,
   navigateToView,
   reloadApp,
 } = {}) {
-  const root = el('hnf-jarvis-intake hnf-op-view', 'section');
+  const root = el('hnf-jarvis-intake hnf-op-view hnf-stark-surface', 'section');
   root.setAttribute('aria-label', 'Ingesta universal Jarvis');
 
   const shell = el('hnf-jarvis-intake__shell');
   const chrome = el('hnf-jarvis-intake__chrome');
   const chromeBrand = el('hnf-jarvis-intake__chrome-brand');
-  chromeBrand.textContent = 'Jarvis | Ingesta documental';
+  chromeBrand.textContent = 'Jarvis | Integridad Operativa HNF';
   const chromeMeta = el('hnf-jarvis-intake__chrome-meta', 'p');
   chromeMeta.textContent =
-    'Consola operativa: router en dominio `jarvis-document-router.js`, cola local `jarvis-universal-intake-storage.js`. Archivos: solo metadatos hasta habilitar API de subida.';
+    'Stark Integrity: subida real multipart al backend (`POST /jarvis/stark/documents`), metadatos en `jarvis_stark_documents.json`, archivos en `data/stark-uploads/`. Router servidor alineado a `jarvis-document-router.js`.';
   chrome.append(chromeBrand, chromeMeta);
 
   const body = el('hnf-jarvis-intake__body');
@@ -82,7 +95,7 @@ export function jarvisUniversalIntakeView({
   h1.textContent = 'Enrutado de entrada';
   const sub = el('hnf-jarvis-intake__sub', 'p');
   sub.textContent =
-    'Pegá texto o adjuntá archivo (sin envío al servidor). Si la clasificación no es segura, el ítem queda con revision_jarvis_pendiente en la cola.';
+    'Hernán, podés enrutar en cola local (sin red) o subir el archivo al servidor: Jarvis clasifica por texto extraído (PDF), nombre, MIME y canal, define destino operativo y deja trazabilidad auditada.';
   head.append(h1, sub);
 
   const grid = el('hnf-jarvis-intake__grid');
@@ -93,7 +106,7 @@ export function jarvisUniversalIntakeView({
   const srcRow = el('hnf-jarvis-intake__field');
   const srcLab = el('hnf-jarvis-intake__label', 'label');
   srcLab.htmlFor = 'uji-source';
-  srcLab.textContent = 'Canal declarado';
+  srcLab.textContent = 'Origen declarado';
   const srcSel = el('hnf-jarvis-intake__select', 'select');
   srcSel.id = 'uji-source';
   for (const o of SOURCE_OPTIONS) {
@@ -122,55 +135,125 @@ export function jarvisUniversalIntakeView({
   }
   typeRow.append(typeLab, typeSel);
 
+  const cliRow = el('hnf-jarvis-intake__field');
+  const cliLab = el('hnf-jarvis-intake__label', 'label');
+  cliLab.htmlFor = 'uji-cliente';
+  cliLab.textContent = 'Cliente (opcional)';
+  const cliIn = el('hnf-jarvis-intake__input', 'input');
+  cliIn.type = 'text';
+  cliIn.id = 'uji-cliente';
+  cliIn.placeholder = 'Razón social o nombre';
+  cliRow.append(cliLab, cliIn);
+
+  const otRow = el('hnf-jarvis-intake__field');
+  const otLab = el('hnf-jarvis-intake__label', 'label');
+  otLab.htmlFor = 'uji-ot';
+  otLab.textContent = 'OT / referencia (opcional)';
+  const otIn = el('hnf-jarvis-intake__input', 'input');
+  otIn.type = 'text';
+  otIn.id = 'uji-ot';
+  otIn.placeholder = 'Ej. OT-1234';
+  otRow.append(otLab, otIn);
+
   const taRow = el('hnf-jarvis-intake__field');
   const taLab = el('hnf-jarvis-intake__label', 'label');
   taLab.htmlFor = 'uji-text';
-  taLab.textContent = 'Texto o pegado de documento';
+  taLab.textContent = 'Texto o notas';
   const ta = el('hnf-jarvis-intake__textarea', 'textarea');
   ta.id = 'uji-text';
   ta.rows = 8;
-  ta.placeholder = 'Pegá asunto, cuerpo, OCR manual o notas. Cliente: … OC: … OT: …';
+  ta.placeholder = 'Pegá asunto, cuerpo u OCR manual. Cliente: … OC: … OT: …';
   taRow.append(taLab, ta);
 
   const fileRow = el('hnf-jarvis-intake__field');
   const fileLab = el('hnf-jarvis-intake__label', 'label');
   fileLab.htmlFor = 'uji-file';
-  fileLab.textContent = 'Archivo (local, sin subir aún)';
+  fileLab.textContent = 'Archivo (PDF / imagen)';
   const fileIn = el('hnf-jarvis-intake__file', 'input');
   fileIn.type = 'file';
   fileIn.id = 'uji-file';
-  fileIn.accept = '.pdf,image/*,.png,.jpg,.jpeg,.webp';
+  fileIn.accept = '.pdf,image/*,.png,.jpg,.jpeg,.webp,.gif';
   const fileHint = el('hnf-jarvis-intake__hint', 'p');
   fileHint.textContent =
-    'El archivo no se envía al servidor en esta versión: solo se usa nombre y tipo para enrutar y guardar la fila local.';
+    'OC, factura, guía, cotización o evidencia: subí PDF o imagen. Imágenes quedan con OCR pendiente en servidor hasta motor dedicado.';
   fileRow.append(fileLab, fileIn, fileHint);
 
   const actions = el('hnf-jarvis-intake__actions');
-  const btnRoute = el('primary-button hnf-jarvis-intake__btn', 'button');
+  const btnStark = el('primary-button hnf-jarvis-intake__btn hnf-jarvis-intake__btn--stark', 'button');
+  btnStark.type = 'button';
+  btnStark.textContent = 'Subir al servidor (Stark)';
+  const btnRoute = el('secondary-button hnf-jarvis-intake__btn hnf-jarvis-intake__btn--route', 'button');
   btnRoute.type = 'button';
-  btnRoute.textContent = 'Enrutar con Jarvis';
+  btnRoute.textContent = 'Solo cola local';
   const btnClassic = el('secondary-button hnf-jarvis-intake__btn--secondary', 'button');
   btnClassic.type = 'button';
   btnClassic.textContent = 'Ingreso operativo clásico';
   btnClassic.addEventListener('click', () => navigateToView?.('ingreso-clasico'));
-  actions.append(btnRoute, btnClassic);
+  actions.append(btnStark, btnRoute, btnClassic);
 
   const resultHost = el('hnf-jarvis-intake__result');
 
-  formCard.append(fcTitle, srcRow, typeRow, taRow, fileRow, actions, resultHost);
+  formCard.append(
+    fcTitle,
+    srcRow,
+    typeRow,
+    cliRow,
+    otRow,
+    taRow,
+    fileRow,
+    actions,
+    resultHost
+  );
 
   const listCard = el('hnf-jarvis-intake__card');
   const lcTitle = el('hnf-jarvis-intake__card-title', 'h2');
-  lcTitle.textContent = 'Cola local reciente';
+  lcTitle.textContent = 'Historial';
+  const serverH = el('hnf-jarvis-intake__list-sub', 'h3');
+  serverH.textContent = 'Stark — servidor';
+  const listServerUl = el('hnf-jarvis-intake__list hnf-jarvis-intake__list--server', 'ul');
+  const localH = el('hnf-jarvis-intake__list-sub', 'h3');
+  localH.textContent = 'Cola local';
   const listUl = el('hnf-jarvis-intake__list', 'ul');
-  listCard.append(lcTitle, listUl);
+  listCard.append(lcTitle, serverH, listServerUl, localH, listUl);
 
   grid.append(formCard, listCard);
 
   let lastFile = null;
   fileIn.addEventListener('change', () => {
     lastFile = fileIn.files?.[0] || null;
+    btnStark.disabled = !lastFile;
   });
+  btnStark.disabled = true;
+
+  function renderRouteBox(route, extraNote) {
+    const box = el('hnf-jarvis-intake__route-box');
+    const line = (strong, rest) => {
+      const p = el('hnf-jarvis-intake__route-line', 'p');
+      const b = document.createElement('strong');
+      b.textContent = strong;
+      p.append(b, document.createTextNode(` · ${rest}`));
+      return p;
+    };
+    const dest =
+      route.destination && DEST_STARK_LABEL[route.destination]
+        ? DEST_STARK_LABEL[route.destination]
+        : DEST_LABEL[route.destination] || route.destination;
+    box.append(
+      line('Tipo', `${ENTRY_LABEL[route.entryType] || route.entryType} (${route.confidence})`),
+      line('Destino', dest),
+      line('Área', route.area),
+      line('Cliente', route.client || 'sin dato'),
+      line('OC / OT', `${route.ocNumber || '—'} / ${route.otNumber || '—'}`),
+      line(
+        'Monto / fecha',
+        `${route.amount != null ? route.amount : 'sin dato'} · ${route.dateIso || 'sin dato'}`
+      )
+    );
+    const rat = el('hnf-jarvis-intake__route-rationale', 'p');
+    rat.textContent = `${route.revision_jarvis_pendiente ? 'Marcado revision_jarvis_pendiente. ' : ''}${route.rationale}${extraNote ? ` ${extraNote}` : ''}`;
+    box.append(rat);
+    return box;
+  }
 
   function renderList() {
     listUl.replaceChildren();
@@ -183,11 +266,39 @@ export function jarvisUniversalIntakeView({
     }
     for (const it of items) {
       const li = el('hnf-jarvis-intake__li', 'li');
-      const badge = it.revision_jarvis_pendiente
-        ? ' · revision_jarvis_pendiente'
-        : '';
+      const badge = it.revision_jarvis_pendiente ? ' · revision_jarvis_pendiente' : '';
       li.textContent = `${String(it.creadoEn || '').slice(0, 16)} · ${ENTRY_LABEL[it.entryType] || it.entryType} → ${DEST_LABEL[it.destination] || it.destination}${badge}`;
       listUl.append(li);
+    }
+  }
+
+  async function refreshServerList() {
+    listServerUl.replaceChildren();
+    const loading = el('hnf-jarvis-intake__empty', 'li');
+    loading.textContent = 'Cargando documentos Stark…';
+    listServerUl.append(loading);
+    try {
+      const rows = await listStarkDocuments(50);
+      listServerUl.replaceChildren();
+      if (!Array.isArray(rows) || !rows.length) {
+        const li = el('hnf-jarvis-intake__empty', 'li');
+        li.textContent = 'Sin subidas en servidor aún.';
+        listServerUl.append(li);
+        return;
+      }
+      for (const r of rows) {
+        const li = el('hnf-jarvis-intake__li', 'li');
+        const rt = r.router || {};
+        const dest = DEST_STARK_LABEL[rt.destination] || rt.destination || '—';
+        const pend = rt.revision_jarvis_pendiente ? ' · revisión pendiente' : '';
+        li.textContent = `${String(r.creadoEn || '').slice(0, 16)} · ${r.nombreOriginal || 'archivo'} · ${ENTRY_LABEL[rt.entryType] || rt.entryType} → ${dest}${pend}`;
+        listServerUl.append(li);
+      }
+    } catch (e) {
+      listServerUl.replaceChildren();
+      const li = el('hnf-jarvis-intake__empty', 'li');
+      li.textContent = `No se pudo leer el servidor: ${e.message || 'error'}`;
+      listServerUl.append(li);
     }
   }
 
@@ -199,37 +310,59 @@ export function jarvisUniversalIntakeView({
       fileStub: buildFileDescriptorStub(lastFile),
       forcedEntryType: forced,
     });
-    const row = appendUniversalIntakeItem({
+    appendUniversalIntakeItem({
       textSample: ta.value.slice(0, 2000),
       fileStub: buildFileDescriptorStub(lastFile),
       declaredSource: srcSel.value || null,
       ...route,
     });
     resultHost.replaceChildren();
-    const box = el('hnf-jarvis-intake__route-box');
-    const line = (strong, rest) => {
-      const p = el('hnf-jarvis-intake__route-line', 'p');
-      const b = document.createElement('strong');
-      b.textContent = strong;
-      p.append(b, document.createTextNode(` · ${rest}`));
-      return p;
-    };
-    box.append(
-      line('Tipo', `${ENTRY_LABEL[route.entryType] || route.entryType} (${route.confidence})`),
-      line('Destino', DEST_LABEL[route.destination] || route.destination),
-      line('Área', route.area),
-      line('Cliente', route.client || 'sin dato'),
-      line('OC / OT', `${route.ocNumber || '—'} / ${route.otNumber || '—'}`),
-      line(
-        'Monto / fecha',
-        `${route.amount != null ? route.amount : 'sin dato'} · ${route.dateIso || 'sin dato'}`
-      )
-    );
-    const rat = el('hnf-jarvis-intake__route-rationale', 'p');
-    rat.textContent = `${row.revision_jarvis_pendiente ? 'Marcado revision_jarvis_pendiente. ' : ''}${route.rationale}`;
-    box.append(rat);
-    resultHost.append(box);
+    resultHost.append(renderRouteBox(route, '(solo cola local; no se envió al servidor.)'));
     renderList();
+  });
+
+  btnStark.addEventListener('click', async () => {
+    if (!lastFile) {
+      resultHost.replaceChildren();
+      const err = el('hnf-jarvis-intake__err', 'p');
+      err.textContent = 'Seleccioná un archivo para subir al servidor.';
+      resultHost.append(err);
+      return;
+    }
+    btnStark.disabled = true;
+    resultHost.replaceChildren();
+    const wait = el('hnf-jarvis-intake__hint', 'p');
+    wait.textContent = 'Subiendo y clasificando en servidor…';
+    resultHost.append(wait);
+    try {
+      const pack = await uploadStarkDocument({
+        file: lastFile,
+        origen: srcSel.value || '',
+        cliente: cliIn.value || '',
+        otId: otIn.value || '',
+        notas: ta.value || '',
+        declaredDocType: typeSel.value || undefined,
+      });
+      const router = pack.router || pack.record?.router;
+      resultHost.replaceChildren();
+      if (router) {
+        resultHost.append(
+          renderRouteBox(router, `(registro ${pack.record?.id || '—'} en índice Stark, auditoría central.)`)
+        );
+      } else {
+        const ok = el('hnf-jarvis-intake__route-box', 'p');
+        ok.textContent = 'Subida completada.';
+        resultHost.append(ok);
+      }
+      await refreshServerList();
+    } catch (e) {
+      resultHost.replaceChildren();
+      const err = el('hnf-jarvis-intake__err', 'p');
+      err.textContent = e.message || 'Error al subir.';
+      resultHost.append(err);
+    } finally {
+      btnStark.disabled = !lastFile;
+    }
   });
 
   const foot = el('hnf-jarvis-intake__foot');
@@ -238,6 +371,7 @@ export function jarvisUniversalIntakeView({
   sync.textContent = 'Actualizar datos';
   sync.addEventListener('click', () => {
     if (typeof reloadApp === 'function') void reloadApp();
+    void refreshServerList();
   });
   foot.append(sync);
 
@@ -246,5 +380,6 @@ export function jarvisUniversalIntakeView({
   shell.append(chrome, body);
   root.append(shell);
   renderList();
+  void refreshServerList();
   return root;
 }

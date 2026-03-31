@@ -235,6 +235,7 @@ export function centroControlAlienView(props) {
     },
     suggestion: jSig.suggestion,
     variant: 'alien-bar',
+    brandSubtitle: 'Jarvis | Integridad Operativa HNF',
   });
 
   const alienFlow = createJarvisAlienFlow();

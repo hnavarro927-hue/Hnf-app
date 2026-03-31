@@ -122,9 +122,12 @@ const server = createServer(async (request, response) => {
     request.hnfAuth = authResult.context;
     request.hnfActor = authResult.context.actorLabel || 'sistema';
 
-    request.body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await readJsonBody(request)
-      : {};
+    const ct = String(request.headers['content-type'] || '').toLowerCase();
+    const isMultipart = ct.includes('multipart/form-data');
+    request.body =
+      ['POST', 'PATCH', 'PUT'].includes(request.method) && !isMultipart
+        ? await readJsonBody(request)
+        : {};
 
     return matched.route.handler(request, response);
   } catch (error) {

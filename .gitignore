@@ -5,3 +5,5 @@ frontend/dist/
 .DS_Store
 .hnf-orchestrator.lock
 frontend/public/hnf-auto-deploy-status.json
+backend/data/stark-uploads/**
+!backend/data/stark-uploads/.gitkeep

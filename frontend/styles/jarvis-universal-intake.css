@@ -154,7 +154,8 @@
 }
 
 .hnf-jarvis-intake__select,
-.hnf-jarvis-intake__textarea {
+.hnf-jarvis-intake__textarea,
+.hnf-jarvis-intake__input {
   font: inherit;
   font-size: 0.75rem;
   border-radius: 0.4rem;
@@ -162,6 +163,40 @@
   background: rgba(2, 6, 23, 0.65);
   color: #e2e8f0;
   padding: 0.4rem 0.5rem;
+}
+
+.hnf-jarvis-intake__list-sub {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.hnf-jarvis-intake__btn--stark.primary-button {
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  background: linear-gradient(160deg, rgba(8, 51, 68, 0.75), rgba(15, 23, 42, 0.95));
+  color: #ecfeff;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+}
+
+.hnf-jarvis-intake__btn--stark.primary-button:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.hnf-jarvis-intake__btn--route.secondary-button {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.hnf-jarvis-intake__err {
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  color: #fecaca;
+  line-height: 1.35;
 }
 
 .hnf-jarvis-intake__textarea {

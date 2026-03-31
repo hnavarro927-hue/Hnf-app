@@ -127,9 +127,7 @@ export const controlGerencialView = ({
       .toLowerCase()
       .normalize('NFD')
       .replace(/\p{M}/gu, '');
-    const jarvisBrandSub = authNorm.includes('hernan')
-      ? 'Jarvis | Asistente operativo de Hernán'
-      : 'Jarvis | Asistente operativo';
+    const jarvisBrandSub = 'Jarvis | Integridad Operativa HNF';
 
     const sectionHead = document.createElement('div');
     sectionHead.className = 'hnf-jarvis-nucleus__section-head';

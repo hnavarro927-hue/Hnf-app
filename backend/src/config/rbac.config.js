@@ -87,6 +87,8 @@ export const ACTION_ACCESS = {
   'users.manage': ['admin', 'hernan'],
   'hnfcore.access': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
   'operativo.flow': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
+  /** Subida y lectura de documentos Stark Integrity (multipart + índice JSON). */
+  'jarvis.stark': ['admin', 'hernan', 'lyn', 'romina', 'gery'],
   /** Registro de revisión / control operativo (Lyn, Hernán; admin incluido por consistencia). */
   'control.registro_lyn': ['admin', 'hernan', 'lyn'],
   'lyn.aprobacion_ot': ['admin', 'hernan', 'lyn'],

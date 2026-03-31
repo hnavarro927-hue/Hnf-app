@@ -514,7 +514,8 @@ export function createHnfJarvisPremiumCommand({
   heroLine.textContent = 'Centro de Operaciones HNF';
   const heroSub = document.createElement('p');
   heroSub.className = 'hnf-portada-hero__lede';
-  heroSub.textContent = 'Control operativo en tiempo real con asistencia Jarvis';
+  heroSub.textContent =
+    'Jarvis | Integridad Operativa HNF — control en tiempo real con trazabilidad documental Stark.';
   const heroFoot = document.createElement('p');
   heroFoot.className = 'hnf-portada-hero__foot';
   const pulseDot = document.createElement('span');

@@ -78,6 +78,13 @@
   margin: 0 0.55rem 0.45rem;
 }
 
+.hnf-jarvis-exec-strip__stark-oc {
+  color: #e0f2fe;
+  border-left: 2px solid rgba(34, 211, 238, 0.55);
+  padding-left: 0.45rem;
+  margin-top: 0.35rem;
+}
+
 .jarvis-hq .hnf-jarvis-exec-strip {
   margin: 0 0 0.55rem;
   max-width: 56rem;

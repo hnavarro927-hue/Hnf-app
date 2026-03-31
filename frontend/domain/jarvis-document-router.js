@@ -1,6 +1,7 @@
 /**
  * JarvisDocumentRouter — clasificación y enrutado de ingesta documental (texto + metadatos de archivo).
- * Sin subida real aún: `fileStub` solo describe nombre/tipo para trazabilidad.
+ * Compartido con el backend (`jarvisStarkDocuments.service`): misma lógica tras subida multipart.
+ * En UI, `fileStub` puede venir solo de metadatos locales antes de enviar el archivo.
  */
 
 /** @typedef {'whatsapp'|'correo'|'orden_compra'|'cotizacion'|'factura'|'guia_despacho'|'informe_tecnico'|'evidencia'|'otro'} JarvisDocumentEntryType */

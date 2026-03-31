@@ -2,6 +2,7 @@ import '../styles/jarvis-executive-copilot-strip.css';
 import { runJarvisOperationalDecisionEngine } from '../domain/jarvis-operational-decision-engine.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
 import { countPendingJarvisDocumentReview } from '../domain/jarvis-universal-intake-storage.js';
+import { getStarkDocumentsSummary } from '../services/stark-documents.service.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -46,10 +47,8 @@ function buildExecutiveHeadline(authLabel, pendingDocs, nRiesgoOt) {
   return `${who}, ${p} documento(s) pendiente(s) de clasificación y ${r} OT(s) con riesgo detectado.`;
 }
 
-function brandLineForAuth(authLabel) {
-  return isHernanAuth(authLabel)
-    ? 'Jarvis | Asistente operativo de Hernán'
-    : 'Jarvis | Asistente operativo';
+function brandLineForAuth() {
+  return 'Jarvis | Integridad Operativa HNF';
 }
 
 /**
@@ -70,11 +69,11 @@ export function createJarvisExecutiveCopilotStrip({
     lastDataRefreshAt,
     focoOt: jSig.focoOt,
   });
-  const pendingDocs = countPendingJarvisDocumentReview();
-  const headline = buildExecutiveHeadline(authLabel, pendingDocs, jSig.nRiesgo);
+  const pendingLocal = countPendingJarvisDocumentReview();
+  const headline = buildExecutiveHeadline(authLabel, pendingLocal, jSig.nRiesgo);
   const docLine =
-    pendingDocs > 0
-      ? `${pendingDocs} ítem(s) en cola local con revision_jarvis_pendiente (ingesta universal).`
+    pendingLocal > 0
+      ? `${pendingLocal} ítem(s) en cola local con revision_jarvis_pendiente (ingesta universal).`
       : 'Cola local de ingesta: sin revision_jarvis_pendiente.';
 
   const diag = engine.diagnostics?.summary || 'diagnóstico incompleto';
@@ -84,14 +83,42 @@ export function createJarvisExecutiveCopilotStrip({
   root.setAttribute('role', 'region');
   root.setAttribute('aria-label', 'Jarvis copiloto ejecutivo');
   root.innerHTML = `
-    <p class="hnf-jarvis-exec-strip__brand">${esc(brandLineForAuth(authLabel))}</p>
+    <p class="hnf-jarvis-exec-strip__brand">${esc(brandLineForAuth())}</p>
     <div class="hnf-jarvis-exec-strip__row">
       <p class="hnf-jarvis-exec-strip__greet">${esc(headline)}</p>
       <span class="hnf-jarvis-exec-strip__badge">${esc(engine.estadoGeneral)}</span>
     </div>
+    <p class="hnf-jarvis-exec-strip__line hnf-jarvis-exec-strip__stark-oc" hidden></p>
     <p class="hnf-jarvis-exec-strip__line"><span class="hnf-jarvis-exec-strip__k">Diagnóstico</span> ${esc(diag)}</p>
-    <p class="hnf-jarvis-exec-strip__line"><span class="hnf-jarvis-exec-strip__k">Detalle documentos</span> ${esc(docLine)}</p>
+    <p class="hnf-jarvis-exec-strip__line hnf-jarvis-exec-strip__doc-local"><span class="hnf-jarvis-exec-strip__k">Detalle documentos</span> ${esc(docLine)}</p>
     <p class="hnf-jarvis-exec-strip__line hnf-jarvis-exec-strip__line--action"><span class="hnf-jarvis-exec-strip__k">Acción sugerida</span> ${esc(engine.accionRecomendada)}</p>
   `;
+
+  const greetEl = root.querySelector('.hnf-jarvis-exec-strip__greet');
+  const docDetailEl = root.querySelector('.hnf-jarvis-exec-strip__doc-local');
+  const starkOcEl = root.querySelector('.hnf-jarvis-exec-strip__stark-oc');
+
+  void getStarkDocumentsSummary()
+    .then((sum) => {
+      const sp = Number(sum.pendingClassification) || 0;
+      const merged = Math.max(pendingLocal, sp);
+      if (greetEl) {
+        greetEl.textContent = buildExecutiveHeadline(authLabel, merged, jSig.nRiesgo);
+      }
+      if (docDetailEl) {
+        const k = document.createElement('span');
+        k.className = 'hnf-jarvis-exec-strip__k';
+        k.textContent = 'Detalle documentos';
+        const rest = `Local: ${pendingLocal}. Stark (servidor): ${sp} pendiente(s) de revisión documental.`;
+        docDetailEl.replaceChildren(k, document.createTextNode(` ${rest}`));
+      }
+      if (starkOcEl && sum.lastOcEnRevision && isHernanAuth(authLabel)) {
+        starkOcEl.textContent =
+          'Hernán, se recibió una nueva OC y quedó en revisión documental (Stark Integrity).';
+        starkOcEl.hidden = false;
+      }
+    })
+    .catch(() => {});
+
   return root;
 }

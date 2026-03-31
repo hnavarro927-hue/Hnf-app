@@ -28,6 +28,7 @@ import { ocPurchaseOrderRoutes } from './ocPurchaseOrder.routes.js';
 import { commercialWorkspaceRoutes } from './commercialWorkspace.routes.js';
 import { rbacRoutes } from './rbac.routes.js';
 import { controlLynRoutes } from './controlLyn.routes.js';
+import { jarvisStarkDocumentsRoutes } from './jarvisStarkDocuments.routes.js';
 
 export const routes = [
   ...authRoutes,
@@ -50,6 +51,7 @@ export const routes = [
   ...historicalVaultRoutes,
   ...jarvisOperativeEventsRoutes,
   ...jarvisIntakeRoutes,
+  ...jarvisStarkDocumentsRoutes,
   ...operationalEventRoutes,
   ...hnfCoreSolicitudRoutes,
   ...hnfOperativoIntegradoRoutes,

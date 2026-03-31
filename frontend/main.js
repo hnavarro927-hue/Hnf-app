@@ -1,4 +1,5 @@
 import './styles/app.css';
+import './styles/stark-integrity.css';
 import { appConfig, formatApiBaseLabel, getLoginDebugContext } from './config/app.config.js';
 import { createShell } from './components/shell.js';
 import { authApiService } from './services/auth-api.service.js';
