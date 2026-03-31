@@ -51,6 +51,7 @@ import { jarvisHqView } from './views/jarvis-hq.js';
 import { jarvisIntakeHubView } from './views/jarvis-intake-hub.js';
 import { jarvisVaultView } from './views/jarvis-vault.js';
 import { ingresoOperativoView } from './views/ingreso-operativo.js';
+import { jarvisUniversalIntakeView } from './views/jarvis-universal-intake-view.js';
 import { hnfCoreHubView } from './views/hnf-core-hub.js';
 import { baseMaestraHubView } from './views/base-maestra-hub.js';
 import { bandejaRominaView } from './views/bandeja-romina.js';
@@ -309,6 +310,7 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'asistente',
   'operacion-control',
   'ingreso-operativo',
+  'ingreso-clasico',
   'control-gerencial',
   'centro-control',
   'hnf-core',
@@ -659,6 +661,11 @@ const viewRegistry = {
   },
 
   'ingreso-operativo': {
+    render: jarvisUniversalIntakeView,
+    load: loadFullOperationalData,
+  },
+
+  'ingreso-clasico': {
     render: ingresoOperativoView,
     load: loadFullOperationalData,
   },
@@ -1785,7 +1792,9 @@ const render = () => {
 
         const opCommandViews = new Set([
           'matriz-hnf',
+          'centro-control',
           'ingreso-operativo',
+          'ingreso-clasico',
           'bandeja-canal',
           'jarvis-intake',
           'clima',
@@ -1811,6 +1820,7 @@ const render = () => {
           'matriz-hnf': 'control',
           'centro-control': 'control',
           'ingreso-operativo': 'ingreso',
+          'ingreso-clasico': 'ingreso',
           'bandeja-canal': 'bandeja',
           'jarvis-intake': 'bandeja',
           clima: 'clima',

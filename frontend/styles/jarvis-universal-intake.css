@@ -1,0 +1,161 @@
+.hnf-jarvis-intake {
+  padding: 0.75rem 1rem 1.25rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.hnf-jarvis-intake__head {
+  margin-bottom: 0.65rem;
+}
+
+.hnf-jarvis-intake__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.hnf-jarvis-intake__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #94a3b8;
+  max-width: 52rem;
+}
+
+.hnf-jarvis-intake__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .hnf-jarvis-intake__grid {
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: start;
+  }
+}
+
+.hnf-jarvis-intake__card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-jarvis-intake__card-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #22d3ee;
+}
+
+.hnf-jarvis-intake__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.45rem;
+}
+
+.hnf-jarvis-intake__label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.hnf-jarvis-intake__select,
+.hnf-jarvis-intake__textarea {
+  font: inherit;
+  font-size: 0.75rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(2, 6, 23, 0.65);
+  color: #e2e8f0;
+  padding: 0.4rem 0.5rem;
+}
+
+.hnf-jarvis-intake__textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.hnf-jarvis-intake__file {
+  font-size: 0.7rem;
+  color: #cbd5e1;
+}
+
+.hnf-jarvis-intake__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.55rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-intake__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.35rem;
+}
+
+.hnf-jarvis-intake__btn--secondary {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.hnf-jarvis-intake__btn--secondary:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  color: #fff;
+}
+
+.hnf-jarvis-intake__route-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: rgba(8, 51, 68, 0.25);
+}
+
+.hnf-jarvis-intake__route-line {
+  margin: 0.15rem 0;
+  font-size: 0.68rem;
+  color: #e2e8f0;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-intake__route-rationale {
+  margin: 0.4rem 0 0;
+  font-size: 0.6rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.hnf-jarvis-intake__list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.62rem;
+  color: #cbd5e1;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.hnf-jarvis-intake__li {
+  margin-bottom: 0.28rem;
+}
+
+.hnf-jarvis-intake__empty {
+  list-style: none;
+  margin-left: -1rem;
+  color: #64748b;
+}
+
+.hnf-jarvis-intake__foot {
+  margin-top: 0.75rem;
+}

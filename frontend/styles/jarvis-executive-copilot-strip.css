@@ -1,0 +1,71 @@
+.hnf-jarvis-exec-strip {
+  --strip-cyan: #22d3ee;
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background: linear-gradient(100deg, rgba(8, 40, 55, 0.35), rgba(9, 9, 11, 0.88));
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.08);
+}
+
+.hnf-jarvis-exec-strip__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.hnf-jarvis-exec-strip__greet {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  line-height: 1.35;
+  flex: 1 1 12rem;
+}
+
+.hnf-jarvis-exec-strip__badge {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #a5f3fc;
+  flex-shrink: 0;
+}
+
+.hnf-jarvis-exec-strip__line {
+  margin: 0.12rem 0 0;
+  font-size: 0.58rem;
+  line-height: 1.4;
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-exec-strip__line--action {
+  color: #d4d4d8;
+  margin-top: 0.28rem;
+  padding-top: 0.28rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hnf-jarvis-exec-strip__k {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.48rem;
+  color: var(--strip-cyan);
+  margin-right: 0.35rem;
+}
+
+.hnf-cc .hnf-jarvis-exec-strip {
+  margin: 0 0.55rem 0.45rem;
+}
+
+.jarvis-hq .hnf-jarvis-exec-strip {
+  margin: 0 0 0.55rem;
+  max-width: 56rem;
+}

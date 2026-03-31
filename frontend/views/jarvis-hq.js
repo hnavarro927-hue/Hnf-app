@@ -21,6 +21,7 @@ import { executeJarvisActions } from '../domain/jarvis-action-engine.js';
 import { buildJarvisLiveCommandBrief } from '../domain/jarvis-live-command-brief.js';
 import { createHnfEnvironmentContinuityPanel } from '../components/hnf-environment-continuity.js';
 import { createHnfJarvisPremiumCommand } from '../components/hnf-jarvis-premium.js';
+import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
 
 function fmtPromedioGestionSeg(s) {
@@ -99,6 +100,7 @@ export const jarvisHqView = ({
   intelNavigate,
   lastDataRefreshAt,
   navigateToView,
+  authLabel,
 } = {}) => {
   const root = document.createElement('section');
   root.className = 'jarvis-hq jarvis-hq--command jarvis-hq--premium-route';
@@ -192,6 +194,30 @@ export const jarvisHqView = ({
   else if (liveCmdModel.level >= 1) root.classList.add('jarvis-hq--command-pressure');
 
   root.classList.add('jarvis-hq--premium-shell');
+
+  const quickNav = document.createElement('div');
+  quickNav.className = 'jarvis-hq__quick-nav';
+  const mkQ = (label, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'jarvis-hq__quick-nav-btn';
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  quickNav.append(
+    mkQ('Mando (Kanban)', () => navigateToView?.('centro-control')),
+    mkQ('Ingesta universal', () => navigateToView?.('ingreso-operativo')),
+    mkQ('Control gerencial', () => navigateToView?.('control-gerencial'))
+  );
+
+  const execStrip = createJarvisExecutiveCopilotStrip({
+    authLabel,
+    integrationStatus,
+    viewData: data,
+    lastDataRefreshAt,
+  });
+
   const intakeStrip = buildMaestroIntakeOperativoStrip(data?.maestroIntakeResumen);
   const premium = createHnfJarvisPremiumCommand({
     data: data || {},
@@ -204,6 +230,7 @@ export const jarvisHqView = ({
     integrationStatus,
     lastDataRefreshAt,
   });
+  root.append(quickNav, execStrip);
   if (intakeStrip) root.append(intakeStrip);
   root.append(premium);
   return root;

@@ -31,7 +31,7 @@ export const HNF_OS_NAV_ADMIN = [
   HNF_MATRIZ_NAV,
   HNF_CENTRO_CONTROL_NAV,
   { id: 'jarvis', icon: '◉', label: 'Jarvis HQ' },
-  { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
+  { id: 'ingreso-operativo', icon: '⬊', label: 'Ingesta' },
   { id: 'bandeja-canal', icon: '▣', label: 'Bandeja' },
   { id: 'clima', icon: '◎', label: 'Clima' },
   { id: 'planificacion', icon: '◷', label: 'Planificación' },

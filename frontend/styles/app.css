@@ -20428,6 +20428,38 @@ body.hnf-op-command .hnf-op-view--flota .ot-detail-card {
   width: 100%;
 }
 
+.jarvis-hq__quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.jarvis-hq__quick-nav-btn {
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.38rem 0.65rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: rgba(8, 51, 68, 0.45);
+  color: #e0f2fe;
+}
+
+.jarvis-hq__quick-nav-btn:hover {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(8, 51, 68, 0.65);
+  color: #fff;
+}
+
 .jarvis-hq.jarvis-hq--premium-shell .hnf-jarvis-premium {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.07) inset,
@@ -21561,6 +21593,29 @@ body .shell.hnf-tech-rebirth .sidebar {
 
 #app .shell.hnf-tech-rebirth .nav-item--mando.active .nav-item__label {
   color: var(--text) !important;
+}
+
+#app .shell.hnf-tech-rebirth .nav.nav--mando {
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#app .shell.hnf-tech-rebirth .nav-item.nav-item--mando {
+  padding: 10px 12px !important;
+  min-height: 44px !important;
+}
+
+.shell .shell-session .secondary-button,
+.shell-header .secondary-button {
+  border: 1px solid rgba(148, 163, 184, 0.45) !important;
+  color: #f8fafc !important;
+  background: rgba(30, 41, 59, 0.95) !important;
+}
+
+.shell .shell-session .secondary-button:hover,
+.shell-header .secondary-button:hover {
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  color: #fff !important;
 }
 
 body.hnf-op-command #app .shell.hnf-tech-rebirth .content {

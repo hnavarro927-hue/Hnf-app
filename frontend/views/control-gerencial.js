@@ -7,6 +7,7 @@ import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-
 import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
 import { createJarvisCopilot } from '../components/jarvis-copilot.js';
+import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { createJarvisLiveOpsPanel } from '../components/jarvis-live-ops-panel.js';
 import { createJarvisPresence, jarvisLineaDesdeIntegracion } from '../components/jarvis-presence.js';
 
@@ -23,6 +24,7 @@ export const controlGerencialView = ({
   reloadApp,
   integrationStatus,
   lastDataRefreshAt,
+  authLabel,
 } = {}) => {
   const root = document.createElement('section');
   root.className = 'hnf-cap-control hnf-op-view hnf-op-view--control';
@@ -136,6 +138,12 @@ export const controlGerencialView = ({
       createJarvisCopilot({ focoOt: jSig.focoOt })
     );
     jarvisHost.append(
+      createJarvisExecutiveCopilotStrip({
+        authLabel,
+        integrationStatus,
+        viewData: data,
+        lastDataRefreshAt,
+      }),
       mainRow,
       createJarvisLiveOpsPanel({
         integrationStatus,

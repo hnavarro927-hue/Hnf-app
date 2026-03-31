@@ -61,16 +61,21 @@
   text-transform: uppercase;
   padding: 0.35rem 0.55rem;
   border-radius: 0.35rem;
-  border: 1px solid var(--op-border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--op-text);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(24, 24, 27, 0.92);
+  color: #f4f4f5;
   cursor: pointer;
 }
 
+.hnf-op-btn:hover {
+  border-color: rgba(34, 211, 238, 0.4);
+  color: #fff;
+}
+
 .hnf-op-btn--primary {
-  border-color: rgba(34, 211, 238, 0.35);
+  border-color: rgba(34, 211, 238, 0.45);
   background: var(--op-accent-dim);
-  color: #e0f2fe;
+  color: #ecfeff;
 }
 
 .hnf-op-alerts {

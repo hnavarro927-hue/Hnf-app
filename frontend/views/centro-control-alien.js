@@ -1,5 +1,6 @@
 import '../styles/centro-control-alien.css';
 import '../styles/hnf-operational-kanban.css';
+import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { createJarvisAlienFlow } from '../components/jarvis-alien-flow.js';
 import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
 import { createJarvisPanel } from '../components/jarvis-panel.js';
@@ -177,7 +178,8 @@ function kpiPill(label, value) {
  * Datos: GET /ots (vía props.data).
  */
 export function centroControlAlienView(props) {
-  const { data, reloadApp, navigateToView, actions, integrationStatus } = props || {};
+  const { data, reloadApp, navigateToView, actions, integrationStatus, lastDataRefreshAt, authLabel } =
+    props || {};
   const otsEnvelope = data?.ots;
   const otsRaw = Array.isArray(otsEnvelope?.data)
     ? otsEnvelope.data
@@ -198,17 +200,31 @@ export function centroControlAlienView(props) {
   const hTitle = el('hnf-op-header__title', 'h1');
   hTitle.textContent = 'Operación HNF';
   const hSub = el('hnf-op-header__sub', 'p');
-  hSub.textContent = 'Kanban OT · Jarvis · datos en vivo';
+  hSub.textContent = 'Kanban debajo · accesos a comando e ingesta arriba';
   headLeft.append(hTitle, hSub);
   const headAct = el('hnf-op-header__actions');
-  const sync = el('hnf-op-btn hnf-op-btn--primary', 'button');
-  sync.type = 'button';
-  sync.textContent = 'Actualizar';
-  sync.addEventListener('click', () => {
-    if (typeof reloadApp === 'function') void reloadApp();
-  });
-  headAct.append(sync);
+  const mkHeadBtn = (label, primary, fn) => {
+    const b = el(`hnf-op-btn${primary ? ' hnf-op-btn--primary' : ''}`, 'button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  headAct.append(
+    mkHeadBtn('Jarvis HQ', false, () => navigateToView?.('jarvis')),
+    mkHeadBtn('Ingesta', false, () => navigateToView?.('ingreso-operativo')),
+    mkHeadBtn('Actualizar', true, () => {
+      if (typeof reloadApp === 'function') void reloadApp();
+    })
+  );
   header.append(headLeft, headAct);
+
+  const execStrip = createJarvisExecutiveCopilotStrip({
+    authLabel,
+    integrationStatus,
+    viewData: data,
+    lastDataRefreshAt,
+  });
 
   const jarvisPresenceEl = createJarvisPresence({
     linea: jarvisLineaModoAlien(integrationStatus),
@@ -439,7 +455,7 @@ export function centroControlAlienView(props) {
 
   body.append(backdrop, drawer);
 
-  section.append(header, jarvisPresenceEl, alienFlow.element, kpiRow, body);
+  section.append(header, execStrip, jarvisPresenceEl, alienFlow.element, kpiRow, body);
 
   return section;
 }

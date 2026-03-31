@@ -59,8 +59,12 @@ export function navItemsFromModules(modules) {
 export function isViewAllowedForModules(modules, viewId) {
   if (viewId === 'sin-acceso') return true;
   const mods = Array.isArray(modules) ? modules : [];
+  const id = String(viewId || '');
+  if (id === 'ingreso-clasico') {
+    return mods.includes('*') || mods.includes('ingreso-operativo');
+  }
   if (mods.includes('*')) return isKnownShellView(viewId);
-  return mods.includes(String(viewId || ''));
+  return mods.includes(id);
 }
 
 export function defaultViewForModules(modules) {
