@@ -15,11 +15,11 @@ import { createJarvisPresence, jarvisLineaDesdeIntegracion } from '../components
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 
-function appendKpi(host, label, value, mod) {
+function appendKpi(host, label, value, mod, extraClass = '') {
   const d = document.createElement('div');
   const v2mod =
     mod === 'bad' ? 'hnf-v2-metric--danger' : mod === 'warn' ? 'hnf-v2-metric--alert' : '';
-  d.className = `hnf-v2-metric${v2mod ? ` ${v2mod}` : ''}`;
+  d.className = `hnf-v2-metric${v2mod ? ` ${v2mod}` : ''}${extraClass ? ` ${extraClass}` : ''}`.trim();
   const v = document.createElement('div');
   v.className = 'hnf-v2-metric__value';
   v.textContent = value;
@@ -44,7 +44,7 @@ export const controlGerencialView = ({
 } = {}) => {
   const { root, hero, kpis, jarvisZone, body } = createControlDashboard();
   root.classList.add('hnf-cck-surface', 'hnf-op-view', 'hnf-op-view--control');
-  kpis.classList.add('hnf-v2-metric-row');
+  kpis.classList.add('hnf-ccd__kpis-stack');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
   const list = Array.isArray(raw) ? raw : [];
@@ -92,18 +92,26 @@ export const controlGerencialView = ({
   const lead = document.createElement('p');
   lead.className = 'hnf-ccd__lead';
   lead.innerHTML =
-    '<strong>Dashboard ejecutivo</strong> — lectura rápida de riesgo, carga y dinero. El mando vive en <em>Mando</em> y el núcleo Jarvis abajo.';
+    '<strong>Dashboard ejecutivo</strong> — núcleo Jarvis y señales en vivo primero; después, KPIs del negocio y detalle operativo. El Kanban vive en <em>Mando</em>.';
   hero.append(h1, lead, createHnfOperationalFlowStrip(4), createHnfGerenciaOpsIdentityCard());
   hero.append(createHnfControlLynRegistroPanel({ reloadApp }));
 
-  appendKpi(kpis, 'Estado del día', estadoDia, kpiMod);
-  appendKpi(kpis, 'OT abiertas', String(abiertas.length));
-  appendKpi(kpis, 'Pendientes', String(pendientes.length));
-  appendKpi(kpis, 'En proceso', String(enProceso.length));
-  appendKpi(kpis, 'Listas para cierre', String(listasCierre.length));
-  appendKpi(kpis, 'WhatsApp (hoy)', String(waHoy));
-  appendKpi(kpis, 'Dinero en riesgo', `$${fmtMoney(agg.dinero_en_riesgo)}`);
-  appendKpi(kpis, 'Ingresos locales hoy', String(ingresosHoy.length));
+  const kpiBand = document.createElement('div');
+  kpiBand.className = 'hnf-ccd__kpi-band-intro';
+  kpiBand.innerHTML =
+    '<p class="hnf-ccd__kpi-band-tag">Métricas</p><h2 class="hnf-ccd__kpi-band-title">Estado operativo y finanzas</h2><p class="hnf-ccd__kpi-band-lead muted">El primer bloque resume el día; el resto desglosa carga, canal y riesgo económico.</p>';
+  const kpiGrid = document.createElement('div');
+  kpiGrid.className = 'hnf-ccd__kpi-grid hnf-v2-metric-row';
+  kpis.append(kpiBand, kpiGrid);
+
+  appendKpi(kpiGrid, 'Estado del día', estadoDia, kpiMod, 'hnf-v2-metric--hero');
+  appendKpi(kpiGrid, 'OT abiertas', String(abiertas.length));
+  appendKpi(kpiGrid, 'Pendientes', String(pendientes.length));
+  appendKpi(kpiGrid, 'En proceso', String(enProceso.length));
+  appendKpi(kpiGrid, 'Listas para cierre', String(listasCierre.length));
+  appendKpi(kpiGrid, 'WhatsApp (hoy)', String(waHoy));
+  appendKpi(kpiGrid, 'Dinero en riesgo', `$${fmtMoney(agg.dinero_en_riesgo)}`);
+  appendKpi(kpiGrid, 'Ingresos locales hoy', String(ingresosHoy.length));
 
   const jSig = buildJarvisGerencialSignals(list);
   const jarvisBrandSub = 'Jarvis | Integridad Operativa HNF';
@@ -135,7 +143,9 @@ export const controlGerencialView = ({
     createJarvisCopilot({ focoOt: jSig.focoOt })
   );
 
-  jarvisZone.append(
+  const nucleusMega = document.createElement('div');
+  nucleusMega.className = 'hnf-ccd__nucleus-mega';
+  nucleusMega.append(
     sectionHead,
     mainRow,
     createJarvisExecutiveCopilotStrip({
@@ -151,6 +161,7 @@ export const controlGerencialView = ({
       focoOt: jSig.focoOt,
     })
   );
+  jarvisZone.append(nucleusMega);
 
   const colResp = document.createElement('div');
   const hResp = document.createElement('h2');

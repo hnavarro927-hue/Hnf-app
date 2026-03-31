@@ -20,7 +20,7 @@ export function createControlLayout({
   lastDataRefreshAt = null,
 } = {}) {
   const root = document.createElement('div');
-  root.className = 'hnf-cc-layout';
+  root.className = 'hnf-cc-layout hnf-cc-master-shell';
   if (typeof document !== 'undefined' && document.body) {
     document.body.classList.add('hnf-cc-shell-active', 'hnf-cc-unified');
   }

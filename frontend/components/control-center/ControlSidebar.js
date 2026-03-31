@@ -22,7 +22,7 @@ export function createControlSidebar({
     Array.isArray(navItems) && navItems.length > 0 ? navItems : HNF_COMMAND_NAV_FULL;
 
   const aside = document.createElement('aside');
-  aside.className = 'hnf-cc-sidebar';
+  aside.className = 'hnf-cc-sidebar hnf-cc-rail';
   aside.setAttribute('aria-label', 'Panel de mando HNF');
 
   const toggle = document.createElement('button');
@@ -116,9 +116,14 @@ export function createControlSidebar({
     </div>
   `;
 
+  const telemetry = document.createElement('div');
+  telemetry.className = 'hnf-cc-rail__telemetry';
+  telemetry.setAttribute('aria-label', 'Telemetría de conexión');
+  telemetry.append(statusRow, syncLive, apiRow);
+
   const headBlock = document.createElement('div');
-  headBlock.className = 'hnf-cc-sidebar__head';
-  headBlock.append(brand, slaStrip, statusRow, syncLive, apiRow);
+  headBlock.className = 'hnf-cc-sidebar__head hnf-cc-rail__mast';
+  headBlock.append(brand, telemetry, slaStrip);
   if (sessionEl) headBlock.append(sessionEl);
   if (deployStatusElement) {
     deployStatusElement.classList.add('hnf-cc-sidebar__deploy');
@@ -126,8 +131,8 @@ export function createControlSidebar({
   }
 
   const nav = document.createElement('nav');
-  nav.className = 'hnf-cc-nav';
-  nav.setAttribute('aria-label', 'Módulos');
+  nav.className = 'hnf-cc-nav hnf-cc-rail__modules';
+  nav.setAttribute('aria-label', 'Módulos del sistema');
 
   let lastNavSection = null;
   let currentDeck = null;
