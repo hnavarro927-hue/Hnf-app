@@ -18,3 +18,18 @@ export const notificacionAsignadaFromBandeja = (bandeja) => {
   if (b === 'administrativo') return 'Romina';
   return 'Romina';
 };
+
+/**
+ * Asignación operativa derivada solo del tipo de servicio (misma tabla que bandeja / notificación).
+ * Clima → Romina · Flota → Gery · Comercial → Lyn · Administrativo → Romina.
+ * No duplica reglas: compone bandejaFromTipoServicio + notificacionAsignadaFromBandeja.
+ */
+export function asignacionOperativaDesdeTipoServicio(tipoServicio) {
+  const bandeja = bandejaFromTipoServicio(tipoServicio);
+  const operadorTitular = notificacionAsignadaFromBandeja(bandeja);
+  return {
+    bandejaAsignada: bandeja,
+    notificacionAsignadaA: operadorTitular,
+    operadorTitular,
+  };
+}

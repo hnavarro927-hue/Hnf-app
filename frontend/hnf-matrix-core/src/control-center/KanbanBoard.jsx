@@ -16,7 +16,7 @@ const LANE_LABEL = {
  * Kanban horizontal: scroll X en el tablero; cada columna con scroll Y propio.
  * Sin mezclar operaciones por tipo: cada card muestra su tipoServicio.
  */
-export function KanbanBoard({ ots = [], selectedId, onSelectOt }) {
+export function KanbanBoard({ ots = [], selectedId, onSelectOt, alertaOpts }) {
   const byLane = useMemo(() => {
     const m = Object.fromEntries(KANBAN_LANE_IDS.map((k) => [k, []]));
     for (const ot of ots) {
@@ -57,6 +57,7 @@ export function KanbanBoard({ ots = [], selectedId, onSelectOt }) {
                     ot={ot}
                     active={String(ot.id) === String(selectedId)}
                     onSelect={onSelectOt}
+                    alertaOpts={alertaOpts}
                   />
                 ))}
               </div>

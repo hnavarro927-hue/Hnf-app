@@ -15,17 +15,30 @@ import { OtSidePanel } from './OtSidePanel.jsx';
  * - kpis.otRiesgoCount: si no viene, se calcula contando OT con alerta derivada (hechos del payload).
  * - onRefresh: callback botón actualizar (ej. refetch API).
  */
-export function ControlCenterAlien({ ots = [], kpis = {}, onRefresh }) {
+export function ControlCenterAlien({
+  ots = [],
+  kpis = {},
+  onRefresh,
+  /** Umbrales explícitos (días) para alerta amarilla de atraso; sin esto solo hay alertas rojas de riesgo. */
+  alertaAtrasoOpts,
+  /** Rol backend (getSessionBackendRole) para filtrar OT por Romina/Gery/Lyn… */
+  rolBackend,
+}) {
   const [selectedId, setSelectedId] = useState(null);
 
+  const otsVista = useMemo(
+    () => (rolBackend ? filtrarOtsPorRolBackend(ots, rolBackend) : ots),
+    [ots, rolBackend]
+  );
+
   const selectedOt = useMemo(
-    () => ots.find((o) => String(o?.id) === String(selectedId)) || null,
-    [ots, selectedId]
+    () => otsVista.find((o) => String(o?.id) === String(selectedId)) || null,
+    [otsVista, selectedId]
   );
 
   const riesgoDerived = useMemo(
-    () => ots.reduce((n, o) => (deriveOtAlert(o) ? n + 1 : n), 0),
-    [ots]
+    () => otsVista.reduce((n, o) => (deriveOtAlert(o, alertaAtrasoOpts)?.level === 'risk' ? n + 1 : n), 0),
+    [otsVista, alertaAtrasoOpts]
   );
 
   const mergedKpis = useMemo(
@@ -78,7 +91,12 @@ export function ControlCenterAlien({ ots = [], kpis = {}, onRefresh }) {
               ) : null}
             </div>
 
-            <KanbanBoard ots={ots} selectedId={selectedId} onSelectOt={handleSelect} />
+            <KanbanBoard
+              ots={otsVista}
+              selectedId={selectedId}
+              onSelectOt={handleSelect}
+              alertaOpts={alertaAtrasoOpts}
+            />
           </div>
 
           {selectedOt ? <OtSidePanel ot={selectedOt} onClose={closePanel} /> : null}

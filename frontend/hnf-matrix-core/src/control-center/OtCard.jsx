@@ -14,12 +14,12 @@ function tipoClass(tipo) {
   return TIPO_ACCENT[k] || 'border-white/10 bg-white/[0.03] text-slate-300';
 }
 
-export function OtCard({ ot, active, onSelect }) {
+export function OtCard({ ot, active, onSelect, alertaOpts }) {
   const id = String(ot?.id ?? '');
   const cliente = String(ot?.cliente ?? '').trim() || '—';
   const tipo = String(ot?.tipoServicio ?? '').trim() || '—';
   const responsable = String(ot?.responsableActual ?? ot?.tecnicoAsignado ?? '').trim() || '—';
-  const alert = deriveOtAlert(ot);
+  const alert = deriveOtAlert(ot, alertaOpts);
 
   return (
     <button
@@ -44,7 +44,8 @@ export function OtCard({ ot, active, onSelect }) {
         <p
           className={[
             'mt-1.5 rounded-md px-1.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-wide',
-            alert.level === 'risk' ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-200',
+            alert.level === 'risk' ? 'bg-red-500/20 text-red-200 ring-1 ring-red-500/35' : '',
+            alert.level === 'delay' ? 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/35' : '',
           ].join(' ')}
         >
           {alert.text}
