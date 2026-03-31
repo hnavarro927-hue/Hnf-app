@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +11,10 @@ import { startJarvisOperationalCycleTimer } from './cron/jarvis-cycle.js';
 import { routes } from './routes/index.js';
 import { ensureBootstrapAdmin } from './services/auth.service.js';
 import { evaluateRequestAuth } from './services/auth.gateway.js';
-import { corsHeadersForRequest, matchRoute, readJsonBody, sendError } from './utils/http.js';
+import { corsHeadersForRequest, matchRoute, readJsonBody, sendError, sendJson } from './utils/http.js';
+
+const require = createRequire(import.meta.url);
+const { crearOTDesdeInput } = require('./intake/jarvis-intake');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +95,24 @@ const server = createServer(async (request, response) => {
   }
 
   const url = new URL(request.url, 'http://localhost');
+
+  if (request.method === 'POST' && url.pathname === '/jarvis/intake') {
+    try {
+      const authResult = await evaluateRequestAuth(request, url.pathname);
+      if (!authResult.ok) {
+        return sendError(response, authResult.status, authResult.message, authResult.details);
+      }
+      const body = await readJsonBody(request);
+      const nuevaOT = crearOTDesdeInput(body || {});
+      console.log('JARVIS OT:', nuevaOT);
+      return sendJson(response, 200, { ok: true, ot: nuevaOT });
+    } catch (error) {
+      return sendError(response, 500, 'Error interno del servidor.', {
+        detail: error.message,
+      });
+    }
+  }
+
   const matched = matchRoute(routes, request.method, url.pathname);
 
   if (!matched && request.method === 'GET') {

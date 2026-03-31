@@ -10,6 +10,7 @@ import {
   jarvisHeuristicaPrioridadOperativa,
   textoResponsableOperativoMostrado,
 } from '../domain/hnf-operativa-reglas.js';
+import { esOtExcluidaDeKpis } from '../domain/ot-kpi-audit.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 
 const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
@@ -38,7 +39,7 @@ function fmtCLP(n) {
 }
 
 function computeKpisDesdeOts(otsRaw, alertOpts = ALERTA_OPTS_CENTRO) {
-  const list = Array.isArray(otsRaw) ? otsRaw : [];
+  const list = (Array.isArray(otsRaw) ? otsRaw : []).filter((o) => !esOtExcluidaDeKpis(o));
   if (!list.length) {
     return {
       ingresos: { text: 'Sin dato', pending: true },

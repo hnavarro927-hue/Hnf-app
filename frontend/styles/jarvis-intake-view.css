@@ -1,0 +1,167 @@
+/**
+ * Bandeja Jarvis Intake (ingreso operativo) — panel semiautomático.
+ */
+
+.hnf-jarvis-intake {
+  display: none;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.hnf-jarvis-intake--open {
+  display: block;
+}
+
+.hnf-jarvis-intake__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.hnf-jarvis-intake__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.hnf-jarvis-intake__close {
+  flex-shrink: 0;
+}
+
+.hnf-jarvis-intake__grid {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+@media (min-width: 640px) {
+  .hnf-jarvis-intake__grid {
+    grid-template-columns: 1fr 2fr;
+    align-items: start;
+  }
+}
+
+.hnf-jarvis-intake__label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--muted, #a1a1aa);
+}
+
+.hnf-jarvis-intake__input,
+.hnf-jarvis-intake__select,
+.hnf-jarvis-intake__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+}
+
+.hnf-jarvis-intake__textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.hnf-jarvis-intake__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.hnf-jarvis-intake__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  margin-bottom: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.hnf-jarvis-intake__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.hnf-jarvis-intake__item--on {
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(8, 51, 68, 0.35);
+}
+
+.hnf-jarvis-intake__item-meta {
+  font-size: 0.7rem;
+  color: var(--muted, #a1a1aa);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+
+.hnf-jarvis-intake__preview {
+  padding: 0.6rem 0.65rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  margin-bottom: 0.65rem;
+}
+
+.hnf-jarvis-intake__preview-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 38%) 1fr;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.hnf-jarvis-intake__preview-dt {
+  margin: 0;
+  font-weight: 700;
+  color: var(--muted, #a1a1aa);
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.hnf-jarvis-intake__preview-dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.hnf-jarvis-intake__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hnf-jarvis-intake__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted, #a1a1aa);
+}
+
+.hnf-jarvis-intake__hint--warn {
+  color: #fbbf24;
+}

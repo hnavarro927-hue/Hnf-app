@@ -27,6 +27,7 @@ import {
 } from '../domain/hnf-operativa-reglas.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
+import { createJarvisIntakeBandeja } from './jarvis-intake-view.js';
 
 const CASO_LABEL = {
   ot: 'OT',
@@ -289,14 +290,24 @@ export const ingresoOperativoView = ({
 
   const formIntro = document.createElement('div');
   formIntro.className = 'hnf-ingreso-intake__intro';
-  formIntro.innerHTML = `
-    <h2 class="hnf-ingreso-intake__intro-title">Nueva solicitud · crear OT</h2>
-    <p class="muted small hnf-ingreso-intake__intro-text">
-      <strong>Ingreso:</strong> datos del contacto y del pedido.<br/>
-      <strong>Resumen y recomendaciones:</strong> a la derecha (o abajo en tablet) se actualizan mientras escribís.<br/>
-      <strong>Después de guardar:</strong> verás «Subida de información exitosa» si todo salió bien; la OT queda en el módulo que corresponde (Clima, Flota o Comercial).
-    </p>
+  const introTop = document.createElement('div');
+  introTop.className = 'hnf-ingreso-intake__intro-top';
+  const h2Intro = document.createElement('h2');
+  h2Intro.className = 'hnf-ingreso-intake__intro-title';
+  h2Intro.textContent = 'Nueva solicitud · crear OT';
+  const btnJarvisIntake = document.createElement('button');
+  btnJarvisIntake.type = 'button';
+  btnJarvisIntake.className = 'secondary-button hnf-ingreso-intake__btn-jarvis';
+  btnJarvisIntake.textContent = 'Desde Jarvis';
+  introTop.append(h2Intro, btnJarvisIntake);
+  const introP = document.createElement('p');
+  introP.className = 'muted small hnf-ingreso-intake__intro-text';
+  introP.innerHTML = `
+    <strong>Ingreso:</strong> datos del contacto y del pedido.<br/>
+    <strong>Resumen y recomendaciones:</strong> a la derecha (o abajo en tablet) se actualizan mientras escribís.<br/>
+    <strong>Después de guardar:</strong> verás «Subida de información exitosa» si todo salió bien; la OT queda en el módulo que corresponde (Clima, Flota o Comercial).
   `;
+  formIntro.append(introTop, introP);
 
   const fileGuide = document.createElement('details');
   fileGuide.className = 'hnf-ingreso-archivo-guia';
@@ -1059,6 +1070,57 @@ export const ingresoOperativoView = ({
   syncWizard();
 
   formCard.append(form);
+
+  const jarvisIntakeBandeja = createJarvisIntakeBandeja({
+    onApply: (item, { directo }) => {
+      const { parse, origen: intakeOrigen, texto } = item;
+      const mapOrigen = { whatsapp: 'whatsapp', correo: 'email', manual: 'interno' };
+      const ov = mapOrigen[intakeOrigen] || 'interno';
+      if ([...origenSel.options].some((o) => o.value === ov)) {
+        origenSel.value = ov;
+      }
+      syncWaFields();
+
+      if (parse.cliente) {
+        clienteInp.value = parse.cliente;
+        presetSel.value = '';
+      }
+
+      if (parse.tipo) {
+        const allowed = new Set(tipoOpciones.map((o) => o.value));
+        if (allowed.has(parse.tipo)) {
+          tipoSel.value = parse.tipo;
+          fillSubtipo(parse.tipo);
+        }
+      }
+
+      const descVal = (parse.descripcion || texto || '').trim();
+      if (form.elements.descripcion) form.elements.descripcion.value = descVal;
+      const pr = parse.prioridadSugerida;
+      if (form.elements.prioridad && ['alta', 'media', 'baja'].includes(pr)) {
+        form.elements.prioridad.value = pr;
+      }
+
+      updatePreview();
+      jarvisIntakeBandeja.setOpen(false);
+
+      if (directo) {
+        wizardStep = STEP_LABELS.length - 1;
+        syncWizard();
+        submit.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else {
+        wizardStep = 0;
+        syncWizard();
+        introTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        clienteInp.focus();
+      }
+    },
+  });
+  formCard.insertBefore(jarvisIntakeBandeja.root, fileGuide);
+
+  btnJarvisIntake.addEventListener('click', () => {
+    jarvisIntakeBandeja.setOpen(!jarvisIntakeBandeja.isOpen());
+  });
 
   const listHost = document.createElement('div');
   listHost.className = 'hnf-cap-ingreso__list';
