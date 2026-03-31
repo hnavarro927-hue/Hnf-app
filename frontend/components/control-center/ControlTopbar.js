@@ -31,6 +31,7 @@ export function createControlTopbar({
   navItems,
   integrationStatus,
   lastDataRefreshAt,
+  onNavigate,
 } = {}) {
   const bar = document.createElement('header');
   bar.className = 'hnf-cc-topbar hnf-cc-topbar--cockpit';
@@ -99,7 +100,7 @@ export function createControlTopbar({
   syncV.textContent = formatLastSyncLabel(lastDataRefreshAt);
   meta.append(syncK, syncV);
 
-  right.append(pill, meta);
+  right.append(quickSlot, jarvisCtl, pill, meta);
   bar.append(left, center, right);
   return bar;
 }

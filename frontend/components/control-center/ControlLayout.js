@@ -1,12 +1,14 @@
 import { isTabletMode } from '../../domain/jarvis-ui.js';
+import { buildOperationalJarvisLine } from '../../domain/hnf-operational-context.js';
 import '../../styles/hnf-control-center-layout.css';
 import '../../styles/hnf-cockpit-unified.css';
+import { createOperationalContextStrip } from './control-operational-context-strip.js';
 import { createControlSidebar } from './ControlSidebar.js';
 import { createControlTopbar } from './ControlTopbar.js';
 
 /**
  * Layout raíz del Centro de Control Operativo HNF.
- * Reemplaza el shell legacy (.shell / .sidebar); no es un parche CSS.
+ * Viewport único: topbar + strip Jarvis + workspace (scroll interno).
  */
 export function createControlLayout({
   activeView,
@@ -18,6 +20,7 @@ export function createControlLayout({
   deployStatusElement = null,
   navItems = null,
   lastDataRefreshAt = null,
+  viewData = null,
 } = {}) {
   const root = document.createElement('div');
   root.className = 'hnf-cc-layout hnf-cc-master-shell';
@@ -50,15 +53,35 @@ export function createControlLayout({
     navItems,
     integrationStatus,
     lastDataRefreshAt,
+    onNavigate,
   });
 
-  const viewport = document.createElement('div');
-  viewport.className = 'hnf-cc-viewport content__viewport';
-  viewport.setAttribute('role', 'region');
-  viewport.setAttribute('aria-label', 'Área de trabajo operativo');
+  const jarvisLine = buildOperationalJarvisLine(activeView, viewData);
+  const contextStrip = createOperationalContextStrip({
+    jarvisLine,
+    activeView,
+    onNavigate,
+  });
 
-  main.append(topbar, viewport);
+  const viewportShell = document.createElement('div');
+  viewportShell.className = 'hnf-cc-viewport hnf-cc-viewport--shell content__viewport';
+  viewportShell.setAttribute('role', 'region');
+  viewportShell.setAttribute('aria-label', 'Área de trabajo operativo');
+
+  const workspace = document.createElement('div');
+  workspace.className = 'hnf-cc-workspace';
+  workspace.setAttribute('aria-label', 'Módulo activo');
+  viewportShell.append(workspace);
+
+  main.append(topbar, contextStrip, viewportShell);
   root.append(sidebarEl, main);
 
-  return { element: root, content: main, viewport, topbar };
+  return {
+    element: root,
+    content: main,
+    viewport: workspace,
+    viewportShell,
+    topbar,
+    contextStrip,
+  };
 }

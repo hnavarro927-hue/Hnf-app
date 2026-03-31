@@ -1,10 +1,35 @@
 import { HNF_COMMAND_NAV_FULL } from '../../domain/hnf-operator-role.js';
 import { isTabletMode } from '../../domain/jarvis-ui.js';
-import { NAV_SECTION_LABEL, NAV_TECH_ACCENT, VIEW_NAV_SECTION } from './control-nav-meta.js';
+import {
+  COCKPIT_GROUP_LABEL,
+  COCKPIT_GROUP_ORDER,
+  COCKPIT_NAV_GROUP,
+  NAV_TECH_ACCENT,
+} from './control-nav-meta.js';
 import { formatLastSyncLabel, statusCopy, statusModifiers } from './control-shell-utils.js';
 
+const NAV_GROUP_STATE_KEY = 'hnf-cc-cockpit-nav-groups';
+
+function readNavGroupState() {
+  try {
+    const raw = sessionStorage.getItem(NAV_GROUP_STATE_KEY);
+    const o = raw ? JSON.parse(raw) : {};
+    return o && typeof o === 'object' ? o : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeNavGroupState(next) {
+  try {
+    sessionStorage.setItem(NAV_GROUP_STATE_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
- * Sidebar cockpit — no usa clases .sidebar / .nav-item legacy.
+ * Sidebar cockpit — grupos colapsables; solo el rail hace scroll; el panel principal no se empuja.
  */
 export function createControlSidebar({
   layoutRoot,
@@ -49,7 +74,7 @@ export function createControlSidebar({
   brandTitle.textContent = 'Centro de Control';
   const brandSub = document.createElement('span');
   brandSub.className = 'hnf-cc-sidebar__brand-tag';
-  brandSub.textContent = 'Operativo · Mando unificado';
+  brandSub.textContent = 'Cockpit operativo';
   brandCol.append(brandTitle, brandSub);
   brand.append(mark, brandCol);
 
@@ -134,21 +159,17 @@ export function createControlSidebar({
   nav.className = 'hnf-cc-nav hnf-cc-rail__modules';
   nav.setAttribute('aria-label', 'Módulos del sistema');
 
-  let lastNavSection = null;
-  let currentDeck = null;
+  const byGroup = {};
+  for (const g of COCKPIT_GROUP_ORDER) byGroup[g] = [];
   for (const item of items) {
-    const secKey = VIEW_NAV_SECTION[item.id] ?? 'otros';
-    if (secKey !== lastNavSection) {
-      lastNavSection = secKey;
-      const secEl = document.createElement('div');
-      secEl.className = 'hnf-v2-nav-rail-title';
-      secEl.textContent = NAV_SECTION_LABEL[secKey] || secKey;
-      nav.append(secEl);
-      currentDeck = document.createElement('div');
-      currentDeck.className = 'hnf-v2-nav-deck';
-      nav.append(currentDeck);
-    }
+    const g = COCKPIT_NAV_GROUP[item.id] ?? 'sistema';
+    if (!byGroup[g]) byGroup[g] = [];
+    byGroup[g].push(item);
+  }
 
+  const persisted = readNavGroupState();
+
+  const appendNavButton = (parent, item) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'hnf-cc-nav__btn';
@@ -166,7 +187,69 @@ export function createControlSidebar({
     lab.textContent = item.label;
     btn.append(ic, lab);
     btn.addEventListener('click', () => onNavigate(item.id));
-    (currentDeck || nav).append(btn);
+    parent.append(btn);
+  };
+
+  for (const groupId of COCKPIT_GROUP_ORDER) {
+    const groupItems = byGroup[groupId];
+    if (!groupItems?.length) continue;
+
+    const hasActive = groupItems.some((it) => it.id === activeView);
+    let expanded;
+    if (Object.prototype.hasOwnProperty.call(persisted, groupId)) {
+      expanded = Boolean(persisted[groupId]);
+    } else {
+      expanded = hasActive;
+    }
+
+    const block = document.createElement('div');
+    block.className = 'hnf-cc-nav-group';
+
+    const panelId = `hnf-cc-nav-grp-${groupId}`;
+
+    const headerBtn = document.createElement('button');
+    headerBtn.type = 'button';
+    headerBtn.className = 'hnf-cc-nav-group__toggle';
+    headerBtn.setAttribute('aria-expanded', String(expanded));
+    headerBtn.setAttribute('aria-controls', panelId);
+
+    const chev = document.createElement('span');
+    chev.className = 'hnf-cc-nav-group__chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = expanded ? '▾' : '▸';
+
+    const groupLab = document.createElement('span');
+    groupLab.className = 'hnf-cc-nav-group__label';
+    groupLab.textContent = COCKPIT_GROUP_LABEL[groupId] || groupId;
+
+    const count = document.createElement('span');
+    count.className = 'hnf-cc-nav-group__count';
+    count.textContent = String(groupItems.length);
+
+    headerBtn.append(chev, groupLab, count);
+
+    const panel = document.createElement('div');
+    panel.className = 'hnf-cc-nav-group__panel';
+    panel.id = panelId;
+    panel.hidden = !expanded;
+
+    for (const item of groupItems) {
+      appendNavButton(panel, item);
+    }
+
+    headerBtn.addEventListener('click', () => {
+      const isOpen = !panel.hidden;
+      const nextOpen = !isOpen;
+      panel.hidden = !nextOpen;
+      headerBtn.setAttribute('aria-expanded', String(nextOpen));
+      chev.textContent = nextOpen ? '▾' : '▸';
+      const st = readNavGroupState();
+      st[groupId] = nextOpen;
+      writeNavGroupState(st);
+    });
+
+    block.append(headerBtn, panel);
+    nav.append(block);
   }
 
   aside.append(toggle, headBlock, nav);

@@ -1712,6 +1712,7 @@ const render = () => {
 
       const shell = createControlLayout({
         activeView: state.activeView,
+        viewData: state.viewData,
         apiBaseLabel: formatApiBaseLabel(),
         integrationStatus: state.integrationStatus,
         lastDataRefreshAt: state.lastSuccessfulFetchAt,

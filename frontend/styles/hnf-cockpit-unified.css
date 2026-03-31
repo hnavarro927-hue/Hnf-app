@@ -697,6 +697,31 @@ body.hnf-cc-unified .hnf-cc-viewport > * {
   z-index: 1;
 }
 
+/* Marco fijo + scroll solo en workspace (no empuja topbar / strip Jarvis) */
+body.hnf-cc-unified .hnf-cc-viewport.hnf-cc-viewport--shell {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  padding: 0 !important;
+}
+
+body.hnf-cc-unified .hnf-cc-viewport--shell .hnf-cc-workspace {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  overflow-x: auto !important;
+  padding: 28px 32px 36px !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.hnf-cc-unified .hnf-cc-main.content--command-layout {
+  min-height: 0 !important;
+}
+
 /* —— Superficie única: dashboard, matrices, bandejas, tablas —— */
 body.hnf-cc-unified .hnf-cc-viewport .hnf-ccd,
 body.hnf-cc-unified .hnf-cc-viewport .hnf-cck-surface,
@@ -1035,7 +1060,16 @@ body.hnf-cc-unified .hnf-kb__lanes {
     max-height: 42vh !important;
   }
 
-  body.hnf-cc-unified .hnf-cc-viewport {
+  body.hnf-cc-unified .hnf-cc-viewport.hnf-cc-viewport--shell {
+    min-height: 0 !important;
+  }
+
+  body.hnf-cc-unified .hnf-cc-viewport--shell .hnf-cc-workspace {
+    min-height: 50vh !important;
+    padding: 22px 20px 28px !important;
+  }
+
+  body.hnf-cc-unified .hnf-cc-viewport:not(.hnf-cc-viewport--shell) {
     min-height: 50vh !important;
     padding: 22px 20px 28px !important;
   }

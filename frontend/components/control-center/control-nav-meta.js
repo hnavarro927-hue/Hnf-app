@@ -20,39 +20,57 @@ export const NAV_TECH_ACCENT = {
   'documentos-tecnicos': 'jarvis',
 };
 
-export const VIEW_NAV_SECTION = {
+/** Grupos del rail cockpit (orden fijo) */
+export const COCKPIT_GROUP_ORDER = [
+  'nucleo',
+  'operaciones',
+  'campo',
+  'comercial',
+  'finanzas',
+  'sistema',
+];
+
+export const COCKPIT_GROUP_LABEL = {
+  nucleo: 'Núcleo',
+  operaciones: 'Operaciones',
+  campo: 'Campo',
+  comercial: 'Comercial',
+  finanzas: 'Finanzas',
+  sistema: 'Sistema',
+};
+
+/** Vista → grupo del menú lateral (colapsable por grupo, sin afectar el panel principal). */
+export const COCKPIT_NAV_GROUP = {
   'matriz-hnf': 'nucleo',
   'centro-control': 'nucleo',
   jarvis: 'nucleo',
   'ingreso-operativo': 'nucleo',
-  'bandeja-canal': 'bandejas',
-  'bandeja-romina': 'bandejas',
-  'bandeja-gery': 'bandejas',
-  'lyn-aprobacion': 'bandejas',
+  'ingreso-clasico': 'nucleo',
+  'bandeja-canal': 'operaciones',
+  'bandeja-romina': 'operaciones',
+  'bandeja-gery': 'operaciones',
+  'lyn-aprobacion': 'operaciones',
   clima: 'campo',
   planificacion: 'campo',
   flota: 'campo',
   oportunidades: 'comercial',
   'ordenes-compra': 'comercial',
   'documentos-tecnicos': 'comercial',
-  'control-gerencial': 'gerencia',
-  finanzas: 'gerencia',
-  equipo: 'gerencia',
+  'technical-documents': 'comercial',
+  'control-gerencial': 'finanzas',
+  finanzas: 'finanzas',
+  equipo: 'finanzas',
   'hnf-core': 'sistema',
   'base-maestra': 'sistema',
   auditoria: 'sistema',
   usuarios: 'sistema',
 };
 
-export const NAV_SECTION_LABEL = {
-  nucleo: 'Núcleo operativo',
-  bandejas: 'Bandejas',
-  campo: 'Campo',
-  comercial: 'Comercial',
-  gerencia: 'Gerencia',
-  sistema: 'Sistema',
-  otros: 'Otros',
-};
+/** @deprecated Usar COCKPIT_NAV_GROUP */
+export const VIEW_NAV_SECTION = COCKPIT_NAV_GROUP;
+
+/** @deprecated compat; usar COCKPIT_GROUP_LABEL */
+export const NAV_SECTION_LABEL = { ...COCKPIT_GROUP_LABEL, otros: 'Otros' };
 
 /** Subtítulo operativo por vista — contexto en topbar cockpit */
 export const VIEW_CONTEXT_SUBTITLE = {
@@ -70,6 +88,7 @@ export const VIEW_CONTEXT_SUBTITLE = {
   oportunidades: 'Pipeline comercial · oportunidades',
   'ordenes-compra': 'OC y documentos comerciales',
   'documentos-tecnicos': 'Biblioteca técnica · lectura operativa',
+  'technical-documents': 'Biblioteca técnica · lectura operativa',
   'control-gerencial': 'KPIs · riesgo · estado del negocio en tiempo real',
   finanzas: 'Economía operativa HNF',
   equipo: 'Personas · roles y disciplina',
