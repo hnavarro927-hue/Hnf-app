@@ -8,11 +8,12 @@ alwaysApply: false
 
 ## Pipeline (ya cableado)
 
-1. **Entrada estructurada** → `POST /jarvis/intake` (`source`, `texto`|`descripcion`, `cliente`, opcionales dirección/comuna/tel/WhatsApp).
+1. **Entrada estructurada** → `POST /jarvis/intake` (`texto` y `cliente` obligatorios; `source` y demás opcionales).
 2. **Clasificación** → `backend/src/intake/jarvis-intake.js` (`clasificarArea`: señales clima primero, luego flota; default clima).
 3. **OT real** → `jarvisIntakeOperational.service.js` → `otService.create` → `backend/data/ots.json` (o `HNF_OT_DATA_PATH` si está definido).
 4. **Asignación** → clima → Romina, flota → Gery; estado inicial vía `estadoCoreOverride: pendiente` → almacenado como `nueva`.
-5. **Trazabilidad** → `jarvisIntakeTrace` + historial Jarvis (motor en `ot.service` / dominio).
+5. **Prioridad / riesgo** → `sugerirPrioridad` + `detectarRiesgo` en `jarvis-intake.js`; se persisten `prioridadSugerida`, `riesgoDetectado` y `prioridadOperativa` (= sugerida en este flujo).
+6. **Trazabilidad** → `jarvisIntakeTrace` + historial Jarvis (motor en `ot.service` / dominio).
 
 Lógica de negocio concentrada en **`backend/src/services/jarvisIntakeOperational.service.js`**. El controlador HTTP solo autentica y delega.
 

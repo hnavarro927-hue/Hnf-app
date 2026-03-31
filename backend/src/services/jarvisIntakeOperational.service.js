@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { otService } from './ot.service.js';
 
 const require = createRequire(import.meta.url);
-const { clasificarArea } = require('../intake/jarvis-intake');
+const { clasificarArea, detectarRiesgo, sugerirPrioridad } = require('../intake/jarvis-intake');
 
 export const mapJarvisSourceToOrigenSolicitud = (source) => {
   const s = String(source ?? '')
@@ -37,12 +37,15 @@ export async function createRealOtFromJarvisIntakeBody(body, actor) {
 
   const area = clasificarArea(texto);
   const responsable = area === 'clima' ? 'Romina' : 'Gery';
+  const prioridadSugerida = sugerirPrioridad(texto, cliente, area);
+  const riesgoDetectado = detectarRiesgo(texto);
 
   console.log('JARVIS DECISION:', {
     area,
     responsable,
     cliente: body.cliente,
   });
+  console.log('JARVIS PRIORIDAD:', { prioridadSugerida, riesgoDetectado });
 
   const origenSolicitud = mapJarvisSourceToOrigenSolicitud(body?.source);
   const origenPedido = String(body?.source ?? 'manual')
@@ -55,8 +58,7 @@ export async function createRealOtFromJarvisIntakeBody(body, actor) {
   const now = new Date();
   const fecha = now.toISOString().slice(0, 10);
   const hora = now.toTimeString().slice(0, 5);
-  const pr = String(body?.prioridadOperativa || '').toLowerCase();
-  const prioridadOperativa = ['alta', 'media', 'baja'].includes(pr) ? pr : 'media';
+  const prioridadOperativa = prioridadSugerida;
 
   const payload = {
     cliente,
@@ -69,6 +71,8 @@ export async function createRealOtFromJarvisIntakeBody(body, actor) {
     origenSolicitud,
     origenPedido: origenPedido || 'manual',
     prioridadOperativa,
+    prioridadSugerida,
+    riesgoDetectado,
     tecnicoAsignado,
     estadoCoreOverride: 'pendiente',
     fecha,

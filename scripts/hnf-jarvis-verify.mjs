@@ -71,12 +71,20 @@ try {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       source: 'email',
-      texto: 'traslado vehiculo verificacion jarvis',
+      texto: 'traslado vehiculo urgente verificacion jarvis',
       cliente: '__jarvis_smoke_flota__',
     }),
   });
   const jFlota = await rFlota.json();
-  if (!rFlota.ok || !jFlota.ok || jFlota.ot?.tipoServicio !== 'flota' || jFlota.ot?.tecnicoAsignado !== 'Gery') {
+  if (
+    !rFlota.ok ||
+    !jFlota.ok ||
+    jFlota.ot?.tipoServicio !== 'flota' ||
+    jFlota.ot?.tecnicoAsignado !== 'Gery' ||
+    jFlota.ot?.prioridadSugerida !== 'alta' ||
+    jFlota.ot?.prioridadOperativa !== 'alta' ||
+    jFlota.ot?.riesgoDetectado !== true
+  ) {
     console.error('[hnf-jarvis-verify] Falló rama flota', rFlota.status, jFlota);
     exitCode = 1;
   }
@@ -94,7 +102,15 @@ try {
       }),
     });
     const jClima = await rClima.json();
-    if (!rClima.ok || !jClima.ok || jClima.ot?.tipoServicio !== 'clima' || jClima.ot?.tecnicoAsignado !== 'Romina') {
+    if (
+      !rClima.ok ||
+      !jClima.ok ||
+      jClima.ot?.tipoServicio !== 'clima' ||
+      jClima.ot?.tecnicoAsignado !== 'Romina' ||
+      jClima.ot?.prioridadSugerida !== 'media' ||
+      jClima.ot?.prioridadOperativa !== 'media' ||
+      jClima.ot?.riesgoDetectado !== false
+    ) {
       console.error('[hnf-jarvis-verify] Falló rama clima', rClima.status, jClima);
       exitCode = 1;
     }

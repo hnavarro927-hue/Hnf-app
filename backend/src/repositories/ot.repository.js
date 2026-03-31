@@ -96,6 +96,11 @@ const ensureDefaults = (item) => {
     prioridadOperativa: ['alta', 'media', 'baja'].includes(String(item.prioridadOperativa || '').toLowerCase())
       ? String(item.prioridadOperativa).toLowerCase()
       : 'media',
+    prioridadSugerida: (() => {
+      const p = String(item.prioridadSugerida ?? '').toLowerCase();
+      return ['alta', 'media', 'baja'].includes(p) ? p : null;
+    })(),
+    riesgoDetectado: Boolean(item.riesgoDetectado),
     pendienteRespuestaCliente: Boolean(item.pendienteRespuestaCliente),
     asignadoPor: item.asignadoPor != null && String(item.asignadoPor).trim() ? String(item.asignadoPor).trim() : null,
     responsableActual: deriveResponsable(item),

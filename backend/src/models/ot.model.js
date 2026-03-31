@@ -39,6 +39,10 @@ export const otModel = {
     'notificacionAsignadaA',
     /** alta | media | baja */
     'prioridadOperativa',
+    /** Jarvis intake: heurística aplicada al crear (alta | media | baja) */
+    'prioridadSugerida',
+    /** Jarvis intake: señales de riesgo en el texto */
+    'riesgoDetectado',
     /** WhatsApp: pendiente de respuesta al cliente (simulado) */
     'pendienteRespuestaCliente',
     /** Quien asignó el técnico actual (Romina, Gery, Jarvis, sistema) */

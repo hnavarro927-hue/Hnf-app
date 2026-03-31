@@ -332,6 +332,11 @@ export const otService = {
         bandejaAsignada: bBandeja,
         notificacionAsignadaA: notificacionAsignadaFromBandeja(bBandeja),
         prioridadOperativa,
+        prioridadSugerida: (() => {
+          const p = String(data.prioridadSugerida ?? '').toLowerCase();
+          return ['alta', 'media', 'baja'].includes(p) ? p : null;
+        })(),
+        riesgoDetectado: Boolean(data.riesgoDetectado),
         pendienteRespuestaCliente,
         asignadoPor,
         responsableActual,

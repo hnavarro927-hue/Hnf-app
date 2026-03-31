@@ -1,6 +1,80 @@
 {
   "events": [
     {
+      "id": "jev-mnewh37s-6xhalj0",
+      "at": "2026-03-31T17:37:55.336Z",
+      "version": "2026-03-24",
+      "rawExcerpt": "__jarvis_smoke_clima__ · __jarvis_smoke_clima__ · Enviar a bandeja romina (Romina). Sin señales fuertes de duplicado.",
+      "tipoClasificado": "jarvis_intake_v1",
+      "prioridad": "NORMAL",
+      "clienteDetectado": "__jarvis_smoke_clima__",
+      "responsableSugerido": "sin dueño",
+      "impactoEconomicoHeuristico": 0,
+      "accionInmediata": "Enviar a bandeja romina (Romina). Sin señales fuertes de duplicado.",
+      "canalSalida": "whatsapp",
+      "tipoSalida": null,
+      "fuente": "ot_alta",
+      "archivo": null,
+      "persistencia": "servidor",
+      "origen_detectado": "whatsapp",
+      "area_sugerida": "clima",
+      "confianza_jarvis": 80,
+      "contacto_detectado": "__jarvis_smoke_clima__",
+      "duplicado_probable": false,
+      "bandeja_destino": "romina",
+      "estado_revision": "aprobado_incorporado",
+      "observacion_revision": null,
+      "actor_revision": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+      "jarvisTrace": [
+        {
+          "at": "2026-03-31T17:37:55.334Z",
+          "step": "clasificacion_v1",
+          "detalle": "area=clima bandeja=romina confianza=80",
+          "actor": "Modo sin autenticación (HNF_AUTH_DISABLED)"
+        }
+      ],
+      "advertencias": [],
+      "otRelacionada": "OT-002",
+      "notificacion_destino": "Romina"
+    },
+    {
+      "id": "jev-mnewh37o-6jyss37",
+      "at": "2026-03-31T17:37:55.332Z",
+      "version": "2026-03-24",
+      "rawExcerpt": "__jarvis_smoke_flota__ · __jarvis_smoke_flota__ · Enviar a bandeja gery (Gery). Sin señales fuertes de duplicado.",
+      "tipoClasificado": "jarvis_intake_v1",
+      "prioridad": "ALTO",
+      "clienteDetectado": "__jarvis_smoke_flota__",
+      "responsableSugerido": "sin dueño",
+      "impactoEconomicoHeuristico": 0,
+      "accionInmediata": "Enviar a bandeja gery (Gery). Sin señales fuertes de duplicado.",
+      "canalSalida": "correo",
+      "tipoSalida": null,
+      "fuente": "ot_alta",
+      "archivo": null,
+      "persistencia": "servidor",
+      "origen_detectado": "correo",
+      "area_sugerida": "flota",
+      "confianza_jarvis": 80,
+      "contacto_detectado": "__jarvis_smoke_flota__",
+      "duplicado_probable": false,
+      "bandeja_destino": "gery",
+      "estado_revision": "aprobado_incorporado",
+      "observacion_revision": null,
+      "actor_revision": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+      "jarvisTrace": [
+        {
+          "at": "2026-03-31T17:37:55.327Z",
+          "step": "clasificacion_v1",
+          "detalle": "area=flota bandeja=gery confianza=80",
+          "actor": "Modo sin autenticación (HNF_AUTH_DISABLED)"
+        }
+      ],
+      "advertencias": [],
+      "otRelacionada": "OT-001",
+      "notificacion_destino": "Gery"
+    },
+    {
       "id": "jev-mnew9u3i-5zfs0xs",
       "at": "2026-03-31T17:32:16.926Z",
       "version": "2026-03-24",
