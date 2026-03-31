@@ -8,6 +8,13 @@ import {
   appendUniversalIntakeItem,
   listUniversalIntakeItems,
 } from '../domain/jarvis-universal-intake-storage.js';
+import {
+  createClient,
+  createOT,
+  createQuickTestOT,
+  getClients,
+  getOTs,
+} from '../domain/hnf-local-registry.js';
 import { createOtFromIntakeFlow } from '../domain/ot-repository.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import {
@@ -392,7 +399,129 @@ export function jarvisUniversalIntakeView({
   });
   foot.append(sync);
 
-  main.append(head, createHnfOperationalFlowStrip(1), grid, foot);
+  const localBox = el('hnf-jarvis-intake__card');
+  const localTitle = el('hnf-jarvis-intake__card-title', 'h2');
+  localTitle.textContent = 'Persistencia local (clientes + OT → Kanban)';
+  const localHint = el('hnf-jarvis-intake__hint', 'p');
+  localHint.textContent =
+    'localStorage: claves hnf.local.clients.v1 y hnf.ot.flow.v1 (localOts). Tras crear OT, abrí Mando o Actualizar datos.';
+
+  const rowCli = el('hnf-jarvis-intake__field');
+  const lbCli = el('hnf-jarvis-intake__label', 'label');
+  lbCli.htmlFor = 'hnf-lr-cli-nombre';
+  lbCli.textContent = 'Nombre cliente (nuevo)';
+  const inCli = el('hnf-jarvis-intake__input', 'input');
+  inCli.id = 'hnf-lr-cli-nombre';
+  inCli.type = 'text';
+  inCli.placeholder = 'Ej. Tienda Central';
+  const btnSaveCli = el('primary-button', 'button');
+  btnSaveCli.type = 'button';
+  btnSaveCli.textContent = 'Guardar cliente';
+  rowCli.append(lbCli, inCli, btnSaveCli);
+
+  const rowOt = el('hnf-jarvis-intake__field');
+  const lbSel = el('hnf-jarvis-intake__label', 'label');
+  lbSel.htmlFor = 'hnf-lr-cli-sel';
+  lbSel.textContent = 'Cliente para OT';
+  const selCli = el('hnf-jarvis-intake__select', 'select');
+  selCli.id = 'hnf-lr-cli-sel';
+  const lbTipo = el('hnf-jarvis-intake__label', 'label');
+  lbTipo.htmlFor = 'hnf-lr-tipo';
+  lbTipo.textContent = 'Tipo';
+  const selTipo = el('hnf-jarvis-intake__select', 'select');
+  selTipo.id = 'hnf-lr-tipo';
+  [['clima', 'Clima'], ['flota', 'Flota']].forEach(([v, lab]) => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = lab;
+    selTipo.append(o);
+  });
+  const lbDesc = el('hnf-jarvis-intake__label', 'label');
+  lbDesc.htmlFor = 'hnf-lr-desc';
+  lbDesc.textContent = 'Descripción OT';
+  const taOt = el('hnf-jarvis-intake__textarea', 'textarea');
+  taOt.id = 'hnf-lr-desc';
+  taOt.rows = 2;
+  taOt.placeholder = 'Detalle mínimo';
+  rowOt.append(lbSel, selCli, lbTipo, selTipo, lbDesc, taOt);
+
+  const fillClientSelect = () => {
+    selCli.replaceChildren();
+    const clients = getClients();
+    if (!clients.length) {
+      const o = document.createElement('option');
+      o.value = '';
+      o.textContent = '— Creá un cliente primero —';
+      selCli.append(o);
+      return;
+    }
+    for (const c of clients) {
+      const o = document.createElement('option');
+      o.value = String(c.id);
+      o.textContent = `${c.nombre} (${c.id})`;
+      selCli.append(o);
+    }
+  };
+
+  const statusLr = el('hnf-jarvis-intake__hint', 'p');
+  const setLrMsg = (t, isErr) => {
+    statusLr.textContent = t;
+    statusLr.style.color = isErr ? '#f87171' : '#94a3b8';
+  };
+
+  btnSaveCli.addEventListener('click', () => {
+    try {
+      createClient({ nombre: inCli.value });
+      inCli.value = '';
+      fillClientSelect();
+      setLrMsg(`Clientes: ${getClients().length} · OT locales: ${getOTs().length}`, false);
+    } catch (e) {
+      setLrMsg(e.message || String(e), true);
+    }
+  });
+
+  const btnCreOt = el('primary-button', 'button');
+  btnCreOt.type = 'button';
+  btnCreOt.textContent = 'Crear OT (manual)';
+  btnCreOt.addEventListener('click', () => {
+    try {
+      const cid = selCli.value;
+      if (!cid) throw new Error('Elegí un cliente');
+      createOT({
+        clienteId: cid,
+        tipoServicio: selTipo.value,
+        descripcion: taOt.value,
+      });
+      setLrMsg(`OT creada · estado ingreso · OT locales: ${getOTs().length}`, false);
+      if (typeof reloadApp === 'function') void reloadApp();
+    } catch (e) {
+      setLrMsg(e.message || String(e), true);
+    }
+  });
+
+  const btnQuick = el('secondary-button', 'button');
+  btnQuick.type = 'button';
+  btnQuick.textContent = 'Crear OT rápida';
+  btnQuick.addEventListener('click', () => {
+    try {
+      createQuickTestOT();
+      fillClientSelect();
+      setLrMsg(`OT rápida creada · OT locales: ${getOTs().length}`, false);
+      if (typeof reloadApp === 'function') void reloadApp();
+    } catch (e) {
+      setLrMsg(e.message || String(e), true);
+    }
+  });
+
+  const rowBtns = el('hnf-jarvis-intake__actions');
+  rowBtns.append(btnCreOt, btnQuick);
+
+  fillClientSelect();
+  setLrMsg(`Clientes: ${getClients().length} · OT locales: ${getOTs().length}`, false);
+
+  localBox.append(localTitle, localHint, rowCli, rowOt, rowBtns, statusLr);
+
+  main.append(head, createHnfOperationalFlowStrip(1), grid, foot, localBox);
   body.append(rail, main);
   shell.append(chrome, body);
   root.append(shell);
