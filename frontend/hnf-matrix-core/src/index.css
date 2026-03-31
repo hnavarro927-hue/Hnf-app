@@ -9,7 +9,44 @@ body,
   margin: 0;
 }
 
-/* Centro de control: sin scroll de página; el scroll vive en columnas/panel. */
+/* Sin scroll de página: paneles internos acotados. */
 body {
   overflow: hidden;
+}
+
+/* Centro de control — dark profesional (zinc + acentos contenidos) */
+.hnf-cc-root {
+  color-scheme: dark;
+}
+
+/* Columna Kanban: scroll vertical local, finito (no “infinito” de página). */
+.hnf-lane-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(63 63 70 / 0.6) transparent;
+}
+
+.hnf-lane-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.hnf-lane-scroll::-webkit-scrollbar-thumb {
+  background: rgb(63 63 70 / 0.65);
+  border-radius: 4px;
+}
+
+/* Panel detalle / historial */
+.hnf-panel-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(63 63 70 / 0.5) transparent;
+}
+
+.hnf-panel-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.hnf-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgb(63 63 70 / 0.55);
+  border-radius: 4px;
 }
