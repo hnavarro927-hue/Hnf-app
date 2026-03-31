@@ -1,7 +1,91 @@
 .hnf-jarvis-intake {
   padding: 0.75rem 1rem 1.25rem;
-  max-width: 1100px;
+  max-width: 1180px;
   margin: 0 auto;
+}
+
+.hnf-jarvis-intake__shell {
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: rgba(2, 6, 23, 0.5);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-jarvis-intake__chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, rgba(8, 51, 68, 0.55), rgba(15, 23, 42, 0.95));
+}
+
+.hnf-jarvis-intake__chrome-brand {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #22d3ee;
+}
+
+.hnf-jarvis-intake__chrome-meta {
+  margin: 0;
+  font-size: 0.55rem;
+  line-height: 1.4;
+  color: #94a3b8;
+  max-width: 48rem;
+}
+
+.hnf-jarvis-intake__body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  min-height: 0;
+}
+
+@media (min-width: 800px) {
+  .hnf-jarvis-intake__body {
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+  }
+}
+
+.hnf-jarvis-intake__rail {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+@media (min-width: 800px) {
+  .hnf-jarvis-intake__rail {
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}
+
+.hnf-jarvis-intake__rail-h {
+  margin: 0 0 0.35rem;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hnf-jarvis-intake__chip {
+  display: block;
+  font-size: 0.52rem;
+  color: #cbd5e1;
+  padding: 0.22rem 0.28rem;
+  margin-bottom: 0.2rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hnf-jarvis-intake__main {
+  padding: 0.55rem 0.65rem 0.75rem;
+  min-width: 0;
 }
 
 .hnf-jarvis-intake__head {

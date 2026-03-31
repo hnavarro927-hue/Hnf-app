@@ -67,7 +67,8 @@ export function runJarvisOperationalDecisionEngine(ctx = {}) {
 
   if (integrationStatus === 'sin conexión' || integrationStatus === 'sin conexion') {
     reglasDisparadas.push('backend_offline');
-    accionRecomendada = 'Revisar backend: reiniciar servicio o verificar host, puerto y red.';
+    accionRecomendada =
+      'Revisar servicio backend y API: host, puerto, red o reinicio controlado del servicio.';
     nivelRiesgo = 'alto';
     estadoGeneral = 'Crítico';
   } else if (integrationStatus === 'conectado' && list.length === 0) {
@@ -77,7 +78,8 @@ export function runJarvisOperationalDecisionEngine(ctx = {}) {
     estadoGeneral = 'Atención';
   } else if (foco?.riesgoDetectado === true) {
     reglasDisparadas.push('riesgo_foco');
-    accionRecomendada = 'Escalar revisión operativa: riesgo detectado en OT foco.';
+    accionRecomendada =
+      'Sugerir escalamiento operativo: riesgoDetectado en OT foco (revisión humana).';
     nivelRiesgo = 'alto';
     estadoGeneral = 'Atención';
   } else if (foco && prioridadAlta(foco) && sinResponsableAsignado(foco)) {

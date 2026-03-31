@@ -32,7 +32,7 @@ let e = runJarvisOperationalDecisionEngine({
   focoOt: { id: '1', riesgoDetectado: false },
 });
 assert(e.reglasDisparadas.includes('backend_offline'), 'motor debe disparar backend_offline');
-assert(/reiniciar|backend/i.test(e.accionRecomendada), 'acción debe mencionar backend');
+assert(/servicio|api|backend/i.test(e.accionRecomendada), 'acción debe mencionar servicio/API/backend');
 
 // 2) Conectado + muestra vacía → warning en ots y decisión panel
 d = runJarvisSystemDiagnostics({
@@ -94,6 +94,6 @@ e = runJarvisOperationalDecisionEngine({
     utilidad: 10,
   },
 });
-assert(e.reglasDisparadas.includes('riesgo_foco'), 'riesgo en foco → escalar');
+assert(e.reglasDisparadas.includes('riesgo_foco'), 'riesgo en foco → regla disparada');
 
 console.log('[hnf-jarvis-diagnostics-verify] OK — motor de diagnóstico y decisiones coherente.');

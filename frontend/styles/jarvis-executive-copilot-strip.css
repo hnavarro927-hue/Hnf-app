@@ -8,6 +8,19 @@
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.08);
 }
 
+.hnf-jarvis-exec-strip__brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(34, 211, 238, 0.95);
+}
+
+.hnf-cap-control .hnf-jarvis-exec-strip {
+  margin-top: 0.35rem;
+}
+
 .hnf-jarvis-exec-strip__row {
   display: flex;
   align-items: center;

@@ -55,12 +55,34 @@ export function jarvisUniversalIntakeView({
   const root = el('hnf-jarvis-intake hnf-op-view', 'section');
   root.setAttribute('aria-label', 'Ingesta universal Jarvis');
 
+  const shell = el('hnf-jarvis-intake__shell');
+  const chrome = el('hnf-jarvis-intake__chrome');
+  const chromeBrand = el('hnf-jarvis-intake__chrome-brand');
+  chromeBrand.textContent = 'Jarvis | Ingesta documental';
+  const chromeMeta = el('hnf-jarvis-intake__chrome-meta', 'p');
+  chromeMeta.textContent =
+    'Consola operativa: router en dominio `jarvis-document-router.js`, cola local `jarvis-universal-intake-storage.js`. Archivos: solo metadatos hasta habilitar API de subida.';
+  chrome.append(chromeBrand, chromeMeta);
+
+  const body = el('hnf-jarvis-intake__body');
+  const rail = el('hnf-jarvis-intake__rail');
+  const railH = el('hnf-jarvis-intake__rail-h', 'h3');
+  railH.textContent = 'Tipos soportados';
+  rail.append(railH);
+  for (const t of JARVIS_DOCUMENT_ENTRY_TYPES) {
+    const chip = el('hnf-jarvis-intake__chip', 'span');
+    chip.textContent = ENTRY_LABEL[t] || t;
+    rail.append(chip);
+  }
+
+  const main = el('hnf-jarvis-intake__main');
+
   const head = el('hnf-jarvis-intake__head');
   const h1 = el('hnf-jarvis-intake__title', 'h1');
-  h1.textContent = 'Ingesta universal';
+  h1.textContent = 'Enrutado de entrada';
   const sub = el('hnf-jarvis-intake__sub', 'p');
   sub.textContent =
-    'Jarvis clasifica texto y metadatos de archivo (PDF e imágenes: preparado; subida persistente próximamente). Nada se descarta: lo incierto queda en revisión.';
+    'Pegá texto o adjuntá archivo (sin envío al servidor). Si la clasificación no es segura, el ítem queda con revision_jarvis_pendiente en la cola.';
   head.append(h1, sub);
 
   const grid = el('hnf-jarvis-intake__grid');
@@ -219,7 +241,10 @@ export function jarvisUniversalIntakeView({
   });
   foot.append(sync);
 
-  root.append(head, createHnfOperationalFlowStrip(1), grid, foot);
+  main.append(head, createHnfOperationalFlowStrip(1), grid, foot);
+  body.append(rail, main);
+  shell.append(chrome, body);
+  root.append(shell);
   renderList();
   return root;
 }

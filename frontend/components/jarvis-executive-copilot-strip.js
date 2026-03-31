@@ -11,16 +11,45 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function greetingForAuth(authLabel) {
-  const raw = String(authLabel || '').trim();
-  const n = raw.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
-  if (n.includes('hernan')) {
-    return 'Hernán: estado operativo consolidado para su lectura ejecutiva.';
+function isHernanAuth(authLabel) {
+  const n = String(authLabel || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+  return n.includes('hernan');
+}
+
+/**
+ * Una línea ejecutiva con números reales (cola local + muestra /ots).
+ */
+function buildExecutiveHeadline(authLabel, pendingDocs, nRiesgoOt) {
+  const p = Number(pendingDocs) || 0;
+  const r = Number(nRiesgoOt) || 0;
+  if (isHernanAuth(authLabel)) {
+    if (p === 0 && r === 0) {
+      return 'Hernán, Jarvis no registra documentos pendientes de clasificación ni OTs con riesgo detectado en la muestra actual.';
+    }
+    const docPart =
+      p === 0
+        ? 'ningún documento pendiente de clasificación'
+        : `${p} documento${p === 1 ? '' : 's'} pendiente${p === 1 ? '' : 's'} de clasificación`;
+    const riskPart =
+      r === 0
+        ? 'ninguna OT en riesgo'
+        : `${r} OT${r === 1 ? '' : 's'} en riesgo`;
+    return `Hernán, Jarvis detectó ${docPart} y ${riskPart}.`;
   }
-  if (raw && raw !== '—') {
-    return `${raw.split(/\s+/)[0]}: resumen operativo listo.`;
+  const who = String(authLabel || '').trim().split(/\s+/)[0] || 'Equipo';
+  if (p === 0 && r === 0) {
+    return `${who}, sin documentos pendientes de clasificación ni OTs con riesgo detectado en la muestra.`;
   }
-  return 'Equipo: resumen operativo listo.';
+  return `${who}, ${p} documento(s) pendiente(s) de clasificación y ${r} OT(s) con riesgo detectado.`;
+}
+
+function brandLineForAuth(authLabel) {
+  return isHernanAuth(authLabel)
+    ? 'Jarvis | Asistente operativo de Hernán'
+    : 'Jarvis | Asistente operativo';
 }
 
 /**
@@ -42,10 +71,11 @@ export function createJarvisExecutiveCopilotStrip({
     focoOt: jSig.focoOt,
   });
   const pendingDocs = countPendingJarvisDocumentReview();
+  const headline = buildExecutiveHeadline(authLabel, pendingDocs, jSig.nRiesgo);
   const docLine =
     pendingDocs > 0
-      ? `${pendingDocs} documento(s) en cola con revision_jarvis_pendiente.`
-      : 'Sin documentos pendientes de revisión Jarvis en cola local.';
+      ? `${pendingDocs} ítem(s) en cola local con revision_jarvis_pendiente (ingesta universal).`
+      : 'Cola local de ingesta: sin revision_jarvis_pendiente.';
 
   const diag = engine.diagnostics?.summary || 'diagnóstico incompleto';
 
@@ -54,12 +84,13 @@ export function createJarvisExecutiveCopilotStrip({
   root.setAttribute('role', 'region');
   root.setAttribute('aria-label', 'Jarvis copiloto ejecutivo');
   root.innerHTML = `
+    <p class="hnf-jarvis-exec-strip__brand">${esc(brandLineForAuth(authLabel))}</p>
     <div class="hnf-jarvis-exec-strip__row">
-      <p class="hnf-jarvis-exec-strip__greet">${esc(greetingForAuth(authLabel))}</p>
+      <p class="hnf-jarvis-exec-strip__greet">${esc(headline)}</p>
       <span class="hnf-jarvis-exec-strip__badge">${esc(engine.estadoGeneral)}</span>
     </div>
     <p class="hnf-jarvis-exec-strip__line"><span class="hnf-jarvis-exec-strip__k">Diagnóstico</span> ${esc(diag)}</p>
-    <p class="hnf-jarvis-exec-strip__line"><span class="hnf-jarvis-exec-strip__k">Documentos</span> ${esc(docLine)}</p>
+    <p class="hnf-jarvis-exec-strip__line"><span class="hnf-jarvis-exec-strip__k">Detalle documentos</span> ${esc(docLine)}</p>
     <p class="hnf-jarvis-exec-strip__line hnf-jarvis-exec-strip__line--action"><span class="hnf-jarvis-exec-strip__k">Acción sugerida</span> ${esc(engine.accionRecomendada)}</p>
   `;
   return root;

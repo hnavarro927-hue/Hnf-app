@@ -4,9 +4,9 @@ import '../styles/jarvis-presence-copilot.css';
  * @param {{ label: string, ok: boolean, pulse: boolean }} linea
  * @param {{ nRiesgo: number, nUrgentes: number, nPendAprobacion: number }} metrics
  * @param {string} suggestion
- * @param {{ variant?: 'default' | 'alien-bar' }} [opts]
+ * @param {{ variant?: 'default' | 'alien-bar', brandSubtitle?: string }} [opts]
  */
-export function createJarvisPresence({ linea, metrics, suggestion, variant } = {}) {
+export function createJarvisPresence({ linea, metrics, suggestion, variant, brandSubtitle } = {}) {
   const root = document.createElement('div');
   root.className =
     variant === 'alien-bar' ? 'hnf-jarvis-presence hnf-jarvis-presence--alien-bar' : 'hnf-jarvis-presence';
@@ -44,6 +44,17 @@ export function createJarvisPresence({ linea, metrics, suggestion, variant } = {
       ${escapeHtml(suggestion)}
     </div>
   `;
+
+  const sub = String(brandSubtitle ?? '').trim();
+  if (sub) {
+    const brand = root.querySelector('.hnf-jarvis-presence__brand');
+    if (brand) {
+      const s = document.createElement('span');
+      s.className = 'hnf-jarvis-presence__brand-sub';
+      s.textContent = sub;
+      brand.appendChild(s);
+    }
+  }
 
   return root;
 }

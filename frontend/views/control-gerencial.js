@@ -123,6 +123,25 @@ export const controlGerencialView = ({
   const jarvisHost = root.querySelector('#hnf-control-jarvis-nucleus');
   if (jarvisHost) {
     const jSig = buildJarvisGerencialSignals(list);
+    const authNorm = String(authLabel || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '');
+    const jarvisBrandSub = authNorm.includes('hernan')
+      ? 'Jarvis | Asistente operativo de Hernán'
+      : 'Jarvis | Asistente operativo';
+
+    const sectionHead = document.createElement('div');
+    sectionHead.className = 'hnf-jarvis-nucleus__section-head';
+    const secTitle = document.createElement('h2');
+    secTitle.className = 'hnf-jarvis-nucleus__section-title';
+    secTitle.textContent = 'Jarvis — operación';
+    const secHint = document.createElement('p');
+    secHint.className = 'hnf-jarvis-nucleus__section-hint';
+    secHint.textContent =
+      'Presencia (métricas /ots), copiloto de la OT foco, resumen ejecutivo y diagnóstico técnico. Sin ejecución automática en servidor.';
+    sectionHead.append(secTitle, secHint);
+
     const mainRow = document.createElement('div');
     mainRow.className = 'hnf-jarvis-nucleus__main-row';
     mainRow.append(
@@ -134,17 +153,22 @@ export const controlGerencialView = ({
           nPendAprobacion: jSig.nPendAprobacion,
         },
         suggestion: jSig.suggestion,
+        brandSubtitle: jarvisBrandSub,
       }),
       createJarvisCopilot({ focoOt: jSig.focoOt })
     );
+
+    const execStrip = createJarvisExecutiveCopilotStrip({
+      authLabel,
+      integrationStatus,
+      viewData: data,
+      lastDataRefreshAt,
+    });
+
     jarvisHost.append(
-      createJarvisExecutiveCopilotStrip({
-        authLabel,
-        integrationStatus,
-        viewData: data,
-        lastDataRefreshAt,
-      }),
+      sectionHead,
       mainRow,
+      execStrip,
       createJarvisLiveOpsPanel({
         integrationStatus,
         viewData: data,
@@ -188,11 +212,12 @@ export const controlGerencialView = ({
     return b;
   };
   act.append(
+    mkBtn('Mando (Kanban)', () => navigateToView?.('centro-control')),
+    mkBtn('Ingesta universal', () => navigateToView?.('ingreso-operativo')),
     mkBtn('Cola Lyn (aprobación OT)', () => navigateToView?.('lyn-aprobacion')),
-    mkBtn('Ver inteligencia (Jarvis)', () => intelNavigate?.({ view: 'jarvis' })),
+    mkBtn('Jarvis HQ', () => navigateToView?.('jarvis')),
     mkBtn('Ejecución OT (Clima)', () => navigateToView?.('clima')),
-    mkBtn('Ingreso operativo', () => navigateToView?.('ingreso-operativo')),
-    mkBtn('Mando principal (OT en vivo)', () => intelNavigate?.({ view: 'jarvis', focusMando: true }))
+    mkBtn('Ingreso operativo clásico', () => navigateToView?.('ingreso-clasico'))
   );
 
   const discHost = root.querySelector('#hnf-control-disciplina');

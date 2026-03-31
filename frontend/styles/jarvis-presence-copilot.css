@@ -51,12 +51,6 @@
   margin-bottom: 0.45rem;
 }
 
-.hnf-jarvis-presence__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
 .hnf-jarvis-presence__pulse {
   width: 0.45rem;
   height: 0.45rem;
@@ -78,6 +72,63 @@
   text-transform: uppercase;
   color: var(--jp-cyan);
   text-shadow: 0 0 12px var(--jp-glow);
+}
+
+.hnf-jarvis-presence__brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hnf-jarvis-presence__brand-sub {
+  flex: 1 0 100%;
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
+  text-transform: none;
+  line-height: 1.25;
+}
+
+/* Control gerencial: bloque Jarvis más visible */
+.hnf-cap-control .hnf-jarvis-nucleus {
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  background: rgba(9, 9, 11, 0.65);
+}
+
+.hnf-cap-control .hnf-jarvis-nucleus__section-head {
+  margin: 0 0 0.45rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hnf-cap-control .hnf-jarvis-nucleus__section-title {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #22d3ee;
+}
+
+.hnf-cap-control .hnf-jarvis-nucleus__section-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.52rem;
+  color: #71717a;
+  line-height: 1.35;
+}
+
+.hnf-cap-control .hnf-jarvis-presence,
+.hnf-cap-control .hnf-jarvis-copilot {
+  min-height: 7.5rem;
+  border-width: 1px;
+  border-color: rgba(34, 211, 238, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(34, 211, 238, 0.12);
 }
 
 .hnf-jarvis-presence__state {
