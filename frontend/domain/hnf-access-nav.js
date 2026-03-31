@@ -9,6 +9,7 @@ const byId = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 /** Orden de negocio para rol con acceso total. */
 export const HNF_FULL_NAV_ORDER = [
   'matriz-hnf',
+  'centro-control',
   'jarvis',
   'ingreso-operativo',
   'bandeja-canal',

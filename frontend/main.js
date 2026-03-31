@@ -58,6 +58,7 @@ import { finanzasOperativoView } from './views/finanzas-operativo.js';
 import { equipoOperativoView } from './views/equipo-operativo.js';
 import { controlGerencialView } from './views/control-gerencial.js';
 import { matrizHnfView } from './views/matriz-hnf.js';
+import { centroControlAlienView } from './views/centro-control-alien.js';
 import { hnfOperativoIntegradoService } from './services/hnf-operativo-integrado.service.js';
 import { maestroService } from './services/maestro.service.js';
 import { whatsappFeedService } from './services/whatsapp-feed.service.js';
@@ -307,6 +308,7 @@ const VIEWS_WITH_UNIFIED_LOAD = new Set([
   'operacion-control',
   'ingreso-operativo',
   'control-gerencial',
+  'centro-control',
   'hnf-core',
   'base-maestra',
   'bandeja-romina',
@@ -647,6 +649,11 @@ const viewRegistry = {
   'matriz-hnf': {
     render: matrizHnfView,
     load: loadMatrizData,
+  },
+
+  'centro-control': {
+    render: centroControlAlienView,
+    load: loadFullOperationalData,
   },
 
   'ingreso-operativo': {
@@ -1794,6 +1801,7 @@ const render = () => {
         ]);
         const opThemeByView = {
           'matriz-hnf': 'control',
+          'centro-control': 'control',
           'ingreso-operativo': 'ingreso',
           'bandeja-canal': 'bandeja',
           'jarvis-intake': 'bandeja',

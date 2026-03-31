@@ -24,8 +24,12 @@ const pick = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 /** Centro de control gerencial (Hernán / Lyn). Sin detalle operativo. */
 export const HNF_MATRIZ_NAV = { id: 'matriz-hnf', icon: '▣', label: 'Matriz HNF' };
 
+/** Centro de control operativo visual (Kanban + KPI; drawer en lugar de modales largos). */
+export const HNF_CENTRO_CONTROL_NAV = { id: 'centro-control', icon: '⬢', label: 'Mando' };
+
 export const HNF_OS_NAV_ADMIN = [
   HNF_MATRIZ_NAV,
+  HNF_CENTRO_CONTROL_NAV,
   { id: 'jarvis', icon: '◉', label: 'Jarvis HQ' },
   { id: 'ingreso-operativo', icon: '⬊', label: 'Ingreso' },
   { id: 'bandeja-canal', icon: '▣', label: 'Bandeja' },
@@ -86,6 +90,7 @@ export function getNavItemsForRole(role) {
   if (role === 'clima') {
     return [
       pick('jarvis'),
+      pick('centro-control'),
       pick('clima'),
       pick('planificacion'),
       pick('ordenes-compra'),
@@ -99,6 +104,7 @@ export function getNavItemsForRole(role) {
   if (role === 'flota') {
     return [
       pick('jarvis'),
+      pick('centro-control'),
       pick('flota'),
       pick('ordenes-compra'),
       pick('ingreso-operativo'),
@@ -111,6 +117,7 @@ export function getNavItemsForRole(role) {
   if (role === 'control') {
     return [
       pick('jarvis'),
+      pick('centro-control'),
       pick('control-gerencial'),
       pick('oportunidades'),
       pick('ordenes-compra'),

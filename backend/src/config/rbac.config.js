@@ -31,6 +31,7 @@ export const MODULE_ACCESS = {
   hernan: ['*'],
   lyn: [
     'matriz-hnf',
+    'centro-control',
     'jarvis',
     'oportunidades',
     'finanzas',
@@ -43,6 +44,7 @@ export const MODULE_ACCESS = {
     'planificacion',
   ],
   romina: [
+    'centro-control',
     'jarvis',
     'ingreso-operativo',
     'bandeja-romina',
@@ -51,6 +53,7 @@ export const MODULE_ACCESS = {
     'documentos-tecnicos',
   ],
   gery: [
+    'centro-control',
     'jarvis',
     'ingreso-operativo',
     'bandeja-gery',

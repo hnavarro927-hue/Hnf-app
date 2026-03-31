@@ -20,6 +20,7 @@ import { isTabletMode } from '../domain/jarvis-ui.js';
 /** Gancho visual Tech-Rebirth: acento lateral / glow en nav (sin lógica de negocio). */
 const NAV_TECH_ACCENT = {
   'matriz-hnf': 'matrix',
+  'centro-control': 'matrix',
   jarvis: 'jarvis',
   'ingreso-operativo': 'matrix',
   'bandeja-canal': 'matrix',
