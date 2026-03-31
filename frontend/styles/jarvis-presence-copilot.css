@@ -141,6 +141,81 @@
   margin-bottom: 0.2rem;
 }
 
+/* Barra superior Modo Alien (Centro de control) */
+.hnf-cc .hnf-jarvis-presence--alien-bar {
+  flex-shrink: 0;
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  padding: 0.4rem 0.55rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__head {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__grid {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__hint {
+  margin-top: 0;
+  padding-top: 0;
+  padding-left: 0.65rem;
+  border-top: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: min(100%, 12rem);
+  flex: 1 1 26%;
+}
+
+@media (max-width: 719px) {
+  .hnf-jarvis-presence--alien-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__hint {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-left: 0;
+    padding-top: 0.35rem;
+  }
+}
+
+.hnf-jarvis-presence--alien-bar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.hnf-jarvis-presence--alien-bar > .hnf-jarvis-presence__head {
+  width: auto;
+}
+
+.hnf-jarvis-presence--alien-bar > .hnf-jarvis-presence__grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__metric-k {
+  font-size: 0.45rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__metric-v {
+  font-size: 0.78rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__hint {
+  font-size: 0.55rem;
+}
+
 /* ——— Copilot ——— */
 .hnf-jarvis-copilot {
   --jc-cyan: #22d3ee;

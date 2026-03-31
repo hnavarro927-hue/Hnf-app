@@ -1,7 +1,9 @@
 import '../styles/centro-control-alien.css';
 import '../styles/hnf-operational-kanban.css';
+import { createJarvisAlienFlow } from '../components/jarvis-alien-flow.js';
 import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
 import { createJarvisPanel } from '../components/jarvis-panel.js';
+import { createJarvisPresence, jarvisLineaModoAlien } from '../components/jarvis-presence.js';
 import { createKanbanBoard, DEFAULT_KANBAN_LANE_LABELS } from '../components/kanban-board.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import {
@@ -13,92 +15,11 @@ import {
   jarvisHeuristicaPrioridadOperativa,
   textoResponsableOperativoMostrado,
 } from '../domain/hnf-operativa-reglas.js';
-import { esOtExcluidaDeKpis } from '../domain/ot-kpi-audit.js';
+import { computeJarvisAlienKpisSimple } from '../domain/jarvis-alien-kpis.js';
+import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 
 const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
-
-function fmtCLP(n) {
-  if (!Number.isFinite(n) || n < 0) return null;
-  try {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
-      maximumFractionDigits: 0,
-    }).format(n);
-  } catch {
-    return String(Math.round(n));
-  }
-}
-
-function computeKpisDesdeOts(otsRaw, alertOpts = ALERTA_OPTS_CENTRO) {
-  const list = (Array.isArray(otsRaw) ? otsRaw : []).filter((o) => !esOtExcluidaDeKpis(o));
-  if (!list.length) {
-    return {
-      ingresos: { text: 'Sin dato', pending: true },
-      costos: { text: 'Sin dato', pending: true },
-      margen: { text: 'Sin dato', pending: true },
-      activas: '0',
-      riesgo: '0',
-      sinEvidencia: '0',
-    };
-  }
-
-  let sumCobro = 0;
-  let nCobro = 0;
-  let sumCosto = 0;
-  let nCosto = 0;
-  let sumUtil = 0;
-  let nUtil = 0;
-
-  const terminal = new Set(['cerrada', 'finalizada', 'facturada']);
-  let activas = 0;
-  let riesgo = 0;
-  let sinEv = 0;
-
-  for (const o of list) {
-    const est = String(o?.estado || '').toLowerCase();
-    if (!terminal.has(est)) activas += 1;
-
-    const mc = Number(o?.montoCobrado);
-    if (Number.isFinite(mc) && mc > 0) {
-      sumCobro += mc;
-      nCobro += 1;
-    }
-    const ct = Number(o?.costoTotal);
-    if (Number.isFinite(ct) && ct >= 0) {
-      sumCosto += ct;
-      nCosto += 1;
-    }
-    const ut = Number(o?.utilidad);
-    if (Number.isFinite(ut)) {
-      sumUtil += ut;
-      nUtil += 1;
-    }
-
-    const av = alertaOperativaVisual(o, alertOpts);
-    if (av?.tipo === 'riesgo') riesgo += 1;
-    if (getEvidenceGaps(o).length > 0) sinEv += 1;
-  }
-
-  const ingresos = nCobro ? { text: fmtCLP(sumCobro), pending: false } : { text: 'Sin dato', pending: true };
-  const costos = nCosto ? { text: fmtCLP(sumCosto), pending: false } : { text: 'Sin dato', pending: true };
-
-  let margen = { text: 'Sin dato', pending: true };
-  if (nCobro && sumCobro > 0 && nUtil) {
-    const ratio = sumUtil / sumCobro;
-    margen = { text: `${(ratio * 100).toFixed(1)}%`, pending: false };
-  }
-
-  return {
-    ingresos,
-    costos,
-    margen,
-    activas: String(activas),
-    riesgo: String(riesgo),
-    sinEvidencia: String(sinEv),
-  };
-}
 
 function el(className, tag = 'div') {
   const n = document.createElement(tag);
@@ -256,7 +177,7 @@ function kpiPill(label, value) {
  * Datos: GET /ots (vía props.data).
  */
 export function centroControlAlienView(props) {
-  const { data, reloadApp, navigateToView, actions } = props || {};
+  const { data, reloadApp, navigateToView, actions, integrationStatus } = props || {};
   const otsEnvelope = data?.ots;
   const otsRaw = Array.isArray(otsEnvelope?.data)
     ? otsEnvelope.data
@@ -269,7 +190,8 @@ export function centroControlAlienView(props) {
   const section = el('hnf-cc hnf-op-shell hnf-op-view hnf-op-view--mando', 'section');
   section.setAttribute('aria-label', 'Centro de control operativo');
 
-  const kpis = computeKpisDesdeOts(ots, ALERTA_OPTS_CENTRO);
+  const jSig = buildJarvisGerencialSignals(ots);
+  const alienKpis = computeJarvisAlienKpisSimple(ots);
 
   const header = el('hnf-op-header');
   const headLeft = el('');
@@ -288,18 +210,25 @@ export function centroControlAlienView(props) {
   headAct.append(sync);
   header.append(headLeft, headAct);
 
-  const alerts = el('hnf-op-alerts');
-  const nRiesgo = Number(kpis.riesgo) || 0;
-  const nSinEv = Number(kpis.sinEvidencia) || 0;
-  alerts.textContent = `Activas ${kpis.activas} · Alerta riesgo ${kpis.riesgo} · Sin evidencia ${kpis.sinEvidencia}`;
-  if (nRiesgo > 0 || nSinEv > 0) alerts.classList.add('hnf-op-alerts--warn');
+  const jarvisPresenceEl = createJarvisPresence({
+    linea: jarvisLineaModoAlien(integrationStatus),
+    metrics: {
+      nRiesgo: jSig.nRiesgo,
+      nUrgentes: jSig.nUrgentes,
+      nPendAprobacion: jSig.nPendAprobacion,
+    },
+    suggestion: jSig.suggestion,
+    variant: 'alien-bar',
+  });
+
+  const alienFlow = createJarvisAlienFlow();
 
   const kpiRow = el('hnf-op-kpis');
   kpiRow.append(
-    kpiPill('Activas', kpis.activas),
-    kpiPill('Riesgo', kpis.riesgo),
-    kpiPill('Sin evid.', kpis.sinEvidencia),
-    kpiPill('Margen', kpis.margen.pending ? '—' : kpis.margen.text)
+    kpiPill('OT activas', alienKpis.activas),
+    kpiPill('En riesgo', alienKpis.enRiesgoJarvis),
+    kpiPill('Margen prom.', alienKpis.margenPromedio),
+    kpiPill('Tiempo prom.', alienKpis.tiempoPromedioDias)
   );
 
   const workspace = el('hnf-op-workspace');
@@ -315,6 +244,7 @@ export function centroControlAlienView(props) {
     laneLabels: DEFAULT_KANBAN_LANE_LABELS,
     onSelectOt: (ot) => {
       jarvisPanel.setOt(ot);
+      alienFlow.setOt(ot);
     },
     onAssignTech: (ot) => {
       const ts = String(ot.tipoServicio || '').toLowerCase();
@@ -442,6 +372,7 @@ export function centroControlAlienView(props) {
     }
     kanbanSetActive(null);
     jarvisPanel.setOt(null);
+    alienFlow.setOt(null);
     selectedShell = null;
     currentOt = null;
   }
@@ -484,6 +415,7 @@ export function centroControlAlienView(props) {
     idEl.textContent = String(ot.id || '');
     sub.textContent = String(ot.cliente || '').trim() || '—';
     jarvisPanel.setOt(ot);
+    alienFlow.setOt(ot);
     kanbanSetActive(shell);
     fillDrawerSummary(ot);
     fillJarvisStrip(ot);
@@ -507,7 +439,7 @@ export function centroControlAlienView(props) {
 
   body.append(backdrop, drawer);
 
-  section.append(header, alerts, kpiRow, body);
+  section.append(header, jarvisPresenceEl, alienFlow.element, kpiRow, body);
 
   return section;
 }

@@ -4,10 +4,12 @@ import '../styles/jarvis-presence-copilot.css';
  * @param {{ label: string, ok: boolean, pulse: boolean }} linea
  * @param {{ nRiesgo: number, nUrgentes: number, nPendAprobacion: number }} metrics
  * @param {string} suggestion
+ * @param {{ variant?: 'default' | 'alien-bar' }} [opts]
  */
-export function createJarvisPresence({ linea, metrics, suggestion }) {
+export function createJarvisPresence({ linea, metrics, suggestion, variant } = {}) {
   const root = document.createElement('div');
-  root.className = 'hnf-jarvis-presence';
+  root.className =
+    variant === 'alien-bar' ? 'hnf-jarvis-presence hnf-jarvis-presence--alien-bar' : 'hnf-jarvis-presence';
   root.setAttribute('role', 'region');
   root.setAttribute('aria-label', 'Jarvis — presencia gerencial');
 
@@ -62,6 +64,22 @@ export function jarvisLineaDesdeIntegracion(integrationStatus) {
     .trim()
     .toLowerCase();
   if (x === 'conectado') return { label: 'En línea', ok: true, pulse: true };
+  if (x === 'cargando') return { label: 'Actualizando', ok: true, pulse: true };
+  if (x === 'sin conexión' || x === 'sin conexion')
+    return { label: 'Sin conexión', ok: false, pulse: false };
+  if (!x || x === 'pendiente') return { label: 'sin dato', ok: false, pulse: false };
+  return { label: String(integrationStatus).trim() || 'sin dato', ok: true, pulse: true };
+}
+
+/**
+ * Etiquetas Modo Alien (barra superior).
+ * @param {string | undefined} integrationStatus
+ */
+export function jarvisLineaModoAlien(integrationStatus) {
+  const x = String(integrationStatus ?? '')
+    .trim()
+    .toLowerCase();
+  if (x === 'conectado') return { label: 'Online', ok: true, pulse: true };
   if (x === 'cargando') return { label: 'Actualizando', ok: true, pulse: true };
   if (x === 'sin conexión' || x === 'sin conexion')
     return { label: 'Sin conexión', ok: false, pulse: false };

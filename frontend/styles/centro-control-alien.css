@@ -1088,6 +1088,147 @@
   color: #a1a1aa;
 }
 
+/* ——— Jarvis flujo + núcleo (Modo Alien) ——— */
+.hnf-cc__jarvis-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: stretch;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--hnf-cc-border);
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(12, 18, 22, 0.5) 0%, rgba(9, 9, 11, 0.96) 100%);
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .hnf-cc__jarvis-flow {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.hnf-cc__jarvis-flow__col {
+  border: 1px solid var(--hnf-cc-border);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.45rem;
+  background: rgba(24, 24, 27, 0.55);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hnf-cc__jarvis-flow__col--core {
+  border-color: rgba(34, 211, 238, 0.22);
+  background: rgba(8, 24, 32, 0.35);
+}
+
+.hnf-cc__jarvis-flow__label {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hnf-cc-muted);
+  margin-bottom: 0.25rem;
+}
+
+.hnf-cc__jarvis-flow__value {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--hnf-cc-text);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.hnf-cc__jarvis-flow__value--resp {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--hnf-cc-accent);
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.25);
+}
+
+.hnf-cc__jarvis-flow__core-host {
+  min-height: 6.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hnf-cc__jarvis-core {
+  width: 100%;
+  max-width: 16rem;
+  margin: 0 auto;
+}
+
+.hnf-cc__jarvis-core__ring {
+  position: relative;
+  border-radius: 50%;
+  padding: 0.35rem;
+  background: radial-gradient(circle at 50% 42%, rgba(34, 211, 238, 0.14), transparent 62%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.2),
+    0 0 28px rgba(34, 211, 238, 0.18),
+    inset 0 0 22px rgba(34, 211, 238, 0.06);
+}
+
+.hnf-cc__jarvis-core__inner {
+  border-radius: 50%;
+  padding: 0.5rem 0.55rem 0.55rem;
+  background: rgba(9, 9, 11, 0.92);
+  border: 1px solid rgba(34, 211, 238, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  aspect-ratio: 1;
+  justify-content: center;
+  min-height: 5.75rem;
+  min-width: 0;
+}
+
+.hnf-cc__jarvis-core__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.06rem;
+  min-width: 0;
+}
+
+.hnf-cc__jarvis-core__k {
+  font-size: 0.42rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hnf-cc-muted);
+  line-height: 1.15;
+}
+
+.hnf-cc__jarvis-core__v {
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .hnf-cc__jarvis-core {
+    max-width: 100%;
+  }
+
+  .hnf-cc__jarvis-core__inner {
+    aspect-ratio: auto;
+    border-radius: 0.55rem;
+    min-height: 0;
+  }
+
+  .hnf-cc__jarvis-core__ring {
+    border-radius: 0.65rem;
+  }
+}
+
 .content--view-centro-control {
   padding: 0 !important;
   overflow: hidden !important;
