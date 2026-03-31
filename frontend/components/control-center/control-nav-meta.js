@@ -51,4 +51,5 @@ export const NAV_SECTION_LABEL = {
   comercial: 'Comercial',
   gerencia: 'Gerencia',
   sistema: 'Sistema',
+  otros: 'Otros',
 };

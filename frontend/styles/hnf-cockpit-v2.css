@@ -1,0 +1,499 @@
+/* HNF Cockpit V2 — capa visual total bajo body.hnf-cockpit-v2 (no look legacy) */
+
+body.hnf-cockpit-v2 {
+  background-color: #020308 !important;
+  background-image:
+    radial-gradient(ellipse 100% 80% at 50% -30%, rgba(56, 189, 248, 0.14), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 110% 20%, rgba(14, 165, 233, 0.1), transparent 45%),
+    radial-gradient(ellipse 50% 40% at -10% 80%, rgba(99, 102, 241, 0.08), transparent 50%),
+    repeating-linear-gradient(
+      -12deg,
+      transparent,
+      transparent 3px,
+      rgba(34, 211, 238, 0.025) 3px,
+      rgba(34, 211, 238, 0.025) 4px
+    ),
+    linear-gradient(168deg, #020308 0%, #071018 38%, #03060c 100%) !important;
+  background-size: auto, auto, auto, 200% 200%, auto !important;
+  background-attachment: fixed !important;
+}
+
+body.hnf-cockpit-v2 #app {
+  padding: 20px 22px 28px !important;
+  max-width: none !important;
+}
+
+/* Shell: dos volúmenes separados, no una sola caja */
+body.hnf-cockpit-v2 .hnf-cc-layout {
+  display: grid !important;
+  grid-template-columns: minmax(288px, 308px) minmax(0, 1fr) !important;
+  gap: 22px !important;
+  align-items: stretch !important;
+  min-height: calc(100vh - 48px) !important;
+  max-width: 1820px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-sidebar {
+  border-radius: 22px !important;
+  padding: 22px 18px 24px !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  background:
+    linear-gradient(165deg, rgba(18, 32, 58, 0.92) 0%, rgba(4, 10, 22, 0.97) 100%),
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(34, 211, 238, 0.12), transparent 55%) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 32px 64px rgba(0, 0, 0, 0.65),
+    0 0 80px rgba(34, 211, 238, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+  backdrop-filter: blur(20px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-sidebar__mark {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 16px !important;
+  font-size: 14px !important;
+  box-shadow:
+    0 0 40px rgba(34, 211, 238, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-sidebar__brand-name {
+  font-size: 16px !important;
+  letter-spacing: 0.12em !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-nav {
+  border-top: 1px solid rgba(34, 211, 238, 0.12) !important;
+  padding-top: 16px !important;
+  gap: 0 !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-nav-rail-title {
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase !important;
+  color: rgba(34, 211, 238, 0.55) !important;
+  margin: 18px 0 10px 6px !important;
+  padding: 0 0 6px !important;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.15) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-nav-rail-title:first-of-type {
+  margin-top: 6px !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-nav-deck {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 10px 8px 14px !important;
+  margin-bottom: 6px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(148, 163, 184, 0.1) !important;
+  background: rgba(0, 0, 0, 0.22) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-nav__btn {
+  border-radius: 14px !important;
+  padding: 14px 14px !important;
+  border: 1px solid rgba(56, 189, 248, 0.15) !important;
+  background: linear-gradient(145deg, rgba(25, 40, 68, 0.75), rgba(8, 14, 28, 0.9)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-nav__btn:hover {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow: 0 8px 28px rgba(34, 211, 238, 0.12) !important;
+  transform: translateY(-1px) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-nav__btn--active {
+  border-color: rgba(34, 211, 238, 0.65) !important;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(14, 116, 144, 0.12)) !important;
+  box-shadow:
+    0 0 28px rgba(34, 211, 238, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-nav__btn-ico {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  font-size: 18px !important;
+}
+
+/* Columna principal: volumen propio */
+body.hnf-cockpit-v2 .hnf-cc-main {
+  border-radius: 22px !important;
+  border: 1px solid rgba(56, 189, 248, 0.22) !important;
+  background:
+    linear-gradient(175deg, rgba(12, 22, 42, 0.55) 0%, rgba(3, 6, 14, 0.92) 100%),
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(34, 211, 238, 0.06), transparent 55%) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 40px 80px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  overflow: hidden !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Topbar flotante */
+body.hnf-cockpit-v2 .hnf-cc-topbar {
+  margin: 16px 18px 0 !important;
+  padding: 16px 22px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(34, 211, 238, 0.28) !important;
+  background: linear-gradient(135deg, rgba(15, 30, 52, 0.88), rgba(6, 12, 26, 0.94)) !important;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(34, 211, 238, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-topbar__title {
+  font-size: 1.55rem !important;
+  font-weight: 900 !important;
+  text-shadow: 0 0 50px rgba(34, 211, 238, 0.25) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-viewport {
+  margin: 14px 16px 18px !important;
+  padding: 20px 22px 28px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(34, 211, 238, 0.1) !important;
+  background: rgba(2, 5, 12, 0.45) !important;
+  box-shadow: inset 0 0 100px rgba(34, 211, 238, 0.04) !important;
+  min-height: 52vh !important;
+}
+
+/* Tarjetas cockpit genéricas dentro del viewport */
+body.hnf-cockpit-v2 .hnf-cc-viewport .tarjeta,
+body.hnf-cockpit-v2 .hnf-cc-viewport .card,
+body.hnf-cockpit-v2 .hnf-cc-viewport .hnf-cap-ingreso__form-card {
+  border-radius: 20px !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  background: linear-gradient(160deg, rgba(22, 38, 62, 0.9), rgba(6, 12, 24, 0.96)) !important;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  padding: 22px 24px !important;
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.25s ease,
+    border-color 0.2s ease !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-viewport .tarjeta:hover,
+body.hnf-cockpit-v2 .hnf-cc-viewport .card:hover {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.55),
+    0 0 48px rgba(34, 211, 238, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-viewport .module-header {
+  border-bottom: 1px solid rgba(34, 211, 238, 0.15) !important;
+  padding-bottom: 20px !important;
+  margin-bottom: 22px !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-viewport .module-header h1,
+body.hnf-cockpit-v2 .hnf-cc-viewport .module-header h2 {
+  font-size: 1.65rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+  color: #f8fafc !important;
+  text-shadow: 0 0 40px rgba(34, 211, 238, 0.15) !important;
+}
+
+/* Botones: alto impacto */
+body.hnf-cockpit-v2 .hnf-cc-viewport .primary-button {
+  border-radius: 14px !important;
+  padding: 13px 22px !important;
+  border: 1px solid rgba(125, 211, 252, 0.55) !important;
+  background: linear-gradient(165deg, #f0f9ff 0%, #38bdf8 45%, #0284c7 100%) !important;
+  color: #020617 !important;
+  font-weight: 900 !important;
+  box-shadow:
+    0 4px 0 rgba(2, 132, 199, 0.4),
+    0 16px 40px rgba(14, 165, 233, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-viewport .secondary-button {
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  background: rgba(15, 25, 45, 0.9) !important;
+  color: #e2e8f0 !important;
+  font-weight: 800 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Métricas V2 (Mando) */
+body.hnf-cockpit-v2 .hnf-v2-metric {
+  flex: 1 1 140px !important;
+  min-width: 120px !important;
+  padding: 18px 20px 20px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  background: linear-gradient(155deg, rgba(30, 50, 82, 0.85), rgba(8, 14, 28, 0.95)) !important;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 40px rgba(34, 211, 238, 0.05) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric:hover {
+  transform: translateY(-3px) scale(1.02) !important;
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.5),
+    0 0 50px rgba(34, 211, 238, 0.12) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric__value {
+  font-size: 2rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  color: #f8fafc !important;
+  font-variant-numeric: tabular-nums !important;
+  text-shadow: 0 0 30px rgba(34, 211, 238, 0.2) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric__label {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: rgba(148, 163, 184, 0.95) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric--alert {
+  border-color: rgba(251, 191, 36, 0.5) !important;
+  box-shadow: 0 0 36px rgba(251, 191, 36, 0.12) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric--alert .hnf-v2-metric__value {
+  color: #fde68a !important;
+  text-shadow: 0 0 24px rgba(251, 191, 36, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric--danger {
+  border-color: rgba(251, 113, 133, 0.45) !important;
+  box-shadow: 0 0 40px rgba(248, 113, 113, 0.12) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric--danger .hnf-v2-metric__value {
+  color: #fecaca !important;
+  text-shadow: 0 0 28px rgba(251, 113, 133, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-mando {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-mando__workspace {
+  gap: 22px !important;
+  align-items: stretch !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-mando__workspace-main,
+body.hnf-cockpit-v2 .hnf-cc-mando__workspace-aside {
+  min-height: 420px !important;
+}
+
+body.hnf-cockpit-v2 .hnf-ccd__kpis.hnf-v2-metric-row {
+  margin: 0 !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-metric-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 14px !important;
+  margin: 16px 0 20px !important;
+}
+
+/* Holo command strip (Mando) */
+body.hnf-cockpit-v2 .hnf-v2-holo-command {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  padding: 22px 24px !important;
+  margin-bottom: 16px !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(34, 211, 238, 0.32) !important;
+  background: linear-gradient(125deg, rgba(20, 45, 72, 0.75), rgba(6, 12, 28, 0.92)) !important;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px rgba(34, 211, 238, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-holo-command h1 {
+  margin: 0 0 8px !important;
+  font-size: 1.5rem !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-holo-command p {
+  margin: 0 !important;
+  max-width: 44ch !important;
+  font-size: 0.8rem !important;
+  line-height: 1.5 !important;
+  color: #94a3b8 !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-holo-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-holo-actions .hnf-op-btn {
+  border-radius: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  background: rgba(8, 20, 40, 0.85) !important;
+  color: #e0f2fe !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-v2-holo-actions .hnf-op-btn--primary {
+  background: linear-gradient(145deg, rgba(34, 211, 238, 0.35), rgba(14, 116, 144, 0.5)) !important;
+  border-color: rgba(34, 211, 238, 0.55) !important;
+  color: #ecfeff !important;
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.2) !important;
+}
+
+/* Kanban: columnas islas + tarjetas flotantes */
+body.hnf-cockpit-v2 .hnf-kb__lanes {
+  gap: 18px !important;
+  padding: 12px 8px 16px !important;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34, 211, 238, 0.05), transparent 60%) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-kb__lane {
+  padding: 12px 10px 14px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(56, 189, 248, 0.22) !important;
+  background: linear-gradient(180deg, rgba(16, 28, 48, 0.75), rgba(4, 8, 18, 0.9)) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-kb__lane-title {
+  color: rgba(34, 211, 238, 0.9) !important;
+  font-size: 0.62rem !important;
+  letter-spacing: 0.12em !important;
+}
+
+body.hnf-cockpit-v2 .hnf-kb__lane-count {
+  font-size: 0.85rem !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+}
+
+body.hnf-cockpit-v2 .hnf-kb__card {
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  background: linear-gradient(155deg, rgba(28, 42, 68, 0.92), rgba(10, 16, 30, 0.98)) !important;
+  padding: 12px 12px 14px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease !important;
+}
+
+body.hnf-cockpit-v2 .hnf-kb__card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(34, 211, 238, 0.4) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 32px rgba(34, 211, 238, 0.1) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-kb__card--active {
+  border-color: rgba(34, 211, 238, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.15), 0 12px 36px rgba(34, 211, 238, 0.12) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-kanban-shell__chrome {
+  border-radius: 20px !important;
+  border: 1px solid rgba(34, 211, 238, 0.28) !important;
+  background: linear-gradient(100deg, rgba(12, 32, 54, 0.85), rgba(4, 10, 22, 0.95)) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-cc-kanban-shell__stage {
+  border-radius: 18px !important;
+  border: 1px solid rgba(34, 211, 238, 0.12) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Jarvis core panel */
+body.hnf-cockpit-v2 .hnf-jarvis-core {
+  border-radius: 20px !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  box-shadow:
+    0 0 50px rgba(34, 211, 238, 0.15),
+    0 24px 48px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Dashboard gerencial V2 KPIs */
+body.hnf-cockpit-v2 .hnf-ccd__kpi {
+  border-radius: 18px !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  background: linear-gradient(160deg, rgba(24, 40, 68, 0.88), rgba(6, 12, 24, 0.95)) !important;
+  padding: 18px 20px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-ccd__kpi-v {
+  font-size: 1.75rem !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+}
+
+body.hnf-cockpit-v2 .hnf-ccd__jarvis-core {
+  border-radius: 20px !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  box-shadow: 0 0 48px rgba(34, 211, 238, 0.1) !important;
+}
+
+/* Strips Jarvis dentro del viewport */
+body.hnf-cockpit-v2 .hnf-jarvis-exec-strip,
+body.hnf-cockpit-v2 .hnf-jarvis-presence {
+  border-radius: 16px !important;
+  border: 1px solid rgba(34, 211, 238, 0.25) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.hnf-cockpit-v2 .hnf-jarvis-intake__shell {
+  border-radius: 20px !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.45) !important;
+}

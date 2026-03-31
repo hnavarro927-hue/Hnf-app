@@ -1,5 +1,6 @@
 import { isTabletMode } from '../../domain/jarvis-ui.js';
 import '../../styles/hnf-control-center-layout.css';
+import '../../styles/hnf-cockpit-v2.css';
 import { createControlSidebar } from './ControlSidebar.js';
 import { createControlTopbar } from './ControlTopbar.js';
 
@@ -21,7 +22,7 @@ export function createControlLayout({
   const root = document.createElement('div');
   root.className = 'hnf-cc-layout';
   if (typeof document !== 'undefined' && document.body) {
-    document.body.classList.add('hnf-cc-shell-active');
+    document.body.classList.add('hnf-cc-shell-active', 'hnf-cockpit-v2');
   }
   if (typeof window !== 'undefined' && isTabletMode()) {
     root.classList.add('hnf-cc-layout--tablet');

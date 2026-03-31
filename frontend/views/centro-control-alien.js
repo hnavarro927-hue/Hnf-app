@@ -1,6 +1,5 @@
 import '../styles/centro-control-alien.css';
 import '../styles/hnf-operational-kanban.css';
-import '../styles/hnf-control-center-layout.css';
 import { createControlKanbanRegion } from '../components/control-center/ControlKanban.js';
 import { createJarvisCorePanel } from '../components/control-center/JarvisCorePanel.js';
 import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
@@ -165,13 +164,13 @@ function renderTabBody(ot, tabId) {
   return wrap;
 }
 
-function kpiPill(label, value) {
-  const d = el('hnf-op-kpi');
-  const k = el('hnf-op-kpi__k');
-  k.textContent = label;
-  const v = el('hnf-op-kpi__v');
+function kpiMetric(label, value, variantClass = '') {
+  const d = el(`hnf-v2-metric${variantClass ? ` ${variantClass}` : ''}`);
+  const v = el('hnf-v2-metric__value');
   v.textContent = value;
-  d.append(k, v);
+  const k = el('hnf-v2-metric__label');
+  k.textContent = label;
+  d.append(v, k);
   return d;
 }
 
@@ -197,14 +196,14 @@ export function centroControlAlienView(props) {
   const jSig = buildJarvisGerencialSignals(ots);
   const alienKpis = computeJarvisAlienKpisSimple(ots);
 
-  const command = el('hnf-cc-mando__command');
+  const command = el('hnf-cc-mando__command hnf-v2-holo-command');
   const cmdLeft = el('');
   const hTitle = document.createElement('h1');
   hTitle.textContent = 'Operación HNF · Mando';
   const hSub = document.createElement('p');
   hSub.textContent = 'Kanban como superficie principal · núcleo Jarvis en el costado · un solo cockpit.';
   cmdLeft.append(hTitle, hSub);
-  const headAct = el('hnf-cc-mando__actions');
+  const headAct = el('hnf-cc-mando__actions hnf-v2-holo-actions');
   const mkHeadBtn = (label, primary, fn) => {
     const b = el(`hnf-op-btn${primary ? ' hnf-op-btn--primary' : ''}`, 'button');
     b.type = 'button';
@@ -242,12 +241,13 @@ export function centroControlAlienView(props) {
 
   const alienFlow = createJarvisAlienFlow();
 
-  const kpiRow = el('hnf-cc-mando__kpis hnf-op-kpis');
+  const kpiRow = el('hnf-v2-metric-row');
+  const nRiesgo = Number(alienKpis.enRiesgoJarvis) || 0;
   kpiRow.append(
-    kpiPill('OT activas', alienKpis.activas),
-    kpiPill('En riesgo', alienKpis.enRiesgoJarvis),
-    kpiPill('Margen prom.', alienKpis.margenPromedio),
-    kpiPill('Tiempo prom.', alienKpis.tiempoPromedioDias)
+    kpiMetric('OT activas', String(alienKpis.activas)),
+    kpiMetric('En riesgo', String(alienKpis.enRiesgoJarvis), nRiesgo > 0 ? 'hnf-v2-metric--alert' : ''),
+    kpiMetric('Margen prom.', String(alienKpis.margenPromedio)),
+    kpiMetric('Tiempo prom.', String(alienKpis.tiempoPromedioDias))
   );
 
   const workspace = el('hnf-cc-mando__workspace');

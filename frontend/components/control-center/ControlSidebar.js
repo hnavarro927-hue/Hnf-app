@@ -130,14 +130,18 @@ export function createControlSidebar({
   nav.setAttribute('aria-label', 'Módulos');
 
   let lastNavSection = null;
+  let currentDeck = null;
   for (const item of items) {
-    const secKey = VIEW_NAV_SECTION[item.id];
-    if (secKey && secKey !== lastNavSection) {
+    const secKey = VIEW_NAV_SECTION[item.id] ?? 'otros';
+    if (secKey !== lastNavSection) {
       lastNavSection = secKey;
       const secEl = document.createElement('div');
-      secEl.className = 'hnf-cc-nav__section';
+      secEl.className = 'hnf-v2-nav-rail-title';
       secEl.textContent = NAV_SECTION_LABEL[secKey] || secKey;
       nav.append(secEl);
+      currentDeck = document.createElement('div');
+      currentDeck.className = 'hnf-v2-nav-deck';
+      nav.append(currentDeck);
     }
 
     const btn = document.createElement('button');
@@ -157,7 +161,7 @@ export function createControlSidebar({
     lab.textContent = item.label;
     btn.append(ic, lab);
     btn.addEventListener('click', () => onNavigate(item.id));
-    nav.append(btn);
+    (currentDeck || nav).append(btn);
   }
 
   aside.append(toggle, headBlock, nav);

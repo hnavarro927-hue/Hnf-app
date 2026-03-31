@@ -2137,7 +2137,7 @@ async function startAuthenticatedApp() {
 function mountLoginUi() {
   if (!app) return;
   if (typeof document !== 'undefined' && document.body) {
-    document.body.classList.remove('hnf-cc-shell-active');
+    document.body.classList.remove('hnf-cc-shell-active', 'hnf-cockpit-v2');
   }
   clearSessionBackendRole();
   state.authMe = null;

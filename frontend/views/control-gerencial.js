@@ -1,4 +1,3 @@
-import '../styles/hnf-control-center-layout.css';
 import { createControlDashboard } from '../components/control-center/ControlDashboard.js';
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from '../domain/evento-operativo.js';
 import { listIngresosOperativosDelDia } from '../domain/ingreso-operativo-storage.js';
@@ -18,14 +17,16 @@ const fmtMoney = (n) =>
 
 function appendKpi(host, label, value, mod) {
   const d = document.createElement('div');
-  d.className = `hnf-ccd__kpi${mod ? ` hnf-ccd__kpi--${mod}` : ''}`;
-  const k = document.createElement('span');
-  k.className = 'hnf-ccd__kpi-k';
-  k.textContent = label;
-  const v = document.createElement('strong');
-  v.className = 'hnf-ccd__kpi-v';
+  const v2mod =
+    mod === 'bad' ? 'hnf-v2-metric--danger' : mod === 'warn' ? 'hnf-v2-metric--alert' : '';
+  d.className = `hnf-v2-metric${v2mod ? ` ${v2mod}` : ''}`;
+  const v = document.createElement('div');
+  v.className = 'hnf-v2-metric__value';
   v.textContent = value;
-  d.append(k, v);
+  const k = document.createElement('div');
+  k.className = 'hnf-v2-metric__label';
+  k.textContent = label;
+  d.append(v, k);
   host.append(d);
 }
 
@@ -43,6 +44,7 @@ export const controlGerencialView = ({
 } = {}) => {
   const { root, hero, kpis, jarvisZone, body } = createControlDashboard();
   root.classList.add('hnf-op-view', 'hnf-op-view--control');
+  kpis.classList.add('hnf-v2-metric-row');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
   const list = Array.isArray(raw) ? raw : [];
