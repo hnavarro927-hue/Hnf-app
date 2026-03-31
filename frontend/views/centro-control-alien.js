@@ -1,9 +1,11 @@
 import '../styles/centro-control-alien.css';
 import '../styles/hnf-operational-kanban.css';
+import '../styles/hnf-control-center-layout.css';
+import { createControlKanbanRegion } from '../components/control-center/ControlKanban.js';
+import { createJarvisCorePanel } from '../components/control-center/JarvisCorePanel.js';
 import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { createJarvisAlienFlow } from '../components/jarvis-alien-flow.js';
 import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
-import { createJarvisPanel } from '../components/jarvis-panel.js';
 import { createJarvisPresence, jarvisLineaModoAlien } from '../components/jarvis-presence.js';
 import { createKanbanBoard, DEFAULT_KANBAN_LANE_LABELS } from '../components/kanban-board.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
@@ -189,20 +191,20 @@ export function centroControlAlienView(props) {
   const br = getSessionBackendRole() || 'admin';
   const ots = filtrarOtsPorRolBackend(otsRaw, br);
 
-  const section = el('hnf-cc hnf-op-shell hnf-op-view hnf-op-view--mando', 'section');
+  const section = el('hnf-cc hnf-cc-mando hnf-op-shell hnf-op-view hnf-op-view--mando', 'section');
   section.setAttribute('aria-label', 'Centro de control operativo');
 
   const jSig = buildJarvisGerencialSignals(ots);
   const alienKpis = computeJarvisAlienKpisSimple(ots);
 
-  const header = el('hnf-op-header');
-  const headLeft = el('');
-  const hTitle = el('hnf-op-header__title', 'h1');
-  hTitle.textContent = 'Operación HNF';
-  const hSub = el('hnf-op-header__sub', 'p');
-  hSub.textContent = 'Kanban debajo · accesos a comando e ingesta arriba';
-  headLeft.append(hTitle, hSub);
-  const headAct = el('hnf-op-header__actions');
+  const command = el('hnf-cc-mando__command');
+  const cmdLeft = el('');
+  const hTitle = document.createElement('h1');
+  hTitle.textContent = 'Operación HNF · Mando';
+  const hSub = document.createElement('p');
+  hSub.textContent = 'Kanban como superficie principal · núcleo Jarvis en el costado · un solo cockpit.';
+  cmdLeft.append(hTitle, hSub);
+  const headAct = el('hnf-cc-mando__actions');
   const mkHeadBtn = (label, primary, fn) => {
     const b = el(`hnf-op-btn${primary ? ' hnf-op-btn--primary' : ''}`, 'button');
     b.type = 'button';
@@ -217,7 +219,7 @@ export function centroControlAlienView(props) {
       if (typeof reloadApp === 'function') void reloadApp();
     })
   );
-  header.append(headLeft, headAct);
+  command.append(cmdLeft, headAct);
 
   const execStrip = createJarvisExecutiveCopilotStrip({
     authLabel,
@@ -240,7 +242,7 @@ export function centroControlAlienView(props) {
 
   const alienFlow = createJarvisAlienFlow();
 
-  const kpiRow = el('hnf-op-kpis');
+  const kpiRow = el('hnf-cc-mando__kpis hnf-op-kpis');
   kpiRow.append(
     kpiPill('OT activas', alienKpis.activas),
     kpiPill('En riesgo', alienKpis.enRiesgoJarvis),
@@ -248,11 +250,11 @@ export function centroControlAlienView(props) {
     kpiPill('Tiempo prom.', alienKpis.tiempoPromedioDias)
   );
 
-  const workspace = el('hnf-op-workspace');
-  const mainCol = el('hnf-op-workspace__main');
-  const asideCol = el('hnf-op-workspace__aside');
+  const workspace = el('hnf-cc-mando__workspace');
+  const mainCol = el('hnf-cc-mando__workspace-main');
+  const asideCol = el('hnf-cc-mando__workspace-aside');
 
-  const jarvisPanel = createJarvisPanel();
+  const jarvisCore = createJarvisCorePanel();
 
   let kanbanSetActive = () => {};
 
@@ -260,7 +262,7 @@ export function centroControlAlienView(props) {
     ots,
     laneLabels: DEFAULT_KANBAN_LANE_LABELS,
     onSelectOt: (ot) => {
-      jarvisPanel.setOt(ot);
+      jarvisCore.setOt(ot);
       alienFlow.setOt(ot);
     },
     onAssignTech: (ot) => {
@@ -279,8 +281,8 @@ export function centroControlAlienView(props) {
   });
   kanbanSetActive = setActiveShell;
 
-  mainCol.append(boardEl);
-  asideCol.append(jarvisPanel.element);
+  mainCol.append(createControlKanbanRegion({ boardElement: boardEl }));
+  asideCol.append(jarvisCore.element);
   workspace.append(mainCol, asideCol);
 
   const body = el('hnf-cc__body');
@@ -388,7 +390,7 @@ export function centroControlAlienView(props) {
       escHandler = null;
     }
     kanbanSetActive(null);
-    jarvisPanel.setOt(null);
+    jarvisCore.setOt(null);
     alienFlow.setOt(null);
     selectedShell = null;
     currentOt = null;
@@ -431,7 +433,7 @@ export function centroControlAlienView(props) {
     selectedShell = shell;
     idEl.textContent = String(ot.id || '');
     sub.textContent = String(ot.cliente || '').trim() || '—';
-    jarvisPanel.setOt(ot);
+    jarvisCore.setOt(ot);
     alienFlow.setOt(ot);
     kanbanSetActive(shell);
     fillDrawerSummary(ot);
@@ -456,7 +458,7 @@ export function centroControlAlienView(props) {
 
   body.append(backdrop, drawer);
 
-  section.append(header, execStrip, jarvisPresenceEl, alienFlow.element, kpiRow, body);
+  section.append(command, execStrip, jarvisPresenceEl, alienFlow.element, kpiRow, body);
 
   return section;
 }

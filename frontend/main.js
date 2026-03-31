@@ -1,7 +1,7 @@
 import './styles/app.css';
 import './styles/hnf-alien-control-theme.css';
 import { appConfig, formatApiBaseLabel, getLoginDebugContext } from './config/app.config.js';
-import { createShell } from './components/shell.js';
+import { createControlLayout } from './components/control-center/ControlLayout.js';
 import { authApiService } from './services/auth-api.service.js';
 import { usersService } from './services/users.service.js';
 import { clearSessionToken, getSessionToken } from './config/auth-token.storage.js';
@@ -1711,7 +1711,7 @@ const render = () => {
       const currentView = viewRegistry[state.activeView];
       app.innerHTML = '';
 
-      const shell = createShell({
+      const shell = createControlLayout({
         activeView: state.activeView,
         apiBaseLabel: formatApiBaseLabel(),
         integrationStatus: state.integrationStatus,
@@ -1770,7 +1770,7 @@ const render = () => {
         });
       };
 
-      shell.content.className = `content content--view-${state.activeView} content--command-layout`;
+      shell.content.className = `hnf-cc-main content content--view-${state.activeView} content--command-layout`;
       if (typeof document !== 'undefined' && document.body) {
         document.body.classList.toggle('hnf-view--control-operativo', false);
         document.body.classList.toggle(
@@ -2136,6 +2136,9 @@ async function startAuthenticatedApp() {
 
 function mountLoginUi() {
   if (!app) return;
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.classList.remove('hnf-cc-shell-active');
+  }
   clearSessionBackendRole();
   state.authMe = null;
   app.innerHTML = '';

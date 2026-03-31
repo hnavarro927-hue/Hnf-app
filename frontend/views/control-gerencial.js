@@ -1,3 +1,5 @@
+import '../styles/hnf-control-center-layout.css';
+import { createControlDashboard } from '../components/control-center/ControlDashboard.js';
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from '../domain/evento-operativo.js';
 import { listIngresosOperativosDelDia } from '../domain/ingreso-operativo-storage.js';
 import { otCanClose } from '../utils/ot-evidence.js';
@@ -14,20 +16,33 @@ import { createJarvisPresence, jarvisLineaDesdeIntegracion } from '../components
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 
+function appendKpi(host, label, value, mod) {
+  const d = document.createElement('div');
+  d.className = `hnf-ccd__kpi${mod ? ` hnf-ccd__kpi--${mod}` : ''}`;
+  const k = document.createElement('span');
+  k.className = 'hnf-ccd__kpi-k';
+  k.textContent = label;
+  const v = document.createElement('strong');
+  v.className = 'hnf-ccd__kpi-v';
+  v.textContent = value;
+  d.append(k, v);
+  host.append(d);
+}
+
 /**
- * Capa 4 — Control gerencial (Hernan). Resumen sin detalle de ejecución.
+ * Control gerencial — marco nuevo (.hnf-ccd), sin layout .hnf-cap-control legacy.
  */
 export const controlGerencialView = ({
   data,
   navigateToView,
-  intelNavigate,
+  intelNavigate: _intelNavigate,
   reloadApp,
   integrationStatus,
   lastDataRefreshAt,
   authLabel,
 } = {}) => {
-  const root = document.createElement('section');
-  root.className = 'hnf-cap-control hnf-op-view hnf-op-view--control';
+  const { root, hero, kpis, jarvisZone, body } = createControlDashboard();
+  root.classList.add('hnf-op-view', 'hnf-op-view--control');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
   const list = Array.isArray(raw) ? raw : [];
@@ -67,129 +82,86 @@ export const controlGerencialView = ({
         ? 'Atención'
         : 'OK';
 
-  root.innerHTML = `
-    <header class="hnf-cap-control__head">
-      <h1 class="hnf-cap-control__title">Control gerencial</h1>
-      <p class="muted">Vista <strong>ejecutiva y estratégica</strong>: visibilidad del negocio, cuellos de botella y alertas. El detalle operativo está en Jarvis, Ingreso, Clima y Flota.</p>
-    </header>
-    <div class="hnf-cap-control__kpis">
-      <div class="hnf-cap-control__kpi hnf-cap-control__kpi--${agg.estado_general === 'critico' ? 'bad' : agg.estado_general === 'atencion' ? 'warn' : 'ok'}">
-        <span class="hnf-cap-control__k">Estado del día</span>
-        <strong class="hnf-cap-control__v">${estadoDia}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">OT abiertas</span>
-        <strong class="hnf-cap-control__v">${abiertas.length}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">Pendientes</span>
-        <strong class="hnf-cap-control__v">${pendientes.length}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">En proceso</span>
-        <strong class="hnf-cap-control__v">${enProceso.length}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">Listas para cierre</span>
-        <strong class="hnf-cap-control__v">${listasCierre.length}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">WhatsApp (hoy)</span>
-        <strong class="hnf-cap-control__v">${waHoy}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">Dinero en riesgo (eventos)</span>
-        <strong class="hnf-cap-control__v">$${fmtMoney(agg.dinero_en_riesgo)}</strong>
-      </div>
-      <div class="hnf-cap-control__kpi">
-        <span class="hnf-cap-control__k">Ingresos locales hoy</span>
-        <strong class="hnf-cap-control__v">${ingresosHoy.length}</strong>
-      </div>
-    </div>
-    <div class="hnf-jarvis-nucleus" id="hnf-control-jarvis-nucleus"></div>
-    <div class="hnf-cap-control__cols">
-      <div class="hnf-cap-control__col">
-        <h2 class="hnf-cap-control__h2">Responsables (OT abiertas)</h2>
-        <ul class="hnf-cap-control__ul" id="hnf-control-resp"></ul>
-      </div>
-      <div class="hnf-cap-control__col">
-        <h2 class="hnf-cap-control__h2">Accesos rápidos</h2>
-        <div class="hnf-cap-control__actions" id="hnf-control-actions"></div>
-      </div>
-    </div>
-    <div class="hnf-cap-control__disciplina" id="hnf-control-disciplina"></div>
-  `;
+  const kpiMod = agg.estado_general === 'critico' ? 'bad' : agg.estado_general === 'atencion' ? 'warn' : 'ok';
 
-  const jarvisHost = root.querySelector('#hnf-control-jarvis-nucleus');
-  if (jarvisHost) {
-    const jSig = buildJarvisGerencialSignals(list);
-    const authNorm = String(authLabel || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/\p{M}/gu, '');
-    const jarvisBrandSub = 'Jarvis | Integridad Operativa HNF';
+  const h1 = document.createElement('h1');
+  h1.className = 'hnf-ccd__title';
+  h1.textContent = 'Control gerencial';
+  const lead = document.createElement('p');
+  lead.className = 'hnf-ccd__lead';
+  lead.innerHTML =
+    '<strong>Dashboard ejecutivo</strong> — lectura rápida de riesgo, carga y dinero. El mando vive en <em>Mando</em> y el núcleo Jarvis abajo.';
+  hero.append(h1, lead, createHnfOperationalFlowStrip(4), createHnfGerenciaOpsIdentityCard());
+  hero.append(createHnfControlLynRegistroPanel({ reloadApp }));
 
-    const sectionHead = document.createElement('div');
-    sectionHead.className = 'hnf-jarvis-nucleus__section-head';
-    const secTitle = document.createElement('h2');
-    secTitle.className = 'hnf-jarvis-nucleus__section-title';
-    secTitle.textContent = 'Jarvis — operación';
-    const secHint = document.createElement('p');
-    secHint.className = 'hnf-jarvis-nucleus__section-hint';
-    secHint.textContent =
-      'Presencia (métricas /ots), copiloto de la OT foco, resumen ejecutivo y diagnóstico técnico. Sin ejecución automática en servidor.';
-    sectionHead.append(secTitle, secHint);
+  appendKpi(kpis, 'Estado del día', estadoDia, kpiMod);
+  appendKpi(kpis, 'OT abiertas', String(abiertas.length));
+  appendKpi(kpis, 'Pendientes', String(pendientes.length));
+  appendKpi(kpis, 'En proceso', String(enProceso.length));
+  appendKpi(kpis, 'Listas para cierre', String(listasCierre.length));
+  appendKpi(kpis, 'WhatsApp (hoy)', String(waHoy));
+  appendKpi(kpis, 'Dinero en riesgo', `$${fmtMoney(agg.dinero_en_riesgo)}`);
+  appendKpi(kpis, 'Ingresos locales hoy', String(ingresosHoy.length));
 
-    const mainRow = document.createElement('div');
-    mainRow.className = 'hnf-jarvis-nucleus__main-row';
-    mainRow.append(
-      createJarvisPresence({
-        linea: jarvisLineaDesdeIntegracion(integrationStatus),
-        metrics: {
-          nRiesgo: jSig.nRiesgo,
-          nUrgentes: jSig.nUrgentes,
-          nPendAprobacion: jSig.nPendAprobacion,
-        },
-        suggestion: jSig.suggestion,
-        brandSubtitle: jarvisBrandSub,
-      }),
-      createJarvisCopilot({ focoOt: jSig.focoOt })
-    );
+  const jSig = buildJarvisGerencialSignals(list);
+  const jarvisBrandSub = 'Jarvis | Integridad Operativa HNF';
 
-    const execStrip = createJarvisExecutiveCopilotStrip({
+  const sectionHead = document.createElement('div');
+  sectionHead.className = 'hnf-jarvis-nucleus__section-head';
+  const secTitle = document.createElement('h2');
+  secTitle.className = 'hnf-jarvis-nucleus__section-title';
+  secTitle.textContent = 'Jarvis — núcleo operativo';
+  const secHint = document.createElement('p');
+  secHint.className = 'hnf-jarvis-nucleus__section-hint';
+  secHint.textContent =
+    'Presencia en tiempo real, copiloto de la OT foco, resumen ejecutivo y panel vivo. Sin ejecución automática en servidor.';
+  sectionHead.append(secTitle, secHint);
+
+  const mainRow = document.createElement('div');
+  mainRow.className = 'hnf-jarvis-nucleus__main-row';
+  mainRow.append(
+    createJarvisPresence({
+      linea: jarvisLineaDesdeIntegracion(integrationStatus),
+      metrics: {
+        nRiesgo: jSig.nRiesgo,
+        nUrgentes: jSig.nUrgentes,
+        nPendAprobacion: jSig.nPendAprobacion,
+      },
+      suggestion: jSig.suggestion,
+      brandSubtitle: jarvisBrandSub,
+    }),
+    createJarvisCopilot({ focoOt: jSig.focoOt })
+  );
+
+  jarvisZone.append(
+    sectionHead,
+    mainRow,
+    createJarvisExecutiveCopilotStrip({
       authLabel,
       integrationStatus,
       viewData: data,
       lastDataRefreshAt,
-    });
+    }),
+    createJarvisLiveOpsPanel({
+      integrationStatus,
+      viewData: data,
+      lastDataRefreshAt,
+      focoOt: jSig.focoOt,
+    })
+  );
 
-    jarvisHost.append(
-      sectionHead,
-      mainRow,
-      execStrip,
-      createJarvisLiveOpsPanel({
-        integrationStatus,
-        viewData: data,
-        lastDataRefreshAt,
-        focoOt: jSig.focoOt,
-      })
-    );
-  }
+  const colResp = document.createElement('div');
+  const hResp = document.createElement('h2');
+  hResp.className = 'hnf-ccd__col-title';
+  hResp.textContent = 'Responsables (OT abiertas)';
+  const ul = document.createElement('ul');
+  ul.className = 'hnf-ccd__ul';
+  colResp.append(hResp, ul);
 
-  const headEl = root.querySelector('.hnf-cap-control__head');
-  if (headEl) {
-    const strip = createHnfOperationalFlowStrip(4);
-    headEl.after(strip);
-    const idCard = createHnfGerenciaOpsIdentityCard();
-    strip.after(idCard);
-    idCard.after(createHnfControlLynRegistroPanel({ reloadApp }));
-  }
-
-  const ul = root.querySelector('#hnf-control-resp');
   const sorted = [...byResp.entries()].sort((a, b) => b[1] - a[1]);
   if (!sorted.length) {
     const li = document.createElement('li');
-    li.className = 'muted';
+    li.style.color = '#94a3b8';
     li.textContent = 'Sin OT abiertas con técnico asignado.';
     ul.append(li);
   } else {
@@ -200,11 +172,16 @@ export const controlGerencialView = ({
     }
   }
 
-  const act = root.querySelector('#hnf-control-actions');
+  const colAct = document.createElement('div');
+  const hAct = document.createElement('h2');
+  hAct.className = 'hnf-ccd__col-title';
+  hAct.textContent = 'Accesos de mando';
+  const act = document.createElement('div');
+  act.className = 'hnf-ccd__actions';
   const mkBtn = (label, fn) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'primary-button hnf-cap-control__btn';
+    b.className = 'primary-button hnf-ccd__btn';
     b.textContent = label;
     b.addEventListener('click', fn);
     return b;
@@ -212,16 +189,18 @@ export const controlGerencialView = ({
   act.append(
     mkBtn('Mando (Kanban)', () => navigateToView?.('centro-control')),
     mkBtn('Ingesta universal', () => navigateToView?.('ingreso-operativo')),
-    mkBtn('Cola Lyn (aprobación OT)', () => navigateToView?.('lyn-aprobacion')),
+    mkBtn('Cola Lyn (OT)', () => navigateToView?.('lyn-aprobacion')),
     mkBtn('Jarvis HQ', () => navigateToView?.('jarvis')),
-    mkBtn('Ejecución OT (Clima)', () => navigateToView?.('clima')),
-    mkBtn('Ingreso operativo clásico', () => navigateToView?.('ingreso-clasico'))
+    mkBtn('Clima / OT', () => navigateToView?.('clima')),
+    mkBtn('Ingreso clásico', () => navigateToView?.('ingreso-clasico'))
   );
+  colAct.append(hAct, act);
 
-  const discHost = root.querySelector('#hnf-control-disciplina');
-  if (discHost) {
-    discHost.append(createHnfDisciplinaTecnicosPanel(list, { navigateToView }));
-  }
+  const discHost = document.createElement('div');
+  discHost.className = 'hnf-ccd__disciplina';
+  discHost.append(createHnfDisciplinaTecnicosPanel(list, { navigateToView }));
+
+  body.append(colResp, colAct, discHost);
 
   return root;
 };
