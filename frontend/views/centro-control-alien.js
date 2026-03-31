@@ -190,7 +190,10 @@ export function centroControlAlienView(props) {
   const br = getSessionBackendRole() || 'admin';
   const ots = filtrarOtsPorRolBackend(otsRaw, br);
 
-  const section = el('hnf-cc hnf-cc-mando hnf-op-shell hnf-op-view hnf-op-view--mando', 'section');
+  const section = el(
+    'hnf-cc hnf-cc-mando hnf-cck-surface hnf-op-shell hnf-op-view hnf-op-view--mando',
+    'section'
+  );
   section.setAttribute('aria-label', 'Centro de control operativo');
 
   const jSig = buildJarvisGerencialSignals(ots);

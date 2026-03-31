@@ -43,7 +43,7 @@ export const controlGerencialView = ({
   authLabel,
 } = {}) => {
   const { root, hero, kpis, jarvisZone, body } = createControlDashboard();
-  root.classList.add('hnf-op-view', 'hnf-op-view--control');
+  root.classList.add('hnf-cck-surface', 'hnf-op-view', 'hnf-op-view--control');
   kpis.classList.add('hnf-v2-metric-row');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];

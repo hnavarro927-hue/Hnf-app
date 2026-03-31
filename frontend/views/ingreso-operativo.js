@@ -238,7 +238,8 @@ export const ingresoOperativoView = ({
 } = {}) => {
   const operatorRole = operatorRoleProp || resolveOperatorRole();
   const root = document.createElement('section');
-  root.className = 'hnf-cap-ingreso hnf-cap-ingreso--command hnf-op-view hnf-op-view--ingreso';
+  root.className =
+    'hnf-cap-ingreso hnf-cap-ingreso--command hnf-cck-surface hnf-op-view hnf-op-view--ingreso';
 
   const head = document.createElement('header');
   head.className = 'hnf-cap-ingreso__head';

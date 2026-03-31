@@ -1,5 +1,4 @@
 import './styles/app.css';
-import './styles/hnf-alien-control-theme.css';
 import { appConfig, formatApiBaseLabel, getLoginDebugContext } from './config/app.config.js';
 import { createControlLayout } from './components/control-center/ControlLayout.js';
 import { authApiService } from './services/auth-api.service.js';
@@ -2137,7 +2136,7 @@ async function startAuthenticatedApp() {
 function mountLoginUi() {
   if (!app) return;
   if (typeof document !== 'undefined' && document.body) {
-    document.body.classList.remove('hnf-cc-shell-active', 'hnf-cockpit-v2');
+    document.body.classList.remove('hnf-cc-shell-active', 'hnf-cc-unified');
   }
   clearSessionBackendRole();
   state.authMe = null;

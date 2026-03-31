@@ -78,13 +78,96 @@ function isDomainPath(absPath) {
   return rel.includes('/domain/') || rel.startsWith('domain/');
 }
 
+/** Cierra un ${ ... } respetando strings, comentarios y template literals anidados (evita falsos JSX en --strict). */
+function skipTemplateInterpolationBody(src, i) {
+  let depth = 1;
+  while (i < src.length && depth > 0) {
+    const c = src[i];
+    if (c === '\\') {
+      i += 2;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      const q = c;
+      i++;
+      while (i < src.length) {
+        if (src[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (src[i] === q) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === '`') {
+      i = consumeTemplateLiteralFromOpenBacktick(src, i);
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '/') {
+      i += 2;
+      while (i < src.length && src[i] !== '\n' && src[i] !== '\r') i++;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      i += 2;
+      while (i < src.length - 1 && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      if (i < src.length - 1) i += 2;
+      continue;
+    }
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    i++;
+  }
+  return i;
+}
+
+/** Desde el índice del ` de apertura, devuelve el índice inmediatamente después del ` de cierre. */
+function consumeTemplateLiteralFromOpenBacktick(src, openIdx) {
+  let i = openIdx + 1;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '\\') {
+      i += 2;
+      continue;
+    }
+    if (c === '$' && src[i + 1] === '{') {
+      i += 2;
+      i = skipTemplateInterpolationBody(src, i);
+      continue;
+    }
+    if (c === '`') return i + 1;
+    i++;
+  }
+  return i;
+}
+
+function stripTemplateLiteralsFromSource(src) {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    if (src[i] !== '`') {
+      out += src[i];
+      i++;
+      continue;
+    }
+    i = consumeTemplateLiteralFromOpenBacktick(src, i);
+    out += ' ';
+  }
+  return out;
+}
+
 function stripStringsAndComments(src) {
   let s = src;
-  s = s.replace(/\/\*[\s\S]*?\*\//g, ' ');
-  s = s.replace(/\/\/.*$/gm, ' ');
-  s = s.replace(/`(?:\\.|[^`\\])*`/g, ' ');
+  // Orden: primero literales (evita `/*` falso en 'image/*', URLs, etc.); comentarios al final.
+  s = stripTemplateLiteralsFromSource(s);
   s = s.replace(/'(?:\\.|[^'\\])*'/g, ' ');
   s = s.replace(/"(?:\\.|[^"\\])*"/g, ' ');
+  s = s.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  s = s.replace(/\/\/.*$/gm, ' ');
   return s;
 }
 
