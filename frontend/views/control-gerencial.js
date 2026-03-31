@@ -5,6 +5,9 @@ import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flo
 import { createHnfGerenciaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-registro.js';
 import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
+import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
+import { createJarvisCopilot } from '../components/jarvis-copilot.js';
+import { createJarvisPresence, jarvisLineaDesdeIntegracion } from '../components/jarvis-presence.js';
 
 const fmtMoney = (n) =>
   Math.round(Number(n) || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
@@ -12,7 +15,13 @@ const fmtMoney = (n) =>
 /**
  * Capa 4 — Control gerencial (Hernan). Resumen sin detalle de ejecución.
  */
-export const controlGerencialView = ({ data, navigateToView, intelNavigate, reloadApp } = {}) => {
+export const controlGerencialView = ({
+  data,
+  navigateToView,
+  intelNavigate,
+  reloadApp,
+  integrationStatus,
+} = {}) => {
   const root = document.createElement('section');
   root.className = 'hnf-cap-control hnf-op-view hnf-op-view--control';
 
@@ -93,6 +102,7 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate, relo
         <strong class="hnf-cap-control__v">${ingresosHoy.length}</strong>
       </div>
     </div>
+    <div class="hnf-jarvis-nucleus" id="hnf-control-jarvis-nucleus"></div>
     <div class="hnf-cap-control__cols">
       <div class="hnf-cap-control__col">
         <h2 class="hnf-cap-control__h2">Responsables (OT abiertas)</h2>
@@ -105,6 +115,23 @@ export const controlGerencialView = ({ data, navigateToView, intelNavigate, relo
     </div>
     <div class="hnf-cap-control__disciplina" id="hnf-control-disciplina"></div>
   `;
+
+  const jarvisHost = root.querySelector('#hnf-control-jarvis-nucleus');
+  if (jarvisHost) {
+    const jSig = buildJarvisGerencialSignals(list);
+    jarvisHost.append(
+      createJarvisPresence({
+        linea: jarvisLineaDesdeIntegracion(integrationStatus),
+        metrics: {
+          nRiesgo: jSig.nRiesgo,
+          nUrgentes: jSig.nUrgentes,
+          nPendAprobacion: jSig.nPendAprobacion,
+        },
+        suggestion: jSig.suggestion,
+      }),
+      createJarvisCopilot({ focoOt: jSig.focoOt })
+    );
+  }
 
   const headEl = root.querySelector('.hnf-cap-control__head');
   if (headEl) {

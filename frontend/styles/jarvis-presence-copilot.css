@@ -1,0 +1,200 @@
+/**
+ * Jarvis presencia + copiloto gerencial — núcleo activo, cyan, glow suave.
+ */
+
+.hnf-jarvis-nucleus {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0;
+}
+
+@media (min-width: 900px) {
+  .hnf-jarvis-nucleus {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .hnf-jarvis-nucleus > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* ——— Presence (fija / siempre visible en bloque) ——— */
+.hnf-jarvis-presence {
+  --jp-cyan: #22d3ee;
+  --jp-glow: rgba(34, 211, 238, 0.2);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: 0.55rem;
+  background: linear-gradient(145deg, rgba(8, 51, 68, 0.45), rgba(9, 9, 11, 0.92));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 20px var(--jp-glow);
+  padding: 0.55rem 0.65rem;
+}
+
+.hnf-jarvis-presence__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.hnf-jarvis-presence__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hnf-jarvis-presence__pulse {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--jp-cyan);
+  box-shadow: 0 0 10px var(--jp-glow);
+  flex-shrink: 0;
+}
+
+.hnf-jarvis-presence__pulse--off {
+  background: #52525b;
+  box-shadow: none;
+}
+
+.hnf-jarvis-presence__name {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--jp-cyan);
+  text-shadow: 0 0 12px var(--jp-glow);
+}
+
+.hnf-jarvis-presence__state {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e4e4e7;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.hnf-jarvis-presence__state--ok {
+  border-color: rgba(34, 211, 238, 0.35);
+  color: #a5f3fc;
+}
+
+.hnf-jarvis-presence__state--bad {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.hnf-jarvis-presence__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.55rem;
+}
+
+@media (min-width: 640px) {
+  .hnf-jarvis-presence__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.hnf-jarvis-presence__metric-k {
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.hnf-jarvis-presence__metric-v {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fafafa;
+  line-height: 1.2;
+}
+
+.hnf-jarvis-presence__hint {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: #d4d4d8;
+}
+
+.hnf-jarvis-presence__hint-k {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--jp-cyan);
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+/* ——— Copilot ——— */
+.hnf-jarvis-copilot {
+  --jc-cyan: #22d3ee;
+  --jc-glow: rgba(34, 211, 238, 0.18);
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 0.55rem;
+  background: rgba(9, 9, 11, 0.88);
+  box-shadow: 0 0 18px var(--jc-glow);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hnf-jarvis-copilot__title {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--jc-cyan);
+  margin: 0 0 0.15rem;
+}
+
+.hnf-jarvis-copilot__sub {
+  font-size: 0.52rem;
+  color: #71717a;
+  margin: 0 0 0.35rem;
+}
+
+.hnf-jarvis-copilot__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.hnf-jarvis-copilot__row {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-copilot__k {
+  color: #71717a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.48rem;
+}
+
+.hnf-jarvis-copilot__v {
+  color: #e4e4e7;
+  font-weight: 500;
+  word-break: break-word;
+}
