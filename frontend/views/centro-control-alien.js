@@ -82,7 +82,7 @@ function computeKpisDesdeOts(otsRaw, alertOpts = ALERTA_OPTS_CENTRO) {
       nUtil += 1;
     }
 
-    const av = alertaOperativaVisual(o, {});
+    const av = alertaOperativaVisual(o, alertOpts);
     if (av?.tipo === 'riesgo') riesgo += 1;
     if (getEvidenceGaps(o).length > 0) sinEv += 1;
   }
@@ -112,8 +112,8 @@ function el(className, tag = 'div') {
   return n;
 }
 
-function kpiCard(label, valueObj) {
-  const card = el('hnf-cc__kpi-card');
+function kpiCard(label, valueObj, variant = '') {
+  const card = el(`hnf-cc__kpi-card${variant ? ` hnf-cc__kpi-card--${variant}` : ''}`);
   const lb = el('hnf-cc__kpi-label');
   lb.textContent = label;
   const val = el('hnf-cc__kpi-value');
@@ -127,6 +127,37 @@ function kpiCard(label, valueObj) {
   return card;
 }
 
+function historialAccionGlyph(accion) {
+  const a = String(accion || '').toLowerCase();
+  if (a === 'alta') return '●';
+  if (a.startsWith('jarvis_origen')) return '◎';
+  if (a.startsWith('jarvis_asignacion')) return '◆';
+  if (a.startsWith('jarvis_prioridad')) return '⚡';
+  if (a.startsWith('jarvis')) return '◇';
+  if (a === 'estado') return '→';
+  if (a === 'asignacion' || a === 'responsable') return '👤';
+  if (a.includes('lyn')) return '✓';
+  if (a === 'operacion') return '⚙';
+  if (a === 'envio_cliente') return '✉';
+  return '·';
+}
+
+function jarvisStripLineasCompactas(ot) {
+  const origen = etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido);
+  const resp = textoResponsableOperativoMostrado(ot);
+  const h = jarvisHeuristicaPrioridadOperativa(ot);
+  const av = alertaOperativaVisual(ot, ALERTA_OPTS_CENTRO);
+  const out = [
+    `${origen} · ${resp} · Sugerida: ${h.nivel}`,
+    av
+      ? av.tipo === 'riesgo'
+        ? `Riesgo: ${av.texto}`
+        : `Atraso: ${av.texto}`
+      : 'Sin alerta operativa activa',
+  ];
+  return out;
+}
+
 function cardTipoClass(tipo) {
   const t = String(tipo || '').toLowerCase();
   if (t === 'clima') return 'hnf-cc__card--clima';
@@ -138,38 +169,44 @@ function renderHistorial(ot) {
   const frag = document.createDocumentFragment();
   const vivo = el('hnf-cc__hist-vivo');
   const vt = el('hnf-cc__hist-vivo-title', 'p');
-  vt.textContent = 'Señales en tiempo real (heurística v1 · lectura local)';
+  vt.textContent = 'Ahora';
   vivo.append(vt);
   for (const line of jarvisCopilotFrasesOperativas(ot)) {
+    const row = el('hnf-cc__hist-vivo-row');
+    const g = el('hnf-cc__hist-vivo-glyph', 'span');
+    g.textContent = '◈';
     const p = el('hnf-cc__hist-vivo-line', 'p');
     p.textContent = line;
-    vivo.append(p);
+    row.append(g, p);
+    vivo.append(row);
   }
   frag.append(vivo);
 
   const h = Array.isArray(ot?.historial) ? ot.historial : [];
   const sep = el('hnf-cc__hist-sep', 'p');
-  sep.textContent = 'Historial persistido (servidor)';
+  sep.textContent = 'Registro';
   frag.append(sep);
 
   if (!h.length) {
-    const p = el('', 'p');
-    p.textContent = 'Sin eventos en servidor.';
+    const p = el('hnf-cc__hist-empty', 'p');
+    p.textContent = 'Sin eventos persistidos.';
     frag.append(p);
     return frag;
   }
-  [...h].reverse().slice(0, 12).forEach((entry) => {
+  [...h].reverse().slice(0, 14).forEach((entry) => {
     const li = el('hnf-cc__hist-li', 'div');
-    const head = `${String(entry?.at || '').slice(0, 19)} · ${String(entry?.accion || '')}`;
-    li.textContent = head;
+    const glyph = el('hnf-cc__hist-li-glyph', 'span');
+    glyph.textContent = historialAccionGlyph(entry?.accion);
+    const body = el('hnf-cc__hist-li-body');
+    const head = el('hnf-cc__hist-li-head');
+    head.textContent = `${String(entry?.at || '').slice(0, 19)} · ${String(entry?.accion || 'evento')}`;
+    body.append(head);
     if (entry?.detalle) {
-      const d = el('', 'p');
-      d.style.marginTop = '0.25rem';
-      d.style.color = '#a1a1aa';
-      d.style.fontSize = '0.58rem';
-      d.textContent = String(entry.detalle).slice(0, 200);
-      li.append(d);
+      const d = el('hnf-cc__hist-li-detail', 'p');
+      d.textContent = String(entry.detalle).slice(0, 220);
+      body.append(d);
     }
+    li.append(glyph, body);
     frag.append(li);
   });
   return frag;
@@ -180,13 +217,11 @@ function renderTabBody(ot, tabId) {
   if (tabId === 'detalle') {
     const priH = jarvisHeuristicaPrioridadOperativa(ot);
     const rows = [
-      ['Cliente', ot.cliente],
-      ['Origen', etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido)],
       ['Tipo', ot.tipoServicio],
+      ['Subtipo', ot.subtipoServicio],
       ['Estado', ot.estado],
-      ['Resp. operativo', textoResponsableOperativoMostrado(ot)],
-      ['Prioridad OT', ot.prioridadOperativa || '—'],
-      ['Prioridad sugerida', `${priH.nivel} (${priH.motivos.join(', ') || '—'})`],
+      ['Prioridad guardada', ot.prioridadOperativa || '—'],
+      ['Sugerencia', `${priH.nivel} · ${priH.motivos.slice(0, 4).join(', ') || '—'}`],
       ['Lyn', ot.aprobacionLynEstado],
     ];
     rows.forEach(([k, v]) => {
@@ -247,19 +282,24 @@ export function centroControlAlienView(props) {
   const br = getSessionBackendRole() || 'admin';
   const ots = filtrarOtsPorRolBackend(otsRaw, br);
 
-  const section = el('hnf-cc', 'section');
+  const section = el('hnf-cc hnf-op-view hnf-op-view--mando', 'section');
   section.setAttribute('aria-label', 'Centro de control operativo');
 
   const kpis = computeKpisDesdeOts(ots, ALERTA_OPTS_CENTRO);
-  const kpiRow = el('hnf-cc__kpi');
-  kpiRow.append(
+  const kpiWrap = el('hnf-cc__kpi-wrap');
+  const kpiCritical = el('hnf-cc__kpi-row hnf-cc__kpi-row--critical');
+  kpiCritical.append(
+    kpiCard('Riesgo', { text: kpis.riesgo, pending: false }, 'risk'),
+    kpiCard('Sin evid.', { text: kpis.sinEvidencia, pending: false }, 'warn'),
+    kpiCard('Activas', { text: kpis.activas, pending: false }, 'active')
+  );
+  const kpiEcon = el('hnf-cc__kpi-row hnf-cc__kpi-row--econ');
+  kpiEcon.append(
     kpiCard('Ingresos', kpis.ingresos),
     kpiCard('Costos', kpis.costos),
-    kpiCard('Margen', kpis.margen),
-    kpiCard('OT activas', { text: kpis.activas, pending: false }),
-    kpiCard('OT riesgo', { text: kpis.riesgo, pending: false }),
-    kpiCard('Sin evidencia', { text: kpis.sinEvidencia, pending: false })
+    kpiCard('Margen', kpis.margen)
   );
+  kpiWrap.append(kpiCritical, kpiEcon);
 
   const ux = el('hnf-cc__ux');
   ['Ver', 'Entender', 'Actuar'].forEach((label, i) => {
@@ -274,7 +314,8 @@ export function centroControlAlienView(props) {
   });
 
   const roles = el('hnf-cc__roles-hint');
-  ['Romina → Clima', 'Gery → Flota', 'Lyn / Hernán → Gerencia'].forEach((t) => {
+  roles.setAttribute('aria-label', 'Ámbitos por rol');
+  ['R→Clima', 'G→Flota', 'L/H→Todo'].forEach((t) => {
     const p = el('hnf-cc__role-pill', 'span');
     p.textContent = t;
     roles.append(p);
@@ -340,7 +381,8 @@ export function centroControlAlienView(props) {
     const t = el('hnf-cc__lane-title');
     t.textContent = LANE_LABEL[laneId];
     const c = el('hnf-cc__lane-count');
-    c.textContent = String((byLane[laneId] || []).length);
+    const nLane = (byLane[laneId] || []).length;
+    c.textContent = String(nLane);
     head.append(t, c);
     const cards = el('hnf-cc__lane-cards');
     for (const ot of byLane[laneId] || []) {
@@ -354,14 +396,27 @@ export function centroControlAlienView(props) {
       row.append(id, tipo);
       const cli = el('hnf-cc__card-cliente', 'div');
       cli.textContent = String(ot.cliente || '').trim() || '—';
-      const orig = el('hnf-cc__card-orig', 'span');
+      const badges = el('hnf-cc__card-badges');
+      const orig = el('hnf-cc__badge hnf-cc__badge--orig', 'span');
       orig.textContent = etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido);
+      const pri = el('hnf-cc__badge hnf-cc__badge--pri', 'span');
+      pri.textContent = String(ot.prioridadOperativa || '—').toUpperCase();
+      badges.append(orig, pri);
+      const av = alertaOperativaVisual(ot, ALERTA_OPTS_CENTRO);
+      if (av) {
+        const dot = el(
+          `hnf-cc__badge hnf-cc__badge--alert hnf-cc__badge--${av.tipo === 'riesgo' ? 'risk' : 'delay'}`,
+          'span'
+        );
+        dot.textContent = av.tipo === 'riesgo' ? '!' : '⏱';
+        dot.title = av.texto || '';
+        badges.append(dot);
+      }
       const meta = el('hnf-cc__card-meta');
       meta.textContent = textoResponsableOperativoMostrado(ot);
       const est = el('hnf-cc__card-estado', 'span');
       est.textContent = String(ot.estado || '—');
-      btn.append(row, cli, orig, meta, est);
-      const av = alertaOperativaVisual(ot, ALERTA_OPTS_CENTRO);
+      btn.append(row, cli, badges, meta, est);
       if (av) {
         const al = el(`hnf-cc__alert hnf-cc__alert--${av.tipo === 'riesgo' ? 'risk' : 'delay'}`);
         al.textContent = av.texto != null && String(av.texto).trim() ? String(av.texto) : '—';
@@ -369,6 +424,11 @@ export function centroControlAlienView(props) {
       }
       btn.addEventListener('click', () => openDrawer(ot, btn));
       cards.append(btn);
+    }
+    if (!nLane) {
+      const empty = el('hnf-cc__lane-empty', 'p');
+      empty.textContent = 'Sin OT';
+      cards.append(empty);
     }
     lane.append(head, cards);
     lanesEl.append(lane);
@@ -403,41 +463,38 @@ export function centroControlAlienView(props) {
   backdrop.setAttribute('aria-label', 'Cerrar panel');
 
   const drawer = el('hnf-cc__drawer');
+  const drawerHandle = el('hnf-cc__drawer-handle');
+  drawerHandle.setAttribute('aria-hidden', 'true');
+
   const dHead = el('hnf-cc__drawer-head');
-  const dTitle = el('', 'div');
-  const idEl = el('', 'p');
-  idEl.style.margin = '0';
-  idEl.style.fontFamily = 'ui-monospace,monospace';
-  idEl.style.fontWeight = '700';
-  idEl.style.fontSize = '0.8rem';
-  idEl.style.color = '#22d3ee';
-  const sub = el('', 'p');
-  sub.style.margin = '0.15rem 0 0';
-  sub.style.fontSize = '0.65rem';
-  sub.style.color = '#71717a';
+  const dTitle = el('hnf-cc__drawer-title-block');
+  const idEl = el('hnf-cc__drawer-ot-id', 'p');
+  const sub = el('hnf-cc__drawer-cliente', 'p');
   dTitle.append(idEl, sub);
-  const closeBtn = el('hnf-cc__btn', 'button');
+  const closeBtn = el('hnf-cc__drawer-close hnf-cc__btn', 'button');
   closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'Cerrar panel');
   closeBtn.textContent = '✕';
-  closeBtn.style.minWidth = '2.25rem';
   dHead.append(dTitle, closeBtn);
+
+  const drawerSummary = el('hnf-cc__drawer-summary');
 
   const jarvisStrip = el('hnf-cc__jarvis-strip');
   jarvisStrip.setAttribute('aria-label', 'Jarvis operativo');
 
   const tabsRow = el('hnf-cc__drawer-tabs');
   const tabIds = [
-    ['detalle', 'Detalle'],
-    ['costos', 'Costos'],
-    ['evidencia', 'Evidencia'],
-    ['historial', 'Historial'],
+    ['detalle', 'Detalle', 'Info'],
+    ['costos', 'Costos', '$'],
+    ['evidencia', 'Evidencia', 'Fotos'],
+    ['historial', 'Historial', 'Log'],
   ];
   let activeTab = 'detalle';
   const tabBodies = el('hnf-cc__drawer-body');
 
   const actRow = el('hnf-cc__act-row');
   const foot = el('hnf-cc__drawer-foot');
-  foot.textContent = 'Kanban visible · acciones en módulos';
+  foot.textContent = 'Módulos para ejecutar';
 
   let selectedBtn = null;
   let currentOt = null;
@@ -451,10 +508,14 @@ export function centroControlAlienView(props) {
 
   function renderTabs() {
     tabsRow.replaceChildren();
-    tabIds.forEach(([id, label]) => {
+    tabIds.forEach(([id, label, short]) => {
       const b = el(`hnf-cc__drawer-tab${id === activeTab ? ' hnf-cc__drawer-tab--on' : ''}`, 'button');
       b.type = 'button';
-      b.textContent = label;
+      const lf = el('hnf-cc__drawer-tab-long', 'span');
+      lf.textContent = label;
+      const sh = el('hnf-cc__drawer-tab-short', 'span');
+      sh.textContent = short || label;
+      b.append(lf, sh);
       b.addEventListener('click', () => {
         activeTab = id;
         renderTabs();
@@ -498,12 +559,30 @@ export function centroControlAlienView(props) {
     currentOt = null;
   }
 
+  function fillDrawerSummary(ot) {
+    drawerSummary.replaceChildren();
+    const mk = (cls, text) => {
+      const s = el(`hnf-cc__sum-chip ${cls}`, 'span');
+      s.textContent = text;
+      return s;
+    };
+    drawerSummary.append(
+      mk('hnf-cc__sum-chip--estado', String(ot.estado || '—')),
+      mk('hnf-cc__sum-chip--origen', etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido)),
+      mk('hnf-cc__sum-chip--resp', textoResponsableOperativoMostrado(ot)),
+      mk(
+        'hnf-cc__sum-chip--pri',
+        `P ${String(ot.prioridadOperativa || '—').toUpperCase()}`
+      )
+    );
+  }
+
   function fillJarvisStrip(ot) {
     jarvisStrip.replaceChildren();
     const t0 = el('hnf-cc__jarvis-strip-title', 'span');
-    t0.textContent = 'Jarvis';
+    t0.textContent = 'Copiloto';
     jarvisStrip.append(t0);
-    for (const line of jarvisCopilotFrasesOperativas(ot)) {
+    for (const line of jarvisStripLineasCompactas(ot)) {
       const p = el('hnf-cc__jarvis-strip-line', 'p');
       p.textContent = line;
       jarvisStrip.append(p);
@@ -514,6 +593,7 @@ export function centroControlAlienView(props) {
     currentOt = ot;
     idEl.textContent = String(ot.id || '');
     sub.textContent = String(ot.cliente || '').trim() || '—';
+    fillDrawerSummary(ot);
     fillJarvisStrip(ot);
     activeTab = 'detalle';
     renderTabs();
@@ -532,10 +612,10 @@ export function centroControlAlienView(props) {
   closeBtn.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
 
-  drawer.append(dHead, jarvisStrip, tabsRow, tabBodies, actRow, foot);
+  drawer.append(drawerHandle, dHead, drawerSummary, actRow, jarvisStrip, tabsRow, tabBodies, foot);
 
   body.append(main, backdrop, drawer);
-  section.append(kpiRow, ux, roles, toolbar, body);
+  section.append(kpiWrap, ux, roles, toolbar, body);
 
   return section;
 }
