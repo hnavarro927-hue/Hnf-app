@@ -7,6 +7,7 @@ import { clearSessionToken, getSessionToken } from './config/auth-token.storage.
 import { setStoredOperatorName } from './config/operator.config.js';
 import {
   clearSessionBackendRole,
+  getSessionBackendRole,
   setSessionBackendRole,
 } from './config/session-bridge.js';
 import {
@@ -14,6 +15,7 @@ import {
   isViewAllowedForModules,
   navItemsFromModules,
 } from './domain/hnf-access-nav.js';
+import { isShellViewAllowedForBackendRol } from './domain/hnf-operativa-reglas.js';
 import { resolveOperatorRole } from './domain/hnf-operator-role.js';
 import { clientService } from './services/client.service.js';
 import { flotaSolicitudService } from './services/flota-solicitud.service.js';
@@ -1588,6 +1590,12 @@ async function navigateToView(viewId, intelOptions = null) {
     state.pendingScrollToMando = false;
   } else if (modules) {
     state.deniedModuleId = null;
+  }
+  const br = getSessionBackendRole();
+  if (viewId !== 'sin-acceso' && br && !isShellViewAllowedForBackendRol(br, viewId)) {
+    state.deniedModuleId = viewId;
+    viewId = 'sin-acceso';
+    state.pendingScrollToMando = false;
   }
   state.activeView = viewId;
   if (viewId !== 'oportunidades') {

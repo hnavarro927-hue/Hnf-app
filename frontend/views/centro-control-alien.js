@@ -1,7 +1,18 @@
 import '../styles/centro-control-alien.css';
+import { getSessionBackendRole } from '../config/session-bridge.js';
 import { KANBAN_LANE_IDS, mapOtToLane } from '../domain/ot-kanban-lanes.js';
-import { alertaOperativaVisual } from '../domain/hnf-operativa-reglas.js';
+import {
+  alertaOperativaVisual,
+  etiquetaOrigenSolicitudOperativa,
+  filtrarOtsPorRolBackend,
+  HEURISTICA_OPERATIVA_V1,
+  jarvisCopilotFrasesOperativas,
+  jarvisHeuristicaPrioridadOperativa,
+  textoResponsableOperativoMostrado,
+} from '../domain/hnf-operativa-reglas.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
+
+const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
 
 const LANE_LABEL = {
   ingreso: 'Ingreso',
@@ -26,7 +37,7 @@ function fmtCLP(n) {
   }
 }
 
-function computeKpisDesdeOts(otsRaw) {
+function computeKpisDesdeOts(otsRaw, alertOpts = ALERTA_OPTS_CENTRO) {
   const list = Array.isArray(otsRaw) ? otsRaw : [];
   if (!list.length) {
     return {
@@ -124,11 +135,26 @@ function cardTipoClass(tipo) {
 }
 
 function renderHistorial(ot) {
-  const h = Array.isArray(ot?.historial) ? ot.historial : [];
   const frag = document.createDocumentFragment();
+  const vivo = el('hnf-cc__hist-vivo');
+  const vt = el('hnf-cc__hist-vivo-title', 'p');
+  vt.textContent = 'Señales en tiempo real (heurística v1 · lectura local)';
+  vivo.append(vt);
+  for (const line of jarvisCopilotFrasesOperativas(ot)) {
+    const p = el('hnf-cc__hist-vivo-line', 'p');
+    p.textContent = line;
+    vivo.append(p);
+  }
+  frag.append(vivo);
+
+  const h = Array.isArray(ot?.historial) ? ot.historial : [];
+  const sep = el('hnf-cc__hist-sep', 'p');
+  sep.textContent = 'Historial persistido (servidor)';
+  frag.append(sep);
+
   if (!h.length) {
     const p = el('', 'p');
-    p.textContent = '—';
+    p.textContent = 'Sin eventos en servidor.';
     frag.append(p);
     return frag;
   }
@@ -152,11 +178,15 @@ function renderHistorial(ot) {
 function renderTabBody(ot, tabId) {
   const wrap = el('');
   if (tabId === 'detalle') {
+    const priH = jarvisHeuristicaPrioridadOperativa(ot);
     const rows = [
       ['Cliente', ot.cliente],
+      ['Origen', etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido)],
       ['Tipo', ot.tipoServicio],
       ['Estado', ot.estado],
-      ['Resp.', ot.responsableActual || ot.tecnicoAsignado],
+      ['Resp. operativo', textoResponsableOperativoMostrado(ot)],
+      ['Prioridad OT', ot.prioridadOperativa || '—'],
+      ['Prioridad sugerida', `${priH.nivel} (${priH.motivos.join(', ') || '—'})`],
       ['Lyn', ot.aprobacionLynEstado],
     ];
     rows.forEach(([k, v]) => {
@@ -209,12 +239,18 @@ function renderTabBody(ot, tabId) {
 export function centroControlAlienView(props) {
   const { data, reloadApp, navigateToView } = props || {};
   const otsEnvelope = data?.ots;
-  const ots = Array.isArray(otsEnvelope?.data) ? otsEnvelope.data : Array.isArray(otsEnvelope) ? otsEnvelope : [];
+  const otsRaw = Array.isArray(otsEnvelope?.data)
+    ? otsEnvelope.data
+    : Array.isArray(otsEnvelope)
+      ? otsEnvelope
+      : [];
+  const br = getSessionBackendRole() || 'admin';
+  const ots = filtrarOtsPorRolBackend(otsRaw, br);
 
   const section = el('hnf-cc', 'section');
   section.setAttribute('aria-label', 'Centro de control operativo');
 
-  const kpis = computeKpisDesdeOts(ots);
+  const kpis = computeKpisDesdeOts(ots, ALERTA_OPTS_CENTRO);
   const kpiRow = el('hnf-cc__kpi');
   kpiRow.append(
     kpiCard('Ingresos', kpis.ingresos),
@@ -318,12 +354,14 @@ export function centroControlAlienView(props) {
       row.append(id, tipo);
       const cli = el('hnf-cc__card-cliente', 'div');
       cli.textContent = String(ot.cliente || '').trim() || '—';
+      const orig = el('hnf-cc__card-orig', 'span');
+      orig.textContent = etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido);
       const meta = el('hnf-cc__card-meta');
-      meta.textContent = String(ot.responsableActual || ot.tecnicoAsignado || '—').trim();
+      meta.textContent = textoResponsableOperativoMostrado(ot);
       const est = el('hnf-cc__card-estado', 'span');
       est.textContent = String(ot.estado || '—');
-      btn.append(row, cli, meta, est);
-      const av = alertaOperativaVisual(ot, {});
+      btn.append(row, cli, orig, meta, est);
+      const av = alertaOperativaVisual(ot, ALERTA_OPTS_CENTRO);
       if (av) {
         const al = el(`hnf-cc__alert hnf-cc__alert--${av.tipo === 'riesgo' ? 'risk' : 'delay'}`);
         al.textContent = av.texto != null && String(av.texto).trim() ? String(av.texto) : '—';
@@ -383,6 +421,9 @@ export function centroControlAlienView(props) {
   closeBtn.textContent = '✕';
   closeBtn.style.minWidth = '2.25rem';
   dHead.append(dTitle, closeBtn);
+
+  const jarvisStrip = el('hnf-cc__jarvis-strip');
+  jarvisStrip.setAttribute('aria-label', 'Jarvis operativo');
 
   const tabsRow = el('hnf-cc__drawer-tabs');
   const tabIds = [
@@ -457,10 +498,23 @@ export function centroControlAlienView(props) {
     currentOt = null;
   }
 
+  function fillJarvisStrip(ot) {
+    jarvisStrip.replaceChildren();
+    const t0 = el('hnf-cc__jarvis-strip-title', 'span');
+    t0.textContent = 'Jarvis';
+    jarvisStrip.append(t0);
+    for (const line of jarvisCopilotFrasesOperativas(ot)) {
+      const p = el('hnf-cc__jarvis-strip-line', 'p');
+      p.textContent = line;
+      jarvisStrip.append(p);
+    }
+  }
+
   function openDrawer(ot, btn) {
     currentOt = ot;
     idEl.textContent = String(ot.id || '');
     sub.textContent = String(ot.cliente || '').trim() || '—';
+    fillJarvisStrip(ot);
     activeTab = 'detalle';
     renderTabs();
     tabBodies.replaceChildren(renderTabBody(ot, activeTab));
@@ -478,7 +532,7 @@ export function centroControlAlienView(props) {
   closeBtn.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
 
-  drawer.append(dHead, tabsRow, tabBodies, actRow, foot);
+  drawer.append(dHead, jarvisStrip, tabsRow, tabBodies, actRow, foot);
 
   body.append(main, backdrop, drawer);
   section.append(kpiRow, ux, roles, toolbar, body);

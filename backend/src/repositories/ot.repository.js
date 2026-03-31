@@ -8,6 +8,7 @@ import {
 } from '../domain/ot-lyn-aprobacion.engine.js';
 import { calcularEstimadosMensuales } from '../domain/ot-facturacion.engine.js';
 import { appendHistorial } from '../utils/historialUtil.js';
+import { buildJarvisOperativaHistorialAlta } from '../domain/hnf-jarvis-operativa.js';
 import { isOtCerrada, normalizeOtEstadoStored } from '../utils/otEstado.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -251,6 +252,23 @@ export const otRepository = {
       jarvisIntakeTrace?.confianza_jarvis != null
         ? ` · Jarvis v1: ${jarvisIntakeTrace.confianza_jarvis}% → bandeja ${jarvisIntakeTrace.bandeja_destino || '—'}`
         : '';
+    let historial = appendHistorial(
+      {},
+      'alta',
+      `OT creada · ${normalizeOtEstadoStored(rest.estado)} · modo ${mode}${jNote}`,
+      actor
+    );
+    const draftForJarvis = {
+      ...rest,
+      id,
+      creadoEn: rest.creadoEn || now,
+      createdAt: rest.createdAt || rest.creadoEn || now,
+      estado: normalizeOtEstadoStored(rest.estado),
+    };
+    for (const row of buildJarvisOperativaHistorialAlta(draftForJarvis)) {
+      historial = appendHistorial({ historial }, row.accion, row.detalle, row.actor);
+    }
+
     const item = ensureDefaults({
       id,
       ...rest,
@@ -262,12 +280,7 @@ export const otRepository = {
       updatedAt: now,
       creadoPor: actor,
       actualizadoPor: actor,
-      historial: appendHistorial(
-        {},
-        'alta',
-        `OT creada · ${normalizeOtEstadoStored(rest.estado)} · modo ${mode}${jNote}`,
-        actor
-      ),
+      historial,
     });
     const next = [...items, item];
     await saveStore(next);

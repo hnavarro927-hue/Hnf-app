@@ -8,6 +8,8 @@ import { buildFlotaOperationalBrief } from '../domain/operational-intelligence.j
 import { flotaSolicitudService } from '../services/flota-solicitud.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import { createHnfFlotaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
+import { getSessionBackendRole } from '../config/session-bridge.js';
+import { filtrarOtsPorRolBackend } from '../domain/hnf-operativa-reglas.js';
 
 const TIPO_SERVICIO_OPTS = [
   { value: 'traslado', label: 'Traslado' },
@@ -166,7 +168,13 @@ export const flotaView = ({
     String(b.fecha).localeCompare(String(a.fecha))
   );
 
-  const otFlota = [...(data?.ots?.data || [])]
+  const br = getSessionBackendRole() || 'admin';
+  let otRaw = [...(data?.ots?.data || [])];
+  otRaw = filtrarOtsPorRolBackend(otRaw, br);
+  if (String(br || '').toLowerCase() === 'romina') {
+    otRaw = [];
+  }
+  const otFlota = otRaw
     .filter((o) => String(o?.tipoServicio || '').toLowerCase() === 'flota')
     .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
 

@@ -3,6 +3,8 @@ import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
 import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
+import { getSessionBackendRole } from '../config/session-bridge.js';
+import { filtrarOtsPorRolBackend } from '../domain/hnf-operativa-reglas.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
 import {
   formatAllCloseBlockersMessage,
@@ -2019,12 +2021,9 @@ export const climaView = ({
 
   const opRole = resolveOperatorRole();
   let ots = [...(data?.data || [])].reverse();
-  if (opRole === 'clima' || opRole === 'tecnico') {
-    ots = ots.filter((o) => {
-      const t = String(o.tipoServicio || '').toLowerCase();
-      return t === 'clima' || t === 'administrativo';
-    });
-  } else if (opRole === 'flota') {
+  const br = getSessionBackendRole() || 'admin';
+  ots = filtrarOtsPorRolBackend(ots, br);
+  if (String(br || '').toLowerCase() === 'gery') {
     ots = [];
   }
   const listOts = filterOtsIntelList(ots, intelListFilter);

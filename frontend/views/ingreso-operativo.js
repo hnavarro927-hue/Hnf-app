@@ -21,6 +21,10 @@ import {
   buildJarvisIntakeTraceForOt,
   buildJarvisMatchContextFromViewData,
 } from '../domain/hnf-ingreso-jarvis-brief.js';
+import {
+  jarvisHeuristicaPrioridadOperativa,
+  operadorTitularAutomaticoPorTipoServicio,
+} from '../domain/hnf-operativa-reglas.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
 import { getStoredOperatorName } from '../config/operator.config.js';
 
@@ -827,7 +831,24 @@ export const ingresoOperativoView = ({
   jRec.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
   const jFalt = document.createElement('p');
   jFalt.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
-  previewInner.append(previewTitle, dl, jarvisTitle, jResumen, jDest, jDup, jDocs, jImp, jRec, jFalt);
+  const jTitular = document.createElement('p');
+  jTitular.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  const jPrioHeur = document.createElement('p');
+  jPrioHeur.className = 'hnf-ingreso-cc-preview__jarvis-p muted small';
+  previewInner.append(
+    previewTitle,
+    dl,
+    jarvisTitle,
+    jResumen,
+    jDest,
+    jTitular,
+    jPrioHeur,
+    jDup,
+    jDocs,
+    jImp,
+    jRec,
+    jFalt
+  );
   preview.append(previewInner);
 
   const tipoLabel = (v) =>
@@ -849,12 +870,24 @@ export const ingresoOperativoView = ({
     const prUi = form.elements.prioridad?.value;
     const pr = PRIO_LABEL[prUi] || prUi || '—';
     const tech = resolveTecnicoIngreso(form);
+    const titularAuto = operadorTitularAutomaticoPorTipoServicio(tipoSel.value);
+    const titularLine = titularAuto
+      ? `Titular operativo automático (Clima/Flota): ${titularAuto}`
+      : 'Sin asignación automática de titular (tipo distinto de Clima/Flota)';
+    const heurPayload = {
+      origenSolicitud: origenSel.value,
+      origenPedido: origenSel.value,
+      tipoServicio: tipoSel.value,
+      subtipoServicio: subtipoSel.value,
+    };
+    const priH = jarvisHeuristicaPrioridadOperativa(heurPayload);
     const rows = [
       ['Origen', ol],
       ['Cliente', cli],
       ['Servicio', `${tp} · ${sub}`],
-      ['Prioridad', pr],
-      ['Responsable sugerido', tech],
+      ['Prioridad elegida', pr],
+      ['Técnico / visita', tech],
+      ['Titular auto', titularLine],
       ['Fecha y hora', `${fechaSol.value || '—'} ${horaSol.value || ''}`.trim()],
     ];
     dl.replaceChildren();
@@ -891,6 +924,8 @@ export const ingresoOperativoView = ({
     jDest.textContent = eng
       ? `Destino sugerido: bandeja «${eng.bandeja_destino}» · avisar a ${eng.notificacion_destino || '—'}`
       : 'Destino sugerido: —';
+    jTitular.textContent = titularLine;
+    jPrioHeur.textContent = `Prioridad sugerida (heurística, no vinculante): ${priH.nivel} · ${priH.motivos.join(', ') || 'sin señales extra'}`;
     jDup.textContent = brief.duplicado_probable
       ? 'Alerta: posible duplicado o coincidencia con OT/cliente — revisá antes de guardar.'
       : 'Duplicados: sin señal fuerte por ahora.';
