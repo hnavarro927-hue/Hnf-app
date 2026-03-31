@@ -228,12 +228,6 @@ export function createKanbanBoard(options) {
       cards.append(shell);
     }
 
-    if (!nLane) {
-      const empty = el('hnf-kb__lane-empty', 'p');
-      empty.textContent = 'Sin OT';
-      cards.append(empty);
-    }
-
     lane.append(head, cards);
     lanesEl.append(lane);
 

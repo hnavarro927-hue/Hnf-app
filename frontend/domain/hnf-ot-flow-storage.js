@@ -1,4 +1,5 @@
 import { applyJarvisRulesToNewOt } from './hnf-ot-jarvis-rules.js';
+import { normalizeOT } from './hnf-ot-normalize.js';
 import { canTransitionEstado, getEffectiveEstadoOperativo } from './hnf-ot-state-engine.js';
 
 const STORAGE_KEY = 'hnf.ot.flow.v1';
@@ -95,9 +96,10 @@ export function createOtFromIntakeFlow(ctx) {
     ],
   };
 
-  store.localOts = [...(store.localOts || []), ot];
+  const normalized = normalizeOT(ot) || ot;
+  store.localOts = [...(store.localOts || []), normalized];
   saveFlowStore(store);
-  return ot;
+  return normalized;
 }
 
 /**
@@ -120,15 +122,17 @@ export function persistEstadoOperativo(ot, nuevoEstado) {
   if (localIdx >= 0) {
     const lo = store.localOts[localIdx];
     const now = new Date().toISOString();
-    store.localOts[localIdx] = {
+    const next = {
       ...lo,
       estadoOperativo: to,
+      estado_operativo: to,
       fecha_actualizacion: now,
       historial: [
         ...(Array.isArray(lo.historial) ? lo.historial : []),
         { at: now, accion: 'estado_flujo', detalle: `${from} → ${to}` },
       ],
     };
+    store.localOts[localIdx] = normalizeOT(next) || next;
     saveFlowStore(store);
     return { ok: true };
   }

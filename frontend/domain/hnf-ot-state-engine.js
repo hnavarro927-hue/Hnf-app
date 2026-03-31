@@ -80,27 +80,50 @@ export function validTargetEstados(current) {
   return Array.from(out);
 }
 
+function hoursSinceIso(iso) {
+  const t = new Date(String(iso || '')).getTime();
+  if (!Number.isFinite(t)) return null;
+  return (Date.now() - t) / 3600000;
+}
+
 /**
- * Métricas simples para panel gerencial (lista ya mergeada con flujo local).
+ * KPIs desde lista normalizada (getAllOTs).
  * @param {object[]} list
  */
-export function buildOtFlowMetrics(list) {
+export function buildOtOperationalKpis(list) {
   const arr = Array.isArray(list) ? list : [];
   const byEstado = Object.fromEntries(OT_ESTADO_FLUJO.map((k) => [k, 0]));
+  const byResponsable = new Map();
   let activas = 0;
   let cerradas = 0;
-  let riesgoSim = 0;
+  let riesgoOperativo = 0;
+  let prioridadAlta = 0;
 
   for (const o of arr) {
-    const st = getEffectiveEstadoOperativo(o);
+    const st = String(o.estadoOperativo || getEffectiveEstadoOperativo(o)).toLowerCase();
     if (byEstado[st] != null) byEstado[st] += 1;
     if (st === 'cerrado') cerradas += 1;
     else activas += 1;
 
+    const r =
+      String(o.responsable_actual || o.responsableActual || '').trim() || 'Sin asignar';
+    byResponsable.set(r, (byResponsable.get(r) || 0) + 1);
+
     const pri = String(o.prioridadOperativa || o.prioridadSugerida || '')
       .toLowerCase()
       .trim();
-    if (o.riesgoDetectado || pri === 'alta') riesgoSim += 1;
+    if (pri === 'alta') prioridadAlta += 1;
+
+    let risk = Boolean(o.riesgoDetectado);
+    if (st === 'ingreso') {
+      const h = hoursSinceIso(o.fecha_creacion);
+      if (h != null && h > 24) risk = true;
+    }
+    if (st === 'en_proceso') {
+      const h = hoursSinceIso(o.fecha_actualizacion);
+      if (h != null && h > 48) risk = true;
+    }
+    if (risk) riesgoOperativo += 1;
   }
 
   return {
@@ -108,6 +131,20 @@ export function buildOtFlowMetrics(list) {
     activas,
     cerradas,
     byEstado,
-    riesgoSimulado: riesgoSim,
+    byResponsable: Object.fromEntries(byResponsable),
+    prioridadAlta,
+    riesgoOperativo,
+  };
+}
+
+/** @deprecated Usar buildOtOperationalKpis */
+export function buildOtFlowMetrics(list) {
+  const k = buildOtOperationalKpis(list);
+  return {
+    total: k.total,
+    activas: k.activas,
+    cerradas: k.cerradas,
+    byEstado: k.byEstado,
+    riesgoSimulado: k.riesgoOperativo,
   };
 }

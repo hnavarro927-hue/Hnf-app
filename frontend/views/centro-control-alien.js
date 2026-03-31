@@ -17,10 +17,9 @@ import {
   jarvisHeuristicaPrioridadOperativa,
   textoResponsableOperativoMostrado,
 } from '../domain/hnf-operativa-reglas.js';
-import { computeJarvisAlienKpisSimple } from '../domain/jarvis-alien-kpis.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
-import { mergePlanOtsWithFlow, persistEstadoOperativo } from '../domain/hnf-ot-flow-storage.js';
-import { getEffectiveEstadoOperativo, validTargetEstados } from '../domain/hnf-ot-state-engine.js';
+import { getEffectiveEstadoOperativo, buildOtOperationalKpis, validTargetEstados } from '../domain/hnf-ot-state-engine.js';
+import { getAllOTs, persistEstadoOperativo } from '../domain/ot-repository.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 
 const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
@@ -242,7 +241,7 @@ export function centroControlAlienView(props) {
       ? otsEnvelope
       : [];
   const br = getSessionBackendRole() || 'admin';
-  const ots = mergePlanOtsWithFlow(filtrarOtsPorRolBackend(otsRaw, br));
+  const ots = getAllOTs(filtrarOtsPorRolBackend(otsRaw, br));
 
   const section = el(
     'hnf-cc hnf-cc-mando hnf-cck-surface hnf-op-shell hnf-op-view hnf-op-view--mando',
@@ -251,7 +250,7 @@ export function centroControlAlienView(props) {
   section.setAttribute('aria-label', 'Centro de control operativo');
 
   const jSig = buildJarvisGerencialSignals(ots);
-  const alienKpis = computeJarvisAlienKpisSimple(ots);
+  const opKpi = buildOtOperationalKpis(ots);
 
   const command = el('hnf-cc-mando__command hnf-v2-holo-command');
   const cmdLeft = el('');
@@ -299,12 +298,15 @@ export function centroControlAlienView(props) {
   const alienFlow = createJarvisAlienFlow();
 
   const kpiRow = el('hnf-v2-metric-row');
-  const nRiesgo = Number(alienKpis.enRiesgoJarvis) || 0;
+  const nRiesgo = opKpi.riesgoOperativo || 0;
+  const topResp = Object.entries(opKpi.byResponsable || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 1)[0];
   kpiRow.append(
-    kpiMetric('OT activas', String(alienKpis.activas)),
-    kpiMetric('En riesgo', String(alienKpis.enRiesgoJarvis), nRiesgo > 0 ? 'hnf-v2-metric--alert' : ''),
-    kpiMetric('Margen prom.', String(alienKpis.margenPromedio)),
-    kpiMetric('Tiempo prom.', String(alienKpis.tiempoPromedioDias))
+    kpiMetric('OT activas', String(opKpi.activas)),
+    kpiMetric('Riesgo operativo', String(opKpi.riesgoOperativo), nRiesgo > 0 ? 'hnf-v2-metric--alert' : ''),
+    kpiMetric('Prioridad alta', String(opKpi.prioridadAlta)),
+    kpiMetric('Carga top responsable', topResp ? `${topResp[1]} · ${topResp[0]}` : '—')
   );
 
   const workspace = el('hnf-cc-mando__workspace');

@@ -7,9 +7,9 @@ import { createHnfGerenciaOpsIdentityCard } from '../components/hnf-brand-ops-st
 import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-registro.js';
 import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
-import { mergePlanOtsWithFlow } from '../domain/hnf-ot-flow-storage.js';
 import { OT_ESTADO_FLUJO } from '../domain/hnf-ot-operational-model.js';
-import { buildOtFlowMetrics, getEffectiveEstadoOperativo } from '../domain/hnf-ot-state-engine.js';
+import { buildOtOperationalKpis, getEffectiveEstadoOperativo } from '../domain/hnf-ot-state-engine.js';
+import { getAllOTs } from '../domain/ot-repository.js';
 import { createJarvisCopilot } from '../components/jarvis-copilot.js';
 import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { createJarvisLiveOpsPanel } from '../components/jarvis-live-ops-panel.js';
@@ -50,8 +50,8 @@ export const controlGerencialView = ({
   kpis.classList.add('hnf-ccd__kpis-stack');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
-  const list = mergePlanOtsWithFlow(Array.isArray(raw) ? raw : []);
-  const flowMx = buildOtFlowMetrics(list);
+  const list = getAllOTs(Array.isArray(raw) ? raw : []);
+  const opKpi = buildOtOperationalKpis(list);
 
   const abiertas = list.filter((o) => getEffectiveEstadoOperativo(o) !== 'cerrado');
   const pendientes = list.filter((o) => o.estado === 'pendiente');
@@ -75,7 +75,8 @@ export const controlGerencialView = ({
   const ingresosHoy = listIngresosOperativosDelDia();
   const byResp = new Map();
   for (const o of abiertas) {
-    const r = String(o.tecnicoAsignado || 'Sin asignar').trim() || 'Sin asignar';
+    const r =
+      String(o.responsable_actual || o.tecnicoAsignado || 'Sin asignar').trim() || 'Sin asignar';
     byResp.set(r, (byResp.get(r) || 0) + 1);
   }
 
@@ -114,16 +115,25 @@ export const controlGerencialView = ({
   appendKpi(kpiGrid, 'WhatsApp (hoy)', String(waHoy));
   appendKpi(kpiGrid, 'Dinero en riesgo', `$${fmtMoney(agg.dinero_en_riesgo)}`);
   appendKpi(kpiGrid, 'Ingresos locales hoy', String(ingresosHoy.length));
-  appendKpi(kpiGrid, 'Activas (flujo OT)', String(flowMx.activas));
-  appendKpi(kpiGrid, 'Cerradas (flujo)', String(flowMx.cerradas));
-  appendKpi(kpiGrid, 'Riesgo simulado', String(flowMx.riesgoSimulado));
+  appendKpi(kpiGrid, 'Activas (flujo OT)', String(opKpi.activas));
+  appendKpi(kpiGrid, 'Cerradas (flujo)', String(opKpi.cerradas));
+  appendKpi(kpiGrid, 'Riesgo operativo', String(opKpi.riesgoOperativo));
+  appendKpi(kpiGrid, 'Prioridad alta', String(opKpi.prioridadAlta));
 
   const flowBreak = document.createElement('p');
   flowBreak.className = 'muted small';
   flowBreak.style.gridColumn = '1 / -1';
   flowBreak.style.marginTop = '4px';
-  flowBreak.textContent = `OT por estado (flujo): ${OT_ESTADO_FLUJO.map((k) => `${k}=${flowMx.byEstado[k] ?? 0}`).join(' · ')}`;
+  flowBreak.textContent = `OT por estado: ${OT_ESTADO_FLUJO.map((k) => `${k}=${opKpi.byEstado[k] ?? 0}`).join(' · ')}`;
   kpiGrid.append(flowBreak);
+
+  const flowResp = document.createElement('p');
+  flowResp.className = 'muted small';
+  flowResp.style.gridColumn = '1 / -1';
+  flowResp.textContent = `Por responsable: ${Object.entries(opKpi.byResponsable || {})
+    .map(([k, v]) => `${k}=${v}`)
+    .join(' · ')}`;
+  kpiGrid.append(flowResp);
 
   const jSig = buildJarvisGerencialSignals(list);
   const jarvisBrandSub = 'Jarvis | Integridad Operativa HNF';

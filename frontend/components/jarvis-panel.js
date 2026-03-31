@@ -1,4 +1,5 @@
 import '../styles/hnf-operational-kanban.css';
+import { buildJarvisOperationalRecommendations } from '../domain/jarvis-operational-recommendations.js';
 import { buildJarvisDecisionCard } from './jarvis-decision-card.js';
 
 /**
@@ -34,6 +35,12 @@ export function createJarvisPanel() {
       return;
     }
     body.append(buildJarvisDecisionCard(ot, { variant: 'full' }));
+    for (const line of buildJarvisOperationalRecommendations(ot)) {
+      const p = document.createElement('p');
+      p.className = 'hnf-jarvis-panel__empty';
+      p.textContent = line;
+      body.append(p);
+    }
   }
 
   return { element: root, setOt };
