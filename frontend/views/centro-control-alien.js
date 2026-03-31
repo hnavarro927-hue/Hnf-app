@@ -1,4 +1,5 @@
 import '../styles/centro-control-alien.css';
+import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import { KANBAN_LANE_IDS, mapOtToLane } from '../domain/ot-kanban-lanes.js';
 import {
@@ -221,8 +222,10 @@ function renderTabBody(ot, tabId) {
       ['Tipo', ot.tipoServicio],
       ['Subtipo', ot.subtipoServicio],
       ['Estado', ot.estado],
-      ['Prioridad guardada', ot.prioridadOperativa || '—'],
-      ['Sugerencia', `${priH.nivel} · ${priH.motivos.slice(0, 4).join(', ') || '—'}`],
+      ['Prioridad operativa', ot.prioridadOperativa || '—'],
+      ['Prioridad sugerida (Jarvis)', ot.prioridadSugerida || '—'],
+      ['Riesgo detectado (Jarvis)', ot.riesgoDetectado ? 'Sí' : 'No'],
+      ['Sugerencia heurística', `${priH.nivel} · ${priH.motivos.slice(0, 4).join(', ') || '—'}`],
       ['Lyn', ot.aprobacionLynEstado],
     ];
     rows.forEach(([k, v]) => {
@@ -273,7 +276,7 @@ function renderTabBody(ot, tabId) {
  * @param {{ data?: object, reloadApp?: function, navigateToView?: function }} props
  */
 export function centroControlAlienView(props) {
-  const { data, reloadApp, navigateToView } = props || {};
+  const { data, reloadApp, navigateToView, actions } = props || {};
   const otsEnvelope = data?.ots;
   const otsRaw = Array.isArray(otsEnvelope?.data)
     ? otsEnvelope.data
@@ -387,8 +390,10 @@ export function centroControlAlienView(props) {
     head.append(t, c);
     const cards = el('hnf-cc__lane-cards');
     for (const ot of byLane[laneId] || []) {
-      const btn = el(`hnf-cc__card ${cardTipoClass(ot.tipoServicio)}`, 'button');
-      btn.type = 'button';
+      const shell = el(`hnf-cc__card ${cardTipoClass(ot.tipoServicio)}`);
+      const tap = el('hnf-cc__card-tap', 'button');
+      tap.type = 'button';
+      tap.setAttribute('aria-label', `Abrir detalle ${String(ot.id || '')}`);
       const row = el('hnf-cc__card-row');
       const id = el('hnf-cc__card-id', 'span');
       id.textContent = String(ot.id || '');
@@ -417,14 +422,47 @@ export function centroControlAlienView(props) {
       meta.textContent = textoResponsableOperativoMostrado(ot);
       const est = el('hnf-cc__card-estado', 'span');
       est.textContent = String(ot.estado || '—');
-      btn.append(row, cli, badges, meta, est);
+      tap.append(row, cli, badges, meta, est);
       if (av) {
         const al = el(`hnf-cc__alert hnf-cc__alert--${av.tipo === 'riesgo' ? 'risk' : 'delay'}`);
         al.textContent = av.texto != null && String(av.texto).trim() ? String(av.texto) : '—';
-        btn.append(al);
+        tap.append(al);
       }
-      btn.addEventListener('click', () => openDrawer(ot, btn));
-      cards.append(btn);
+      tap.addEventListener('click', () => openDrawer(ot, shell));
+
+      shell.append(tap);
+      shell.append(buildJarvisDecisionCard(ot, { variant: 'compact' }));
+
+      const actRow = el('hnf-cc__card-actions');
+      const bAsig = el('hnf-cc__card-act', 'button');
+      bAsig.type = 'button';
+      bAsig.textContent = 'Asignar';
+      bAsig.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const ts = String(ot.tipoServicio || '').toLowerCase();
+        if (ts === 'flota') navigateToView?.('bandeja-gery');
+        else navigateToView?.('bandeja-romina');
+      });
+      const bEst = el('hnf-cc__card-act hnf-cc__card-act--ghost', 'button');
+      bEst.type = 'button';
+      bEst.textContent = 'Cambiar estado';
+      bEst.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const ts = String(ot.tipoServicio || '').toLowerCase();
+        if (ts === 'flota') navigateToView?.('flota');
+        else navigateToView?.('clima', { otId: ot.id });
+      });
+      const bDet = el('hnf-cc__card-act hnf-cc__card-act--ghost', 'button');
+      bDet.type = 'button';
+      bDet.textContent = 'Ver detalle';
+      bDet.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDrawer(ot, shell);
+      });
+      actRow.append(bAsig, bEst, bDet);
+      shell.append(actRow);
+
+      cards.append(shell);
     }
     if (!nLane) {
       const empty = el('hnf-cc__lane-empty', 'p');
@@ -529,23 +567,32 @@ export function centroControlAlienView(props) {
   function renderActuar(ot) {
     actRow.replaceChildren();
     const t = String(ot?.tipoServicio || '').toLowerCase();
+    const mk = (label, fn) => {
+      const b = el('hnf-cc__act-btn', 'button');
+      b.type = 'button';
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      return b;
+    };
     if (t === 'clima') {
-      const b = el('hnf-cc__act-btn', 'button');
-      b.type = 'button';
-      b.textContent = 'Ir a Clima';
-      b.addEventListener('click', () => navigateToView?.('clima'));
-      actRow.append(b);
+      actRow.append(
+        mk('Ir a Clima', () => navigateToView?.('clima', { otId: ot.id })),
+        mk('Bandeja Romina', () => navigateToView?.('bandeja-romina'))
+      );
     } else if (t === 'flota') {
-      const b = el('hnf-cc__act-btn', 'button');
-      b.type = 'button';
-      b.textContent = 'Ir a Flota';
-      b.addEventListener('click', () => navigateToView?.('flota'));
+      actRow.append(
+        mk('Ir a Flota', () => navigateToView?.('flota')),
+        mk('Bandeja Gery', () => navigateToView?.('bandeja-gery'))
+      );
     } else {
-      const b = el('hnf-cc__act-btn', 'button');
-      b.type = 'button';
-      b.textContent = 'Ingreso';
-      b.addEventListener('click', () => navigateToView?.('ingreso-operativo'));
-      actRow.append(b);
+      actRow.append(mk('Ingreso operativo', () => navigateToView?.('ingreso-operativo')));
+    }
+    if (typeof actions?.selectOT === 'function') {
+      actRow.append(
+        mk('Fijar OT en shell', () => {
+          actions.selectOT(ot.id);
+        })
+      );
     }
   }
 
@@ -580,8 +627,10 @@ export function centroControlAlienView(props) {
 
   function fillJarvisStrip(ot) {
     jarvisStrip.replaceChildren();
+    jarvisStrip.append(buildJarvisDecisionCard(ot, { variant: 'full' }));
     const t0 = el('hnf-cc__jarvis-strip-title', 'span');
     t0.textContent = 'Copiloto';
+    t0.style.marginTop = '0.35rem';
     jarvisStrip.append(t0);
     for (const line of jarvisStripLineasCompactas(ot)) {
       const p = el('hnf-cc__jarvis-strip-line', 'p');

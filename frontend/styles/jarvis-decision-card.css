@@ -1,0 +1,105 @@
+/**
+ * JarvisDecisionCard — dark / cyan alien, glow suave
+ */
+.hnf-jarvis-decision {
+  --jd-accent: #22d3ee;
+  --jd-glow: rgba(34, 211, 238, 0.22);
+  --jd-risk: #f87171;
+  --jd-surface: rgba(12, 18, 28, 0.92);
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 0.4rem;
+  background: var(--jd-surface);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 14px var(--jd-glow);
+  padding: 0.28rem 0.35rem;
+}
+
+.hnf-jarvis-decision--compact {
+  margin-top: 0.08rem;
+}
+
+.hnf-jarvis-decision--full {
+  padding: 0.45rem 0.5rem;
+}
+
+.hnf-jarvis-decision__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+
+.hnf-jarvis-decision__title {
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--jd-accent);
+  text-shadow: 0 0 8px var(--jd-glow);
+}
+
+.hnf-jarvis-decision__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.18rem 0.35rem;
+}
+
+.hnf-jarvis-decision--full .hnf-jarvis-decision__grid {
+  gap: 0.28rem 0.5rem;
+}
+
+.hnf-jarvis-decision__cell {
+  min-width: 0;
+}
+
+.hnf-jarvis-decision__k {
+  font-size: 0.42rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #71717a;
+  line-height: 1.2;
+}
+
+.hnf-jarvis-decision__v {
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.hnf-jarvis-decision--full .hnf-jarvis-decision__v {
+  font-size: 0.62rem;
+}
+
+.hnf-jarvis-decision__v--area-clima {
+  color: #67e8f9;
+}
+
+.hnf-jarvis-decision__v--area-flota {
+  color: #6ee7b7;
+}
+
+.hnf-jarvis-decision__risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.48rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.08rem 0.28rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(113, 113, 122, 0.35);
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-decision__risk--on {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.35);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.15);
+}
