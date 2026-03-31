@@ -1,7 +1,9 @@
 import '../styles/centro-control-alien.css';
+import '../styles/hnf-operational-kanban.css';
 import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
+import { createJarvisPanel } from '../components/jarvis-panel.js';
+import { createKanbanBoard, DEFAULT_KANBAN_LANE_LABELS } from '../components/kanban-board.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
-import { KANBAN_LANE_IDS, mapOtToLane } from '../domain/ot-kanban-lanes.js';
 import {
   alertaOperativaVisual,
   etiquetaOrigenSolicitudOperativa,
@@ -15,16 +17,6 @@ import { esOtExcluidaDeKpis } from '../domain/ot-kpi-audit.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 
 const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
-
-const LANE_LABEL = {
-  ingreso: 'Ingreso',
-  en_proceso: 'En proceso',
-  pendiente_aprobacion: 'Pend. aprobación',
-  observado: 'Observado',
-  aprobado: 'Aprobado',
-  enviado: 'Enviado',
-  cerrado: 'Cerrado',
-};
 
 function fmtCLP(n) {
   if (!Number.isFinite(n) || n < 0) return null;
@@ -114,21 +106,6 @@ function el(className, tag = 'div') {
   return n;
 }
 
-function kpiCard(label, valueObj, variant = '') {
-  const card = el(`hnf-cc__kpi-card${variant ? ` hnf-cc__kpi-card--${variant}` : ''}`);
-  const lb = el('hnf-cc__kpi-label');
-  lb.textContent = label;
-  const val = el('hnf-cc__kpi-value');
-  if (valueObj.pending) {
-    val.classList.add('hnf-cc__kpi-value--pending');
-    val.textContent = valueObj.text === 'Sin dato' ? 'Sin dato' : valueObj.text;
-  } else {
-    val.textContent = valueObj.text;
-  }
-  card.append(lb, val);
-  return card;
-}
-
 function historialAccionGlyph(accion) {
   const a = String(accion || '').toLowerCase();
   if (a === 'alta') return '●';
@@ -158,13 +135,6 @@ function jarvisStripLineasCompactas(ot) {
       : 'Sin alerta operativa activa',
   ];
   return out;
-}
-
-function cardTipoClass(tipo) {
-  const t = String(tipo || '').toLowerCase();
-  if (t === 'clima') return 'hnf-cc__card--clima';
-  if (t === 'flota') return 'hnf-cc__card--flota';
-  return '';
 }
 
 function renderHistorial(ot) {
@@ -271,9 +241,19 @@ function renderTabBody(ot, tabId) {
   return wrap;
 }
 
+function kpiPill(label, value) {
+  const d = el('hnf-op-kpi');
+  const k = el('hnf-op-kpi__k');
+  k.textContent = label;
+  const v = el('hnf-op-kpi__v');
+  v.textContent = value;
+  d.append(k, v);
+  return d;
+}
+
 /**
- * Centro de control operativo (Modo Alien) — esqueleto visual, datos reales desde GET /ots.
- * @param {{ data?: object, reloadApp?: function, navigateToView?: function }} props
+ * Centro de control: layout operativo + KanbanBoard + JarvisPanel + drawer detalle.
+ * Datos: GET /ots (vía props.data).
  */
 export function centroControlAlienView(props) {
   const { data, reloadApp, navigateToView, actions } = props || {};
@@ -286,216 +266,79 @@ export function centroControlAlienView(props) {
   const br = getSessionBackendRole() || 'admin';
   const ots = filtrarOtsPorRolBackend(otsRaw, br);
 
-  const section = el('hnf-cc hnf-op-view hnf-op-view--mando', 'section');
+  const section = el('hnf-cc hnf-op-shell hnf-op-view hnf-op-view--mando', 'section');
   section.setAttribute('aria-label', 'Centro de control operativo');
 
   const kpis = computeKpisDesdeOts(ots, ALERTA_OPTS_CENTRO);
-  const kpiWrap = el('hnf-cc__kpi-wrap');
-  const kpiCritical = el('hnf-cc__kpi-row hnf-cc__kpi-row--critical');
-  kpiCritical.append(
-    kpiCard('Riesgo', { text: kpis.riesgo, pending: false }, 'risk'),
-    kpiCard('Sin evid.', { text: kpis.sinEvidencia, pending: false }, 'warn'),
-    kpiCard('Activas', { text: kpis.activas, pending: false }, 'active')
-  );
-  const kpiEcon = el('hnf-cc__kpi-row hnf-cc__kpi-row--econ');
-  kpiEcon.append(
-    kpiCard('Ingresos', kpis.ingresos),
-    kpiCard('Costos', kpis.costos),
-    kpiCard('Margen', kpis.margen)
-  );
-  kpiWrap.append(kpiCritical, kpiEcon);
 
-  const ux = el('hnf-cc__ux');
-  ['Ver', 'Entender', 'Actuar'].forEach((label, i) => {
-    if (i > 0) {
-      const ar = el('hnf-cc__ux-arr', 'span');
-      ar.textContent = '→';
-      ux.append(ar);
-    }
-    const s = el('hnf-cc__ux-step', 'span');
-    s.textContent = label;
-    ux.append(s);
-  });
-
-  const roles = el('hnf-cc__roles-hint');
-  roles.setAttribute('aria-label', 'Ámbitos por rol');
-  ['R→Clima', 'G→Flota', 'L/H→Todo'].forEach((t) => {
-    const p = el('hnf-cc__role-pill', 'span');
-    p.textContent = t;
-    roles.append(p);
-  });
-
-  const toolbar = el('hnf-cc__toolbar');
-  const tbTitle = el('hnf-cc__toolbar-title');
-  tbTitle.textContent = 'Kanban OT';
-  const sync = el('hnf-cc__btn', 'button');
+  const header = el('hnf-op-header');
+  const headLeft = el('');
+  const hTitle = el('hnf-op-header__title', 'h1');
+  hTitle.textContent = 'Operación HNF';
+  const hSub = el('hnf-op-header__sub', 'p');
+  hSub.textContent = 'Kanban OT · Jarvis · datos en vivo';
+  headLeft.append(hTitle, hSub);
+  const headAct = el('hnf-op-header__actions');
+  const sync = el('hnf-op-btn hnf-op-btn--primary', 'button');
   sync.type = 'button';
   sync.textContent = 'Actualizar';
   sync.addEventListener('click', () => {
     if (typeof reloadApp === 'function') void reloadApp();
   });
-  toolbar.append(tbTitle, sync);
+  headAct.append(sync);
+  header.append(headLeft, headAct);
+
+  const alerts = el('hnf-op-alerts');
+  const nRiesgo = Number(kpis.riesgo) || 0;
+  const nSinEv = Number(kpis.sinEvidencia) || 0;
+  alerts.textContent = `Activas ${kpis.activas} · Alerta riesgo ${kpis.riesgo} · Sin evidencia ${kpis.sinEvidencia}`;
+  if (nRiesgo > 0 || nSinEv > 0) alerts.classList.add('hnf-op-alerts--warn');
+
+  const kpiRow = el('hnf-op-kpis');
+  kpiRow.append(
+    kpiPill('Activas', kpis.activas),
+    kpiPill('Riesgo', kpis.riesgo),
+    kpiPill('Sin evid.', kpis.sinEvidencia),
+    kpiPill('Margen', kpis.margen.pending ? '—' : kpis.margen.text)
+  );
+
+  const workspace = el('hnf-op-workspace');
+  const mainCol = el('hnf-op-workspace__main');
+  const asideCol = el('hnf-op-workspace__aside');
+
+  const jarvisPanel = createJarvisPanel();
+
+  let kanbanSetActive = () => {};
+
+  const { element: boardEl, setActiveShell } = createKanbanBoard({
+    ots,
+    laneLabels: DEFAULT_KANBAN_LANE_LABELS,
+    onSelectOt: (ot) => {
+      jarvisPanel.setOt(ot);
+    },
+    onAssignTech: (ot) => {
+      const ts = String(ot.tipoServicio || '').toLowerCase();
+      if (ts === 'flota') navigateToView?.('bandeja-gery');
+      else navigateToView?.('bandeja-romina');
+    },
+    onChangeState: (ot) => {
+      const ts = String(ot.tipoServicio || '').toLowerCase();
+      if (ts === 'flota') navigateToView?.('flota');
+      else navigateToView?.('clima', { otId: ot.id });
+    },
+    onDetail: (ot, shell) => {
+      openDrawer(ot, shell);
+    },
+  });
+  kanbanSetActive = setActiveShell;
+
+  mainCol.append(boardEl);
+  asideCol.append(jarvisPanel.element);
+  workspace.append(mainCol, asideCol);
 
   const body = el('hnf-cc__body');
-  const main = el('hnf-cc__main');
-
-  const byLane = Object.fromEntries(KANBAN_LANE_IDS.map((k) => [k, []]));
-  for (const ot of ots) {
-    const lane = mapOtToLane(ot);
-    if (byLane[lane]) byLane[lane].push(ot);
-    else byLane.ingreso.push(ot);
-  }
-
-  let mobileLane = 0;
-  const lanesEl = el('hnf-cc__lanes');
-
-  const mobileNav = el('hnf-cc__mobile-lane-nav');
-  const prevB = el('hnf-cc__btn', 'button');
-  prevB.type = 'button';
-  prevB.textContent = '◀';
-  const mobileTitle = el('hnf-cc__toolbar-title');
-  mobileTitle.style.textAlign = 'center';
-  mobileTitle.style.flex = '1';
-  const nextB = el('hnf-cc__btn', 'button');
-  nextB.type = 'button';
-  nextB.textContent = '▶';
-  mobileNav.append(prevB, mobileTitle, nextB);
-
-  const dots = el('hnf-cc__dots');
-
-  const scrollToLane = (idx) => {
-    const i = Math.max(0, Math.min(KANBAN_LANE_IDS.length - 1, idx));
-    mobileLane = i;
-    const col = lanesEl.children[i];
-    col?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
-    mobileTitle.textContent = LANE_LABEL[KANBAN_LANE_IDS[i]];
-    prevB.disabled = i <= 0;
-    nextB.disabled = i >= KANBAN_LANE_IDS.length - 1;
-    dots.querySelectorAll('.hnf-cc__dot').forEach((d, di) => {
-      d.classList.toggle('hnf-cc__dot--on', di === i);
-    });
-  };
-
-  prevB.addEventListener('click', () => scrollToLane(mobileLane - 1));
-  nextB.addEventListener('click', () => scrollToLane(mobileLane + 1));
-
-  KANBAN_LANE_IDS.forEach((laneId, idx) => {
-    const lane = el('hnf-cc__lane');
-    const head = el('hnf-cc__lane-head');
-    const t = el('hnf-cc__lane-title');
-    t.textContent = LANE_LABEL[laneId];
-    const c = el('hnf-cc__lane-count');
-    const nLane = (byLane[laneId] || []).length;
-    c.textContent = String(nLane);
-    head.append(t, c);
-    const cards = el('hnf-cc__lane-cards');
-    for (const ot of byLane[laneId] || []) {
-      const shell = el(`hnf-cc__card ${cardTipoClass(ot.tipoServicio)}`);
-      const tap = el('hnf-cc__card-tap', 'button');
-      tap.type = 'button';
-      tap.setAttribute('aria-label', `Abrir detalle ${String(ot.id || '')}`);
-      const row = el('hnf-cc__card-row');
-      const id = el('hnf-cc__card-id', 'span');
-      id.textContent = String(ot.id || '');
-      const tipo = el('hnf-cc__card-tipo', 'span');
-      tipo.textContent = String(ot.tipoServicio || '—');
-      row.append(id, tipo);
-      const cli = el('hnf-cc__card-cliente', 'div');
-      cli.textContent = String(ot.cliente || '').trim() || '—';
-      const badges = el('hnf-cc__card-badges');
-      const orig = el('hnf-cc__badge hnf-cc__badge--orig', 'span');
-      orig.textContent = etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido);
-      const pri = el('hnf-cc__badge hnf-cc__badge--pri', 'span');
-      pri.textContent = String(ot.prioridadOperativa || '—').toUpperCase();
-      badges.append(orig, pri);
-      const av = alertaOperativaVisual(ot, ALERTA_OPTS_CENTRO);
-      if (av) {
-        const dot = el(
-          `hnf-cc__badge hnf-cc__badge--alert hnf-cc__badge--${av.tipo === 'riesgo' ? 'risk' : 'delay'}`,
-          'span'
-        );
-        dot.textContent = av.tipo === 'riesgo' ? '!' : '⏱';
-        dot.title = av.texto || '';
-        badges.append(dot);
-      }
-      const meta = el('hnf-cc__card-meta');
-      meta.textContent = textoResponsableOperativoMostrado(ot);
-      const est = el('hnf-cc__card-estado', 'span');
-      est.textContent = String(ot.estado || '—');
-      tap.append(row, cli, badges, meta, est);
-      if (av) {
-        const al = el(`hnf-cc__alert hnf-cc__alert--${av.tipo === 'riesgo' ? 'risk' : 'delay'}`);
-        al.textContent = av.texto != null && String(av.texto).trim() ? String(av.texto) : '—';
-        tap.append(al);
-      }
-      tap.addEventListener('click', () => openDrawer(ot, shell));
-
-      shell.append(tap);
-      shell.append(buildJarvisDecisionCard(ot, { variant: 'compact' }));
-
-      const actRow = el('hnf-cc__card-actions');
-      const bAsig = el('hnf-cc__card-act', 'button');
-      bAsig.type = 'button';
-      bAsig.textContent = 'Asignar';
-      bAsig.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ts = String(ot.tipoServicio || '').toLowerCase();
-        if (ts === 'flota') navigateToView?.('bandeja-gery');
-        else navigateToView?.('bandeja-romina');
-      });
-      const bEst = el('hnf-cc__card-act hnf-cc__card-act--ghost', 'button');
-      bEst.type = 'button';
-      bEst.textContent = 'Cambiar estado';
-      bEst.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ts = String(ot.tipoServicio || '').toLowerCase();
-        if (ts === 'flota') navigateToView?.('flota');
-        else navigateToView?.('clima', { otId: ot.id });
-      });
-      const bDet = el('hnf-cc__card-act hnf-cc__card-act--ghost', 'button');
-      bDet.type = 'button';
-      bDet.textContent = 'Ver detalle';
-      bDet.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openDrawer(ot, shell);
-      });
-      actRow.append(bAsig, bEst, bDet);
-      shell.append(actRow);
-
-      cards.append(shell);
-    }
-    if (!nLane) {
-      const empty = el('hnf-cc__lane-empty', 'p');
-      empty.textContent = 'Sin OT';
-      cards.append(empty);
-    }
-    lane.append(head, cards);
-    lanesEl.append(lane);
-
-    const dot = el(idx === 0 ? 'hnf-cc__dot hnf-cc__dot--on' : 'hnf-cc__dot', 'button');
-    dot.type = 'button';
-    dot.setAttribute('aria-label', LANE_LABEL[laneId]);
-    dot.addEventListener('click', () => scrollToLane(idx));
-    dots.append(dot);
-  });
-
-  lanesEl.addEventListener('scroll', () => {
-    if (lanesEl.scrollWidth <= lanesEl.clientWidth + 8) return;
-    const w = lanesEl.clientWidth || 1;
-    const idx = Math.round(lanesEl.scrollLeft / w);
-    if (idx !== mobileLane && idx >= 0 && idx < KANBAN_LANE_IDS.length) {
-      mobileLane = idx;
-      mobileTitle.textContent = LANE_LABEL[KANBAN_LANE_IDS[idx]];
-      prevB.disabled = idx <= 0;
-      nextB.disabled = idx >= KANBAN_LANE_IDS.length - 1;
-      dots.querySelectorAll('.hnf-cc__dot').forEach((d, di) => d.classList.toggle('hnf-cc__dot--on', di === idx));
-    }
-  });
-
-  mobileTitle.textContent = LANE_LABEL[KANBAN_LANE_IDS[0]];
-  prevB.disabled = true;
-
-  main.append(mobileNav, dots, lanesEl);
+  body.style.flexDirection = 'column';
+  body.append(workspace);
 
   const backdrop = el('hnf-cc__drawer-backdrop', 'button');
   backdrop.type = 'button';
@@ -535,15 +378,9 @@ export function centroControlAlienView(props) {
   const foot = el('hnf-cc__drawer-foot');
   foot.textContent = 'Módulos para ejecutar';
 
-  let selectedBtn = null;
+  let selectedShell = null;
   let currentOt = null;
   let escHandler = null;
-
-  const setActiveCard = (btn) => {
-    if (selectedBtn) selectedBtn.classList.remove('hnf-cc__card--active');
-    selectedBtn = btn;
-    if (selectedBtn) selectedBtn.classList.add('hnf-cc__card--active');
-  };
 
   function renderTabs() {
     tabsRow.replaceChildren();
@@ -603,7 +440,9 @@ export function centroControlAlienView(props) {
       document.removeEventListener('keydown', escHandler);
       escHandler = null;
     }
-    setActiveCard(null);
+    kanbanSetActive(null);
+    jarvisPanel.setOt(null);
+    selectedShell = null;
     currentOt = null;
   }
 
@@ -639,10 +478,13 @@ export function centroControlAlienView(props) {
     }
   }
 
-  function openDrawer(ot, btn) {
+  function openDrawer(ot, shell) {
     currentOt = ot;
+    selectedShell = shell;
     idEl.textContent = String(ot.id || '');
     sub.textContent = String(ot.cliente || '').trim() || '—';
+    jarvisPanel.setOt(ot);
+    kanbanSetActive(shell);
     fillDrawerSummary(ot);
     fillJarvisStrip(ot);
     activeTab = 'detalle';
@@ -656,7 +498,6 @@ export function centroControlAlienView(props) {
       if (e.key === 'Escape') closeDrawer();
     };
     document.addEventListener('keydown', escHandler);
-    setActiveCard(btn);
   }
 
   closeBtn.addEventListener('click', closeDrawer);
@@ -664,8 +505,9 @@ export function centroControlAlienView(props) {
 
   drawer.append(drawerHandle, dHead, drawerSummary, actRow, jarvisStrip, tabsRow, tabBodies, foot);
 
-  body.append(main, backdrop, drawer);
-  section.append(kpiWrap, ux, roles, toolbar, body);
+  body.append(backdrop, drawer);
+
+  section.append(header, alerts, kpiRow, body);
 
   return section;
 }
