@@ -12,6 +12,15 @@ body.hnf-cc-shell-active #app {
   max-width: none;
 }
 
+.hnf-cc-session-warn {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  background: rgba(251, 191, 36, 0.1);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.28);
+  color: #fcd34d;
+}
+
 /* —— Grid principal —— */
 .hnf-cc-layout {
   display: grid;

@@ -17,6 +17,7 @@ export function createControlLayout({
   sessionUserLabel = '',
   apiBaseLabel,
   integrationStatus,
+  sessionWarning = '',
   deployStatusElement = null,
   navItems = null,
   lastDataRefreshAt = null,
@@ -78,6 +79,13 @@ export function createControlLayout({
   workspace.setAttribute('aria-label', 'Módulo activo');
   viewportShell.append(workspace);
 
+  if (String(sessionWarning || '').trim()) {
+    const warnRow = document.createElement('div');
+    warnRow.className = 'hnf-cc-session-warn';
+    warnRow.setAttribute('role', 'status');
+    warnRow.textContent = String(sessionWarning).trim();
+    main.append(warnRow);
+  }
   main.append(topbar, contextStrip, viewportShell);
   root.append(sidebarEl, main);
 

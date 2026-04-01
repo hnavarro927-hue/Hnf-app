@@ -87,6 +87,7 @@ export const loginView = (root, { onSuccess, bannerMessage = '', loginDebug = nu
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     err.textContent = '';
+    err.style.color = '#f87171';
     btn.disabled = true;
     try {
       await onSuccess?.({
@@ -94,6 +95,8 @@ export const loginView = (root, { onSuccess, bannerMessage = '', loginDebug = nu
         password: pass.value,
       });
     } catch (ex) {
+      const warn = ex?.authUiSeverity === 'warn';
+      err.style.color = warn ? '#fbbf24' : '#f87171';
       err.textContent = ex?.message || 'No se pudo iniciar sesión.';
     } finally {
       btn.disabled = false;

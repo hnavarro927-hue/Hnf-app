@@ -923,6 +923,8 @@ const state = {
   /** Sesión HNF (GET /auth/me). */
   authMe: null,
   loginBanner: '',
+  /** Aviso modo local / API caído (solo lectura en shell). */
+  authSessionWarning: '',
   deniedModuleId: null,
   usuariosFeedback: null,
   auditoriaFeedback: null,
@@ -1715,6 +1717,7 @@ const render = () => {
         viewData: state.viewData,
         apiBaseLabel: formatApiBaseLabel(),
         integrationStatus: state.integrationStatus,
+        sessionWarning: state.authSessionWarning || '',
         lastDataRefreshAt: state.lastSuccessfulFetchAt,
         onNavigate: (viewId) => navigateToView(viewId),
         onLogout: async () => {
@@ -2141,15 +2144,16 @@ function mountLoginUi() {
   }
   clearSessionBackendRole();
   state.authMe = null;
+  state.authSessionWarning = '';
   app.innerHTML = '';
   loginView(app, {
     bannerMessage: state.loginBanner || '',
     loginDebug: import.meta.env.DEV ? getLoginDebugContext() : null,
     onSuccess: async ({ username, password }) => {
-      await authApiService.login(username, password);
-      const me = await authApiService.me();
+      const { me, offlineWarning } = await authApiService.establishSession(username, password);
       state.authMe = me;
       state.loginBanner = '';
+      state.authSessionWarning = offlineWarning || '';
       setSessionBackendRole(me.role);
       setStoredOperatorName(me.user?.nombre || me.actor || '');
       await startAuthenticatedApp();
@@ -2166,6 +2170,7 @@ async function bootAuth() {
   try {
     const me = await authApiService.me();
     state.authMe = me;
+    state.authSessionWarning = '';
     setSessionBackendRole(me.role);
     setStoredOperatorName(me.user?.nombre || me.actor || '');
     await startAuthenticatedApp();
