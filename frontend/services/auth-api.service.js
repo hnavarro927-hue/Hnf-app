@@ -6,6 +6,26 @@ const unwrap = (r) => (r && r.data !== undefined ? r.data : r);
 
 const LOGIN_TIMEOUT_MS = 3000;
 
+/** El API envuelve éxitos en `{ success, data }` (igual que el resto de endpoints). */
+function tokenFromLoginBody(body) {
+  if (!body || typeof body !== 'object') return '';
+  if (body.success !== false && body.data && typeof body.data === 'object' && body.data.token) {
+    return String(body.data.token);
+  }
+  if (body.token) return String(body.token);
+  return '';
+}
+
+function isHernanLocalGate(username, password) {
+  const u = String(username ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+  const p = String(password ?? '');
+  return u === 'hernan' && p.length > 0;
+}
+
 /** POST /auth/login una sola vez, sin reintentos de red. */
 async function postLoginWithTimeout(username, password) {
   const url = resolveApiUrl('/auth/login');
@@ -54,19 +74,16 @@ async function postLoginWithTimeout(username, password) {
 }
 
 function tryLocalOfflineSession(username, password) {
-  const u = String(username ?? '').trim();
-  const p = String(password ?? '');
-  if (u === 'Hernan' && p.length > 0) {
-    return {
-      me: {
-        user: { username: u, nombre: u },
-        actor: u,
-        role: 'admin',
-        modules: ['*'],
-      },
-    };
-  }
-  return null;
+  if (!isHernanLocalGate(username, password)) return null;
+  const display = String(username ?? '').trim() || 'Hernan';
+  return {
+    me: {
+      user: { username: display, nombre: display },
+      actor: display,
+      role: 'admin',
+      modules: ['*'],
+    },
+  };
 }
 
 export const authApiService = {
@@ -80,24 +97,15 @@ export const authApiService = {
     try {
       data = await postLoginWithTimeout(username, password);
     } catch (e) {
-      if (e?.status === 401 || e?.status === 403) {
-        // eslint-disable-next-line no-console
-        console.error('[HNF Auth] POST /auth/login rechazado', {
-          url: e?.requestUrl || loginUrl,
-          status: e?.status,
-          message: e?.message,
-        });
-        throw e;
-      }
+      clearSessionToken();
       const local = tryLocalOfflineSession(username, password);
       if (local) {
-        clearSessionToken();
         // eslint-disable-next-line no-console
-        console.warn('[HNF Auth] API no disponible · sesión local (fallback)', e?.message || e);
+        console.warn('[HNF Auth] POST /auth/login no completó · sesión local Hernán', e?.message || e);
         return {
           me: local.me,
           offlineWarning:
-            'Sin conexión al servidor: entraste en modo local. Los datos del API pueden no estar disponibles hasta que vuelva la red.',
+            'No se pudo validar con el servidor (red, credenciales o tiempo de espera). Modo local: datos del API pueden faltar hasta reconectar.',
         };
       }
       // eslint-disable-next-line no-console
@@ -111,26 +119,36 @@ export const authApiService = {
     }
 
     try {
-      if (data?.token) setSessionToken(data.token);
+      const token = tokenFromLoginBody(data);
+      if (token) setSessionToken(token);
+      else {
+        clearSessionToken();
+        const local = tryLocalOfflineSession(username, password);
+        if (local) {
+          // eslint-disable-next-line no-console
+          console.warn('[HNF Auth] Login OK pero sin token en cuerpo · sesión local');
+          return {
+            me: local.me,
+            offlineWarning:
+              'El servidor respondió sin token reconocible. Entraste en modo local; revisá la versión del API.',
+          };
+        }
+        throw new Error('El servidor no devolvió token de sesión.');
+      }
       const me = await httpClient.get('/auth/me').then(unwrap);
       return { me, offlineWarning: '' };
     } catch (meErr) {
-      if (meErr?.status === 401 || meErr?.status === 403) {
-        clearSessionToken();
-        throw meErr;
-      }
+      clearSessionToken();
       const local = tryLocalOfflineSession(username, password);
       if (local) {
-        clearSessionToken();
         // eslint-disable-next-line no-console
         console.warn('[HNF Auth] GET /auth/me falló tras login · sesión local', meErr?.message || meErr);
         return {
           me: local.me,
           offlineWarning:
-            'El servidor no respondió al validar la sesión. Modo local activo hasta que el API esté estable.',
+            'No se pudo confirmar la sesión en el servidor (p. ej. 401). Modo local activo; las llamadas al API pueden devolver error hasta volver a iniciar sesión con red.',
         };
       }
-      clearSessionToken();
       throw meErr;
     }
   },
