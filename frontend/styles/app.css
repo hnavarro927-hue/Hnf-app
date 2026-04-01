@@ -1389,6 +1389,27 @@ select option {
   font-size: 15px;
 }
 
+.hnf-clima-create-step-banner {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgba(56, 189, 248, 0.08);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.hnf-clima-create-step-banner__sub {
+  color: var(--muted, #94a3b8);
+  font-weight: 600;
+}
+
+.hnf-clima-create-panel-hint {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
 .hnf-clima-create-dialog .ot-flow-app__lede {
   max-width: none;
   font-size: 14px;

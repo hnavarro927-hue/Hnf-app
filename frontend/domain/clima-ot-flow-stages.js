@@ -168,19 +168,19 @@ export function validateCreateStageAdvance(formRoot, eqContainer, stageIndex) {
     if (!q('tipoServicio')) return { ok: false, message: 'Elegí el tipo de servicio.' };
     if (!q('subtipoServicio')) return { ok: false, message: 'Indicá el subtipo de servicio.' };
     if (!q('fecha') || !q('hora')) return { ok: false, message: 'Fecha y hora son obligatorias.' };
-    const origen = q('origenSolicitudCreate');
-    if (!origen) return { ok: false, message: 'Elegí el origen de la solicitud.' };
-    if (origen === 'whatsapp') {
-      const waNum = formRoot?.elements?.whatsappNumeroCreate?.value?.trim?.() ?? '';
-      const waNom = formRoot?.elements?.whatsappNombreCreate?.value?.trim?.() ?? '';
-      if (!waNum || !waNom) {
-        return { ok: false, message: 'Con origen WhatsApp, número y nombre de contacto son obligatorios.' };
-      }
-    }
     return { ok: true, message: '' };
   }
 
   if (stageIndex === 2) {
+    const origen = q('origenSolicitudCreate');
+    if (!origen) return { ok: false, message: 'Elegí cómo llegó el pedido.' };
+    if (origen === 'whatsapp') {
+      const waNum = formRoot?.elements?.whatsappNumeroCreate?.value?.trim?.() ?? '';
+      const waNom = formRoot?.elements?.whatsappNombreCreate?.value?.trim?.() ?? '';
+      if (!waNum || !waNom) {
+        return { ok: false, message: 'Con WhatsApp, abrí «Más datos» y completá número y nombre.' };
+      }
+    }
     return { ok: true, message: '' };
   }
 
@@ -197,12 +197,12 @@ export function validateCreateStageAdvance(formRoot, eqContainer, stageIndex) {
 
 export function jarvisLinesForCreateStage(stageIndex) {
   const map = [
-    ['Los datos de contacto son la base de la visita.', 'Usá nombre comercial y persona que recibe al técnico.'],
-    ['Tipo y subtipo definen la bandeja (Clima / Flota) y la prioridad operativa.', 'Si el origen es WhatsApp, registrá número y nombre.'],
-    ['Modo automático permite sugerencias; modo manual deja el control en el equipo.', 'Elegí técnico o dejá «Por asignar» si aún no está definido.'],
-    ['Podés dejar textos en blanco y completarlos después en la OT.', 'Un resumen temprano ayuda a planificar.'],
-    ['Agregá equipos ahora o más tarde desde el detalle de la OT.', 'Cada equipo puede llevar sus propias fotos.'],
-    ['Revisá el resumen y tocá «Crear OT» para registrar la visita.'],
+    ['Cliente y dirección bien escritos evitan idas en vano.'],
+    ['Tipo de trabajo y día: con eso alcanza para abrir la OT.'],
+    ['WhatsApp: número y nombre van en «Más datos».'],
+    ['Podés dejar esto vacío y completar en la visita.'],
+    ['Un nombre de equipo alcanza; el resto puede esperar.'],
+    ['Revisá y tocá Crear OT.'],
   ];
   return map[stageIndex] || map[0];
 }

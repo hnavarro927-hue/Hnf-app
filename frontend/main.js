@@ -1209,12 +1209,14 @@ const createActions = () => ({
         message: 'OT creada. Seleccionála en el listado para cargar equipos, evidencias y cierre.',
       };
       await loadViewData();
+      return true;
     } catch (error) {
       state.otFeedback = {
         type: 'error',
         message: error.message || 'No se pudo crear la orden de trabajo. Revisá los datos o la conexión.',
       };
       render();
+      return false;
     } finally {
       state.isSubmittingOT = false;
       render();

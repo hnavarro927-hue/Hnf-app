@@ -45,6 +45,18 @@ import {
 } from '../constants/hnf-ot-operation.js';
 import { computeOtSlaTierForClimaListItem } from '../domain/hnf-ot-sla-presentation.js';
 
+const CLIMA_CREATE_DRAFT_KEY = 'hnf-clima-ot-create-draft';
+
+/** Textos cortos para operación en terreno (crear OT). */
+const CLIMA_CREATE_STEP_UI = [
+  { short: 'Cliente', line: 'Dónde es la visita' },
+  { short: 'Visita', line: 'Día y tipo de trabajo' },
+  { short: 'Pedido', line: 'Prioridad y técnico' },
+  { short: 'Notas', line: 'Opcional' },
+  { short: 'Equipos', line: 'Opcional' },
+  { short: 'Listo', line: 'Última revisión' },
+];
+
 const OT_STATUS_OPTIONS = [
   { value: 'nueva', label: 'Nueva' },
   { value: 'asignada', label: 'Asignada' },
@@ -373,9 +385,10 @@ const buildOtAltaOperationSection = () => {
   const fs = document.createElement('fieldset');
   fs.className = 'ot-form__section ot-form__section--operation';
   const leg = document.createElement('legend');
-  leg.textContent = 'Modo operación · Nº OT · Origen · Prioridad · Técnico';
-  const grid = document.createElement('div');
-  grid.className = 'ot-form__grid';
+  leg.textContent = 'Cómo llegó el pedido y quién va';
+
+  const primary = document.createElement('div');
+  primary.className = 'ot-form__grid';
 
   const mk = (labelText, inner) => {
     const w = document.createElement('label');
@@ -390,7 +403,7 @@ const buildOtAltaOperationSection = () => {
   const idInp = document.createElement('input');
   idInp.type = 'text';
   idInp.name = 'otCustomId';
-  idInp.placeholder = 'Vacío = siguiente OT-### automático';
+  idInp.placeholder = 'Vacío = número automático';
   idInp.autocomplete = 'off';
 
   const modeSel = document.createElement('select');
@@ -425,12 +438,8 @@ const buildOtAltaOperationSection = () => {
 
   const waWrap = document.createElement('div');
   waWrap.className = 'ot-form__grid';
-  waWrap.style.gridColumn = '1 / -1';
   waWrap.hidden = true;
-  waWrap.append(mk('WhatsApp · número *', waNumInp), mk('WhatsApp · nombre contacto *', waNomInp));
-  origenSolSel.addEventListener('change', () => {
-    waWrap.hidden = origenSolSel.value !== 'whatsapp';
-  });
+  waWrap.append(mk('WhatsApp · número *', waNumInp), mk('WhatsApp · nombre *', waNomInp));
 
   const prioSel = document.createElement('select');
   prioSel.name = 'prioridadOperativaCreate';
@@ -471,20 +480,26 @@ const buildOtAltaOperationSection = () => {
 
   const hint = document.createElement('p');
   hint.className = 'muted small';
-  hint.style.gridColumn = '1 / -1';
   hint.innerHTML =
-    '<strong>Manual:</strong> vos definís técnico y, si querés, un número de OT fijo. <strong>Automático:</strong> si no elegís técnico, el servidor aplica reglas Jarvis (stub) y lo deja registrado como asignado por Jarvis; siempre podés corregir después.';
+    '<strong>Manual:</strong> elegís técnico. <strong>Automático:</strong> el sistema puede asignar después.';
 
-  grid.append(
-    mk('Nº OT (opcional)', idInp),
+  const { details: moreDet, body: moreBody } = createHnfEwDetails('Más datos', false);
+  moreBody.append(mk('Nº OT (opcional)', idInp), hint, waWrap);
+
+  origenSolSel.addEventListener('change', () => {
+    const isWa = origenSolSel.value === 'whatsapp';
+    waWrap.hidden = !isWa;
+    if (isWa) moreDet.open = true;
+  });
+
+  primary.append(
     mk('Modo operación', modeSel),
-    mk('Origen de la solicitud *', origenSolSel),
-    waWrap,
-    mk('Prioridad operativa *', prioSel),
-    mk('Técnico asignado', techWrap),
-    hint
+    mk('Origen del pedido *', origenSolSel),
+    mk('Prioridad *', prioSel),
+    mk('Técnico', techWrap)
   );
-  fs.append(leg, grid);
+
+  fs.append(leg, primary, moreDet);
   return fs;
 };
 
@@ -803,7 +818,8 @@ const buildOtOperationalControlsSection = (ot, actions, readOnly, isPatching) =>
   return { element: ctl, flushOperationalSave };
 };
 
-const createEquipoFormRow = () => {
+const createEquipoFormRow = (opts = {}) => {
+  const compactAlta = opts.compactAlta === true;
   const fs = document.createElement('fieldset');
   fs.className = 'ot-equipo-form-row';
 
@@ -814,7 +830,7 @@ const createEquipoFormRow = () => {
   const grid = document.createElement('div');
   grid.className = 'ot-form__grid';
 
-  const add = (name, label, type, extra = {}) => {
+  const addTo = (targetGrid, name, label, type, extra = {}) => {
     const w = document.createElement('label');
     w.className = 'form-field';
     const lb = document.createElement('span');
@@ -842,21 +858,16 @@ const createEquipoFormRow = () => {
       el.multiple = true;
     }
     w.append(lb, el);
-    grid.append(w);
+    targetGrid.append(w);
   };
+
+  const add = (name, label, type, extra) => addTo(grid, name, label, type, extra);
 
   add('nombreEquipo', 'Nombre / tipo equipo', 'text');
   add('estadoEquipo', 'Estado equipo', 'select');
-  add('observaciones', 'Observaciones', 'textarea');
-  add('accionesRealizadas', 'Acciones realizadas', 'textarea');
-  add('recomendaciones', 'Recomendaciones', 'textarea');
 
   fs._evidence = initRowEvidence({});
-  attachEvidenceUI(grid, fs._evidence, 'fotografiasAntes', 'Fotos ANTES', false);
-  attachEvidenceUI(grid, fs._evidence, 'fotografiasDurante', 'Fotos DURANTE', false);
-  attachEvidenceUI(grid, fs._evidence, 'fotografiasDespues', 'Fotos DESPUÉS', false);
   fs._checklist = mergeEquipoChecklist({});
-  attachChecklistUI(grid, fs._checklist, false);
 
   const rm = document.createElement('button');
   rm.type = 'button';
@@ -868,9 +879,32 @@ const createEquipoFormRow = () => {
     fs.remove();
     renumberEquipoFormRows(host);
   });
-  grid.append(rm);
 
-  fs.append(grid);
+  if (compactAlta) {
+    const { details: eqMore, body: eqMoreBody } = createHnfEwDetails('Más datos del equipo', false);
+    const inner = document.createElement('div');
+    inner.className = 'ot-form__grid';
+    addTo(inner, 'observaciones', 'Observaciones', 'textarea');
+    addTo(inner, 'accionesRealizadas', 'Acciones realizadas', 'textarea');
+    addTo(inner, 'recomendaciones', 'Recomendaciones', 'textarea');
+    attachEvidenceUI(inner, fs._evidence, 'fotografiasAntes', 'Fotos ANTES', false);
+    attachEvidenceUI(inner, fs._evidence, 'fotografiasDurante', 'Fotos DURANTE', false);
+    attachEvidenceUI(inner, fs._evidence, 'fotografiasDespues', 'Fotos DESPUÉS', false);
+    attachChecklistUI(inner, fs._checklist, false);
+    eqMoreBody.append(inner, rm);
+    fs.append(grid, eqMore);
+  } else {
+    add('observaciones', 'Observaciones', 'textarea');
+    add('accionesRealizadas', 'Acciones realizadas', 'textarea');
+    add('recomendaciones', 'Recomendaciones', 'textarea');
+    attachEvidenceUI(grid, fs._evidence, 'fotografiasAntes', 'Fotos ANTES', false);
+    attachEvidenceUI(grid, fs._evidence, 'fotografiasDurante', 'Fotos DURANTE', false);
+    attachEvidenceUI(grid, fs._evidence, 'fotografiasDespues', 'Fotos DESPUÉS', false);
+    attachChecklistUI(grid, fs._checklist, false);
+    grid.append(rm);
+    fs.append(grid);
+  }
+
   return fs;
 };
 
@@ -879,6 +913,103 @@ const renumberEquipoFormRows = (container) => {
     const leg = row.querySelector('legend');
     if (leg) leg.textContent = `Equipo ${i + 1}`;
   });
+};
+
+const uniqueSortedStrings = (vals, cap = 80) => {
+  const s = [...new Set(vals.map((v) => String(v || '').trim()).filter(Boolean))];
+  s.sort((a, b) => a.localeCompare(b, 'es'));
+  return s.slice(0, cap);
+};
+
+const attachCreateOtAutocomplete = (form, otsList) => {
+  if (!form || !Array.isArray(otsList)) return;
+  const ensureDatalist = (id, options) => {
+    let dl = form.querySelector(`#${id}`);
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = id;
+      form.append(dl);
+    }
+    dl.replaceChildren();
+    for (const opt of options) {
+      const o = document.createElement('option');
+      o.value = opt;
+      dl.append(o);
+    }
+  };
+  const clientes = uniqueSortedStrings(otsList.map((o) => o.cliente));
+  const direcciones = uniqueSortedStrings(otsList.map((o) => o.direccion));
+  const tecnicos = uniqueSortedStrings(otsList.map((o) => o.tecnicoAsignado));
+  ensureDatalist('hnf-create-ot-clientes', clientes);
+  ensureDatalist('hnf-create-ot-direcciones', direcciones);
+  ensureDatalist('hnf-create-ot-tecnicos', tecnicos);
+  form.elements.cliente?.setAttribute('list', 'hnf-create-ot-clientes');
+  form.elements.direccion?.setAttribute('list', 'hnf-create-ot-direcciones');
+  form.elements.tecnicoOtro?.setAttribute('list', 'hnf-create-ot-tecnicos');
+};
+
+const readCreateOtDraft = () => {
+  try {
+    const raw = localStorage.getItem(CLIMA_CREATE_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const writeCreateOtDraft = (form) => {
+  if (!form) return;
+  try {
+    const snap = {};
+    const els = form.elements;
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i];
+      if (!el.name || el.type === 'file' || el.type === 'submit' || el.type === 'button') continue;
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        if (el.checked) snap[el.name] = el.value;
+      } else {
+        snap[el.name] = el.value;
+      }
+    }
+    localStorage.setItem(CLIMA_CREATE_DRAFT_KEY, JSON.stringify(snap));
+  } catch {
+    /* quota */
+  }
+};
+
+const clearCreateOtDraft = () => {
+  try {
+    localStorage.removeItem(CLIMA_CREATE_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
+const applyCreateOtDraft = (form, data) => {
+  if (!form || !data || typeof data !== 'object') return;
+  for (const [k, v] of Object.entries(data)) {
+    const str = String(v);
+    const el = form.elements[k];
+    if (!el) continue;
+    if (el.length && el[0]?.type === 'radio') {
+      for (let j = 0; j < el.length; j++) {
+        const r = el[j];
+        if (r.value === str) {
+          r.checked = true;
+          break;
+        }
+      }
+      continue;
+    }
+    if (el.type === 'checkbox') {
+      el.checked = str === 'on' || el.value === str;
+      continue;
+    }
+    if ('value' in el && el.type !== 'file') el.value = str;
+  }
+  form.elements.origenSolicitudCreate?.dispatchEvent(new Event('change', { bubbles: true }));
+  form.elements.tecnicoPreset?.dispatchEvent(new Event('change', { bubbles: true }));
 };
 
 const collectEquiposFromCreateForm = (container) => {
@@ -2137,9 +2268,9 @@ export const climaView = ({
   formHeader.className = 'ot-form-card__header hnf-clima-create-dialog__header';
   const formHeaderIntro = document.createElement('div');
   formHeaderIntro.innerHTML = `
-    <p class="muted">Nueva visita · flujo por etapas</p>
-    <h3>Crear OT</h3>
-    <p class="muted ot-flow-app__lede">Una etapa por pantalla. Podés volver atrás tocando una etapa ya visitada.</p>
+    <p class="muted">Alta rápida · quedó guardado si cerrás</p>
+    <h3>Nueva OT</h3>
+    <p class="muted ot-flow-app__lede">Pocos datos por pantalla. Tocá el paso arriba para volver atrás.</p>
   `;
 
   const form = document.createElement('form');
@@ -2148,6 +2279,8 @@ export const climaView = ({
 
   const createStageKey = createFlowStorageKey();
   let createStageIdx = readStoredStageIndex(createStageKey, CLIMA_OT_FLOW_STAGES.length - 1);
+  let prevCreateStageForDraft = -1;
+  let draftSaveTimer;
 
   const mkPanel = (idx) => {
     const p = document.createElement('div');
@@ -2158,55 +2291,71 @@ export const climaView = ({
   };
 
   const panel0 = mkPanel(0);
+  const p0hint = document.createElement('p');
+  p0hint.className = 'muted hnf-clima-create-panel-hint';
+  p0hint.textContent = 'Lo esencial: quién es el cliente y dónde es el trabajo.';
   const grid0 = document.createElement('div');
   grid0.className = 'ot-form__grid';
-  ['cliente', 'direccion', 'comuna', 'contactoTerreno', 'telefonoContacto'].forEach((name) => {
+  ['cliente', 'direccion', 'comuna'].forEach((name) => {
     const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
     if (field) grid0.append(buildField(field));
   });
-  panel0.append(grid0);
+  const { details: p0more, body: p0moreBody } = createHnfEwDetails('Más datos', false);
+  const grid0extra = document.createElement('div');
+  grid0extra.className = 'ot-form__grid';
+  ['contactoTerreno', 'telefonoContacto'].forEach((name) => {
+    const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
+    if (field) grid0extra.append(buildField(field));
+  });
+  p0moreBody.append(grid0extra);
+  panel0.append(p0hint, grid0, p0more);
 
   const panel1 = mkPanel(1);
+  const p1hint = document.createElement('p');
+  p1hint.className = 'muted hnf-clima-create-panel-hint';
+  p1hint.textContent = 'La OT queda «nueva» en el servidor hasta que la gestiones en taller.';
   const grid1 = document.createElement('div');
   grid1.className = 'ot-form__grid';
   ['tipoServicio', 'subtipoServicio', 'fecha', 'hora'].forEach((name) => {
     const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
     if (field) grid1.append(buildField(field));
   });
-  const estNote = document.createElement('p');
-  estNote.className = 'muted small';
-  estNote.textContent = 'La OT se crea en estado inicial «nueva» en el servidor.';
-  panel1.append(grid1, estNote);
+  panel1.append(p1hint, grid1);
 
   const panel2 = mkPanel(2);
   panel2.append(buildOtAltaOperationSection());
 
   const panel3 = mkPanel(3);
+  const p3hint = document.createElement('p');
+  p3hint.className = 'muted hnf-clima-create-panel-hint';
+  p3hint.textContent = 'Podés saltar este paso: las notas técnicas se pueden cargar en la visita.';
+  const { details: p3more, body: p3moreBody } = createHnfEwDetails('Más datos (textos técnicos)', false);
   const fsDet = document.createElement('fieldset');
   fsDet.className = 'ot-form__section';
   const legDet = document.createElement('legend');
-  legDet.textContent = 'Detalle técnico (opcional en el alta)';
+  legDet.textContent = 'Detalle técnico (opcional)';
   const gridDet = document.createElement('div');
   gridDet.className = 'ot-form__grid';
   otFormDefinition.sections[1].fields.forEach((field) => gridDet.append(buildField(field)));
   fsDet.append(legDet, gridDet);
-  panel3.append(fsDet);
+  p3moreBody.append(fsDet);
+  panel3.append(p3hint, p3more);
 
   const panel4 = mkPanel(4);
   const eqWrap = document.createElement('div');
   eqWrap.className = 'ot-form__section';
   eqWrap.innerHTML =
-    '<h4 class="ot-equipos-title">Equipos en sitio (máx. 12)</h4><p class="muted">Podés agregar más después desde el detalle de la OT.</p>';
+    '<h4 class="ot-equipos-title">Equipos (opcional)</h4><p class="muted">Nombre y estado alcanzan; el resto va en «Más datos del equipo» o en la OT después.</p>';
   const eqContainer = document.createElement('div');
   eqContainer.className = 'ot-equipos-create';
   const addEqBtn = document.createElement('button');
   addEqBtn.type = 'button';
   addEqBtn.className = 'secondary-button ot-flow-footer__btn';
-  addEqBtn.textContent = '+ Agregar equipo';
+  addEqBtn.textContent = '+ Otro equipo';
 
   const appendEquipoRow = () => {
     if (eqContainer.querySelectorAll('.ot-equipo-form-row').length >= MAX_EQUIPOS) return;
-    eqContainer.append(createEquipoFormRow());
+    eqContainer.append(createEquipoFormRow({ compactAlta: true }));
     renumberEquipoFormRows(eqContainer);
   };
 
@@ -2214,7 +2363,7 @@ export const climaView = ({
 
   addEqBtn.addEventListener('click', () => {
     if (eqContainer.querySelectorAll('.ot-equipo-form-row').length >= MAX_EQUIPOS) return;
-    eqContainer.append(createEquipoFormRow());
+    eqContainer.append(createEquipoFormRow({ compactAlta: true }));
     renumberEquipoFormRows(eqContainer);
   });
 
@@ -2225,7 +2374,7 @@ export const climaView = ({
   const review = document.createElement('div');
   review.className = 'ot-flow-review';
   review.innerHTML =
-    '<h4 class="ot-section-title">Última revisión</h4><p class="muted">Al confirmar se envía la OT al servidor con los datos cargados en las etapas anteriores.</p><ul class="ot-flow-review__list muted"></ul>';
+    '<h4 class="ot-section-title">¿Todo bien?</h4><p class="muted">Tocá Crear OT y queda en el servidor. Si falta algo, volvé con Anterior.</p><ul class="ot-flow-review__list muted"></ul>';
   const reviewList = review.querySelector('.ot-flow-review__list');
   const refreshReview = () => {
     if (!reviewList) return;
@@ -2249,11 +2398,24 @@ export const climaView = ({
   createProgress.className = 'ot-flow-progress hnf-clima-create-sheet__steps';
   createProgress.setAttribute('aria-label', 'Etapas de alta');
 
+  const createStepBanner = document.createElement('div');
+  createStepBanner.className = 'hnf-clima-create-step-banner';
+  const createStepTitle = document.createElement('strong');
+  const createStepSub = document.createElement('span');
+  createStepSub.className = 'hnf-clima-create-step-banner__sub';
+  createStepBanner.append(createStepTitle, document.createTextNode(' '), createStepSub);
+
+  const paintCreateStepBanner = () => {
+    const ui = CLIMA_CREATE_STEP_UI[createStageIdx] || {};
+    createStepTitle.textContent = `Paso ${createStageIdx + 1} de ${CLIMA_OT_FLOW_STAGES.length}`;
+    createStepSub.textContent = ui.line ? `· ${ui.short} — ${ui.line}` : '';
+  };
+
   const createJarvis = document.createElement('aside');
   createJarvis.className = 'ot-flow-jarvis hnf-clima-create-sheet__jarvis';
   const createJarvisTitle = document.createElement('h4');
   createJarvisTitle.className = 'ot-flow-jarvis__title';
-  createJarvisTitle.textContent = 'Jarvis · esta etapa';
+  createJarvisTitle.textContent = 'Consejo';
   const createJarvisUl = document.createElement('ul');
   createJarvisUl.className = 'ot-flow-jarvis__list';
   const createJarvisNext = document.createElement('p');
@@ -2275,7 +2437,7 @@ export const climaView = ({
   const createBtnNext = document.createElement('button');
   createBtnNext.type = 'button';
   createBtnNext.className = 'primary-button ot-flow-footer__btn';
-  createBtnNext.textContent = 'Siguiente etapa';
+  createBtnNext.textContent = 'Siguiente';
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
   submitButton.className = 'primary-button ot-flow-footer__btn';
@@ -2291,14 +2453,19 @@ export const climaView = ({
       li.textContent = txt;
       createJarvisUl.append(li);
     });
+    const nextUi = CLIMA_CREATE_STEP_UI[createStageIdx + 1];
     createJarvisNext.textContent =
       createStageIdx < CLIMA_OT_FLOW_STAGES.length - 1
-        ? `Siguiente sugerido: ${CLIMA_OT_FLOW_STAGES[createStageIdx + 1].label}`
-        : 'Confirmá y creá la orden.';
+        ? nextUi
+          ? `Después: ${nextUi.short} — ${nextUi.line}`
+          : 'Seguí con Siguiente.'
+        : 'Tocá Crear OT para guardar en el servidor.';
   };
 
   const setCreateStage = (idx) => {
     const n = Math.max(0, Math.min(CLIMA_OT_FLOW_STAGES.length - 1, idx));
+    if (prevCreateStageForDraft >= 0 && n > prevCreateStageForDraft) writeCreateOtDraft(form);
+    prevCreateStageForDraft = n;
     createStageIdx = n;
     writeStoredStageIndex(createStageKey, n);
     form.querySelectorAll('.ot-flow-stage-panel').forEach((el) => {
@@ -2314,6 +2481,7 @@ export const climaView = ({
       btn.disabled = i > n;
     });
     if (n === CLIMA_OT_FLOW_STAGES.length - 1) refreshReview();
+    paintCreateStepBanner();
     renderCreateJarvis();
   };
 
@@ -2329,7 +2497,8 @@ export const climaView = ({
     btn.type = 'button';
     btn.className = 'ot-flow-progress__step';
     btn.dataset.stageIndex = String(i);
-    btn.innerHTML = `<span class="ot-flow-progress__dot">${i + 1}</span><span class="ot-flow-progress__label">${st.label}</span>`;
+    const shortLab = CLIMA_CREATE_STEP_UI[i]?.short || st.label;
+    btn.innerHTML = `<span class="ot-flow-progress__dot">${i + 1}</span><span class="ot-flow-progress__label">${shortLab}</span>`;
     btn.addEventListener('click', () => {
       if (i <= createStageIdx) setCreateStage(i);
     });
@@ -2345,6 +2514,17 @@ export const climaView = ({
       return;
     }
     setCreateStage(createStageIdx + 1);
+  });
+
+  attachCreateOtAutocomplete(form, ots);
+  applyCreateOtDraft(form, readCreateOtDraft());
+  form.addEventListener('input', () => {
+    window.clearTimeout(draftSaveTimer);
+    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form), 450);
+  });
+  form.addEventListener('change', () => {
+    window.clearTimeout(draftSaveTimer);
+    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form), 450);
   });
 
   setCreateStage(createStageIdx);
@@ -2387,7 +2567,11 @@ export const climaView = ({
       recomendaciones: form.elements.recomendaciones.value.trim(),
       equipos,
     };
-    await actions.createOT(payload);
+    const created = await actions.createOT(payload);
+    if (created) {
+      clearCreateOtDraft();
+      writeStoredStageIndex(createStageKey, 0);
+    }
   });
 
   const createDialog = document.createElement('dialog');
@@ -2400,8 +2584,12 @@ export const climaView = ({
   btnCloseCreate.addEventListener('click', () => createDialog.close());
   formHeader.append(formHeaderIntro, btnCloseCreate);
 
-  formCard.append(formHeader, createProgress, createJarvis, createStageBody, createFooter);
+  formCard.append(formHeader, createProgress, createStepBanner, createJarvis, createStageBody, createFooter);
   createDialog.append(formCard);
+  createDialog.addEventListener('close', () => {
+    window.clearTimeout(draftSaveTimer);
+    writeCreateOtDraft(form);
+  });
 
   const createActionBar = document.createElement('div');
   createActionBar.className = 'hnf-clima-action-bar';
