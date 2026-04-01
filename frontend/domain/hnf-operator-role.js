@@ -95,7 +95,6 @@ export function getNavItemsForRole(role) {
       pick('planificacion'),
       pick('ordenes-compra'),
       pick('ingreso-operativo'),
-      pick('bandeja-canal'),
       HNF_CORE_NAV,
       HNF_BASE_MAESTRA_NAV,
       HNF_BANDEJA_ROMINA_NAV,
@@ -108,7 +107,6 @@ export function getNavItemsForRole(role) {
       pick('flota'),
       pick('ordenes-compra'),
       pick('ingreso-operativo'),
-      pick('bandeja-canal'),
       HNF_CORE_NAV,
       HNF_BASE_MAESTRA_NAV,
       HNF_BANDEJA_GERY_NAV,
@@ -126,7 +124,6 @@ export function getNavItemsForRole(role) {
       HNF_BANDEJA_LYN_NAV,
       pick('documentos-tecnicos'),
       pick('ingreso-operativo'),
-      pick('bandeja-canal'),
       pick('finanzas'),
       pick('equipo'),
       pick('planificacion'),
@@ -144,7 +141,7 @@ export function defaultViewForRole(role) {
   if (role === 'clima') return 'clima';
   if (role === 'flota') return 'flota';
   if (role === 'control') return 'control-gerencial';
-  return 'jarvis';
+  return 'matriz-hnf';
 }
 
 /**

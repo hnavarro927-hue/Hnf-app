@@ -404,7 +404,7 @@ export function jarvisUniversalIntakeView({
   localTitle.textContent = 'Persistencia local (clientes + OT → Kanban)';
   const localHint = el('hnf-jarvis-intake__hint', 'p');
   localHint.textContent =
-    'localStorage: claves hnf.local.clients.v1 y hnf.ot.flow.v1 (localOts). Tras crear OT, abrí Mando o Actualizar datos.';
+    'Persistencia: base maestra hnf.md.bundle.v1 (clientes; espejo hnf.local.clients.v1) y operación hnf.ot.flow.v1 (localOts). Tras crear OT, abrí Mando o Actualizar datos.';
 
   const rowCli = el('hnf-jarvis-intake__field');
   const lbCli = el('hnf-jarvis-intake__label', 'label');

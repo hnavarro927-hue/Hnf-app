@@ -17,53 +17,53 @@ export const NAV_TECH_ACCENT = {
   finanzas: 'matrix',
   equipo: 'matrix',
   'hnf-core': 'neutral',
+  'base-maestra': 'neutral',
   'documentos-tecnicos': 'jarvis',
 };
 
-/** Grupos del rail cockpit (orden fijo) */
-export const COCKPIT_GROUP_ORDER = [
-  'nucleo',
-  'operaciones',
-  'campo',
-  'comercial',
-  'finanzas',
-  'sistema',
-];
+/** Grupos del rail cockpit — A Gerencia, B Operaciones, C Base maestra, Sistema. */
+export const COCKPIT_GROUP_ORDER = ['gerencia', 'operaciones', 'base_maestra', 'sistema'];
 
 export const COCKPIT_GROUP_LABEL = {
-  nucleo: 'Núcleo',
+  gerencia: 'Matriz / Gerencia',
   operaciones: 'Operaciones',
-  campo: 'Campo',
-  comercial: 'Comercial',
-  finanzas: 'Finanzas',
+  base_maestra: 'Base maestra',
   sistema: 'Sistema',
 };
 
 /** Vista → grupo del menú lateral (colapsable por grupo, sin afectar el panel principal). */
 export const COCKPIT_NAV_GROUP = {
-  'matriz-hnf': 'nucleo',
-  'centro-control': 'nucleo',
-  jarvis: 'nucleo',
-  'ingreso-operativo': 'nucleo',
-  'ingreso-clasico': 'nucleo',
+  'matriz-hnf': 'gerencia',
+  'control-gerencial': 'gerencia',
+  finanzas: 'gerencia',
+  jarvis: 'gerencia',
+  'centro-control': 'operaciones',
+  'ingreso-operativo': 'operaciones',
+  'ingreso-clasico': 'operaciones',
   'bandeja-canal': 'operaciones',
   'bandeja-romina': 'operaciones',
   'bandeja-gery': 'operaciones',
   'lyn-aprobacion': 'operaciones',
-  clima: 'campo',
-  planificacion: 'campo',
-  flota: 'campo',
-  oportunidades: 'comercial',
-  'ordenes-compra': 'comercial',
-  'documentos-tecnicos': 'comercial',
-  'technical-documents': 'comercial',
-  'control-gerencial': 'finanzas',
-  finanzas: 'finanzas',
-  equipo: 'finanzas',
-  'hnf-core': 'sistema',
-  'base-maestra': 'sistema',
+  clima: 'operaciones',
+  planificacion: 'operaciones',
+  flota: 'operaciones',
+  oportunidades: 'operaciones',
+  'ordenes-compra': 'operaciones',
+  'jarvis-intake': 'operaciones',
+  'jarvis-intake-hub': 'operaciones',
+  'jarvis-universal-intake': 'operaciones',
+  'hnf-core': 'base_maestra',
+  'base-maestra': 'base_maestra',
+  'documentos-tecnicos': 'base_maestra',
+  'technical-documents': 'base_maestra',
+  equipo: 'base_maestra',
   auditoria: 'sistema',
   usuarios: 'sistema',
+  'jarvis-vault': 'sistema',
+  asistente: 'sistema',
+  'operacion-control': 'sistema',
+  'panel-operativo-vivo': 'sistema',
+  whatsapp: 'sistema',
 };
 
 /** @deprecated Usar COCKPIT_NAV_GROUP */

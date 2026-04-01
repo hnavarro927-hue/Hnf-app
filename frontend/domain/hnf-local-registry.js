@@ -1,45 +1,27 @@
 /**
- * Registro local persistente: clientes + OT (localStorage).
- * Las OT locales se guardan en el mismo store que usa el Kanban (`hnf.ot.flow.v1` → localOts).
+ * Registro local: clientes vía master-data-repository; OT vía flujo operativo (hnf.ot.flow.v1).
+ * Mantiene nombres de export para vistas y demos sin romper imports.
  */
 
 import { applyJarvisRulesToNewOt } from './hnf-ot-jarvis-rules.js';
 import { normalizeOT } from './hnf-ot-normalize.js';
 import { loadFlowStore, saveFlowStore } from './hnf-ot-flow-storage.js';
-
-const CLIENTS_KEY = 'hnf.local.clients.v1';
+import {
+  createClient as mdCreateClient,
+  getClients as mdGetClients,
+  saveClients as mdSaveClients,
+} from './repositories/master-data-repository.js';
 
 export function getClients() {
-  try {
-    const raw = localStorage.getItem(CLIENTS_KEY);
-    const p = raw ? JSON.parse(raw) : [];
-    return Array.isArray(p) ? p : [];
-  } catch {
-    return [];
-  }
+  return mdGetClients();
 }
 
 export function saveClients(list) {
-  const arr = Array.isArray(list) ? list : [];
-  try {
-    localStorage.setItem(CLIENTS_KEY, JSON.stringify(arr));
-  } catch {
-    /* ignore */
-  }
+  mdSaveClients(list);
 }
 
-/**
- * @param {{ nombre: string, id?: string }} data
- */
 export function createClient(data) {
-  const nombre = String(data?.nombre ?? '').trim();
-  if (!nombre) throw new Error('Cliente: nombre obligatorio');
-  const id = String(data?.id ?? '').trim() || `C-${Date.now()}`;
-  const row = { id, nombre, creadoEn: new Date().toISOString() };
-  const clients = getClients();
-  if (clients.some((c) => String(c.id) === id)) throw new Error('Cliente: id ya existe');
-  saveClients([...clients, row]);
-  return row;
+  return mdCreateClient(data);
 }
 
 export function getOTs() {

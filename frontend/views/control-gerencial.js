@@ -8,8 +8,9 @@ import { createHnfControlLynRegistroPanel } from '../components/hnf-control-lyn-
 import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
 import { OT_ESTADO_FLUJO } from '../domain/hnf-ot-operational-model.js';
-import { buildOtOperationalKpis, getEffectiveEstadoOperativo } from '../domain/hnf-ot-state-engine.js';
-import { getAllOTs } from '../domain/ot-repository.js';
+import { getEffectiveEstadoOperativo } from '../domain/hnf-ot-state-engine.js';
+import { getAllOTs } from '../domain/repositories/operations-repository.js';
+import { buildOperationalAnalytics } from '../domain/repositories/analytics-builder.js';
 import { createJarvisCopilot } from '../components/jarvis-copilot.js';
 import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
 import { createJarvisLiveOpsPanel } from '../components/jarvis-live-ops-panel.js';
@@ -50,8 +51,9 @@ export const controlGerencialView = ({
   kpis.classList.add('hnf-ccd__kpis-stack');
 
   const raw = data?.planOts ?? data?.ots?.data ?? [];
-  const list = getAllOTs(Array.isArray(raw) ? raw : []);
-  const opKpi = buildOtOperationalKpis(list);
+  const plan = Array.isArray(raw) ? raw : [];
+  const list = getAllOTs(plan);
+  const opKpi = buildOperationalAnalytics(plan);
 
   const abiertas = list.filter((o) => getEffectiveEstadoOperativo(o) !== 'cerrado');
   const pendientes = list.filter((o) => o.estado === 'pendiente');

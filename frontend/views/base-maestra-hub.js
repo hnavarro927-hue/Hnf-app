@@ -1213,7 +1213,7 @@ export const baseMaestraHubView = ({
   const head = document.createElement('header');
   head.className = 'hnf-base-maestra__head';
   head.innerHTML = `<h1 class="hnf-base-maestra__title">Base maestra operativa</h1>
-    <p class="muted small">Clientes, personas, flota y archivos con revisión antes de aprobar.</p>`;
+    <p class="muted small">Capa de datos estables HNF (clientes, contactos, tiendas/sucursales, personal, catálogos, activos, contratos). La operación diaria está en Ingesta, Mando OT, Clima y Flota; KPIs y alertas en Matriz y Control.</p>`;
 
   const nav = document.createElement('nav');
   nav.className = 'hnf-base-maestra__tabs';

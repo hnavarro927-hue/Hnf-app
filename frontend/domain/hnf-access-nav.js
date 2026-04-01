@@ -6,27 +6,26 @@ import { HNF_OS_NAV_ADMIN } from './hnf-operator-role.js';
 
 const byId = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
 
-/** Orden de negocio para rol con acceso total. */
+/**
+ * Orden visible para rol `*` — tres capas: Matriz/Gerencia, Operaciones, Base maestra, Sistema.
+ * Bandejas duplicadas y Equipo no van al menú principal (acceso por rol o rutas internas).
+ */
 export const HNF_FULL_NAV_ORDER = [
   'matriz-hnf',
-  'centro-control',
+  'control-gerencial',
+  'finanzas',
   'jarvis',
   'ingreso-operativo',
-  'bandeja-canal',
-  'bandeja-romina',
-  'bandeja-gery',
+  'centro-control',
   'lyn-aprobacion',
-  'clima',
   'planificacion',
+  'clima',
   'flota',
   'oportunidades',
   'ordenes-compra',
-  'control-gerencial',
-  'finanzas',
-  'equipo',
   'hnf-core',
-  'documentos-tecnicos',
   'base-maestra',
+  'documentos-tecnicos',
   'auditoria',
   'usuarios',
 ];

@@ -18,8 +18,9 @@ import {
   textoResponsableOperativoMostrado,
 } from '../domain/hnf-operativa-reglas.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
-import { getEffectiveEstadoOperativo, buildOtOperationalKpis, validTargetEstados } from '../domain/hnf-ot-state-engine.js';
-import { getAllOTs, persistEstadoOperativo } from '../domain/ot-repository.js';
+import { getEffectiveEstadoOperativo, validTargetEstados } from '../domain/hnf-ot-state-engine.js';
+import { getAllOTs, persistEstadoOperativo } from '../domain/repositories/operations-repository.js';
+import { buildOperationalKpisFromMergedList } from '../domain/repositories/analytics-builder.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
 
 const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
@@ -250,7 +251,7 @@ export function centroControlAlienView(props) {
   section.setAttribute('aria-label', 'Centro de control operativo');
 
   const jSig = buildJarvisGerencialSignals(ots);
-  const opKpi = buildOtOperationalKpis(ots);
+  const opKpi = buildOperationalKpisFromMergedList(ots);
 
   const command = el('hnf-cc-mando__command hnf-v2-holo-command');
   const cmdLeft = el('');
