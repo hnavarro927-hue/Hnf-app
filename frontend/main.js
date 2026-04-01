@@ -895,6 +895,8 @@ const state = {
   selectedFlotaId: null,
   /** Tras crear solicitud: seleccionar esta id en el próximo loadViewData y limpiar filtro intel. */
   pendingFlotaSelectId: null,
+  /** Tras guardar OT en Clima: mantener selección y limpiar filtro intel si aplica. */
+  pendingOtSelectId: null,
   otFeedback: null,
   flotaFeedback: null,
   adminFeedback: null,
@@ -1034,10 +1036,25 @@ const recomputeOtEconomicsSaved = () => {
   state.otEconomicsSaved = otHasValidSavedEconomics(ot);
 };
 
+/** Antes de loadViewData tras mutar una OT desde Clima. */
+const preserveClimaSelectionForReload = (otId) => {
+  if (state.activeView === 'clima' && otId) state.pendingOtSelectId = String(otId);
+};
+
 const syncSelectedOT = () => {
   if (state.activeView !== 'clima') return;
 
   const ots = state.viewData?.data || [];
+  if (state.pendingOtSelectId) {
+    const want = state.pendingOtSelectId;
+    state.pendingOtSelectId = null;
+    state.climaIntelFilter = null;
+    if (ots.some((o) => o.id === want)) {
+      state.selectedOTId = want;
+      return;
+    }
+  }
+
   if (!ots.length) {
     state.selectedOTId = null;
     return;
@@ -1115,6 +1132,7 @@ const applyIntelNavigationAfterLoad = () => {
 
 const createActions = () => ({
   selectOT: (id) => {
+    state.pendingOtSelectId = null;
     state.selectedOTId = id;
     recomputeOtEconomicsSaved();
     render();
@@ -1144,6 +1162,10 @@ const createActions = () => ({
   /** Llamar antes de reload tras POST crear: evita filtro intel que oculta la fila nueva. */
   scheduleFlotaSelectAfterReload: (id) => {
     if (id) state.pendingFlotaSelectId = String(id);
+  },
+
+  scheduleOtSelectAfterReload: (id) => {
+    if (id) state.pendingOtSelectId = String(id);
   },
 
   setAdminFeedback: (fb) => {
@@ -1181,6 +1203,7 @@ const createActions = () => ({
     try {
       const response = await otService.create(payload);
       state.selectedOTId = response.data.id;
+      preserveClimaSelectionForReload(response.data.id);
       state.otFeedback = {
         type: 'success',
         message: 'OT creada. Seleccionála en el listado para cargar equipos, evidencias y cierre.',
@@ -1247,6 +1270,7 @@ const createActions = () => ({
         type: 'success',
         message: 'Modo, técnico u origen actualizados en el servidor.',
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1266,6 +1290,7 @@ const createActions = () => ({
     try {
       await otService.patchCore(id, body);
       state.otFeedback = { type: 'success', message: 'Datos de la OT actualizados en el servidor.' };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1304,6 +1329,7 @@ const createActions = () => ({
         type: 'success',
         message: `Estado actualizado a «${status}» (guardado en servidor).`,
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1330,6 +1356,7 @@ const createActions = () => ({
         type: 'success',
         message: 'Evidencias guardadas en la OT.',
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1354,6 +1381,7 @@ const createActions = () => ({
         message:
           'Costos e ingreso guardados en el servidor (CLP). La utilidad y el costo total se recalcularon en backend; la vista se actualizó.',
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1377,6 +1405,7 @@ const createActions = () => ({
         type: 'success',
         message: 'Textos de visita guardados en el servidor.',
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1400,6 +1429,7 @@ const createActions = () => ({
         type: 'success',
         message: 'Equipos y evidencias guardados. Podés seguir editando o generar PDF de prueba.',
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1422,6 +1452,7 @@ const createActions = () => ({
     try {
       await otService.enviarInformeCliente(id);
       state.otFeedback = { type: 'success', message: 'Informe enviado correctamente.' };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {
@@ -1443,6 +1474,7 @@ const createActions = () => ({
     render();
     try {
       if (state.activeView === 'clima' && id) {
+        preserveClimaSelectionForReload(id);
         await loadViewData();
       }
       const snap =
@@ -1483,6 +1515,7 @@ const createActions = () => ({
       render();
       try {
         await otService.patchEconomics(id, economicsPayload);
+        preserveClimaSelectionForReload(id);
         await loadViewData();
         fresh = state.viewData?.data?.find((o) => o.id === id) || fresh;
       } catch (error) {
@@ -1545,6 +1578,7 @@ const createActions = () => ({
 
     try {
       await otService.updateStatus(id, { estado: 'cerrada' });
+      preserveClimaSelectionForReload(id);
       await loadViewData();
       fresh = state.viewData?.data?.find((o) => o.id === id) || {
         ...fresh,
@@ -1560,6 +1594,7 @@ const createActions = () => ({
         message:
           'OT cerrada. Informe PDF guardado en la orden; revisá la pestaña abierta.',
       };
+      preserveClimaSelectionForReload(id);
       await loadViewData();
     } catch (error) {
       state.otFeedback = {

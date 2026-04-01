@@ -5,7 +5,7 @@ import '../styles/hnf-enterprise-workspace.css';
  * cabecera → señales → flujo → alta/quick ejecutivo → cuerpo (split / stack).
  * Reutilizable en Control gerencial, Flota y (fase 2) Clima.
  *
- * @param {{ variant: 'control' | 'flota'; ariaLabel?: string }} opts
+ * @param {{ variant: 'control' | 'flota' | 'clima'; ariaLabel?: string }} opts
  */
 export function createHnfEnterpriseWorkspace({ variant, ariaLabel } = {}) {
   const root = document.createElement('section');

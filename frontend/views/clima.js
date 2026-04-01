@@ -1,4 +1,3 @@
-import { createCard } from '../components/card.js';
 import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
@@ -15,7 +14,12 @@ import {
   otHasResponsible,
 } from '../utils/ot-evidence.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
-import { createHnfClimaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
+import {
+  createHnfEnterpriseWorkspace,
+  createHnfEwSplitThree,
+  createHnfEwDetails,
+} from '../components/hnf-enterprise-workspace.js';
+import { createHnfDisciplinaTecnicosPanel } from '../components/hnf-disciplina-tecnicos.js';
 import {
   CLIMA_OT_FLOW_STAGES,
   createFlowStorageKey,
@@ -1174,6 +1178,10 @@ const mountClimaOtDetailFlow = (
     isSavingEquipos,
     isPatchingOtOperational,
     otEconomicsSaved,
+    allOts = [],
+    navigateToView,
+    intelListFilter,
+    intelGuidance,
   }
 ) => {
   const storageKey = detailStageStorageKey(selectedOT.id);
@@ -1281,12 +1289,9 @@ const mountClimaOtDetailFlow = (
   });
   waRow.append(waMeta, btnWa);
 
-  const histBlock = document.createElement('div');
-  histBlock.className = 'ot-saas-block ot-flow-block ot-flow-block--scroll';
-  const histH = document.createElement('h4');
-  histH.textContent = 'Historial reciente';
+  const { details: histDet, body: histBody } = createHnfEwDetails('Historial y auditoría reciente', false);
   const histUl = document.createElement('ul');
-  histUl.className = 'muted small';
+  histUl.className = 'muted small flota-historial';
   histUl.style.paddingLeft = '1.1rem';
   const hist = Array.isArray(selectedOT.historial) ? selectedOT.historial : [];
   if (!hist.length) {
@@ -1300,7 +1305,7 @@ const mountClimaOtDetailFlow = (
       histUl.append(li);
     }
   }
-  histBlock.append(histH, histUl);
+  histBody.append(histUl);
 
   const editGrid = document.createElement('div');
   editGrid.className = 'ot-form__grid';
@@ -1355,7 +1360,7 @@ const mountClimaOtDetailFlow = (
     };
   };
 
-  p0.append(h0, waRow, histBlock, editGrid);
+  p0.append(h0, waRow, histDet, editGrid);
 
   const p1 = mkPanel(1);
   const h1 = document.createElement('h3');
@@ -1836,6 +1841,19 @@ const mountClimaOtDetailFlow = (
     stageRow,
     footer
   );
+  contextRail.append(buildClimaPortalStrip(selectedOT));
+  appendClimaIntelToRail(contextRail, selectedOT, {
+    intelListFilter,
+    intelGuidance,
+    actions,
+    otEconomicsSaved,
+  });
+  const { details: discDet, body: discBody } = createHnfEwDetails('Disciplina técnica (evidencia)', false);
+  discBody.append(
+    createHnfDisciplinaTecnicosPanel(allOts, { navigateToView, variant: 'compact' })
+  );
+  contextRail.append(discDet);
+
   const contextStack = document.createElement('div');
   contextStack.className = 'ot-flow-context-rail';
   contextStack.append(execSummaryAside, jarvisAside);
@@ -1950,6 +1968,114 @@ const buildClimaIntelChecklist = (ot, economicsSaved) => {
   ];
 };
 
+/** Resumen estable para futuro portal cliente (data-* homogéneos con Flota). */
+const buildClimaPortalStrip = (ot) => {
+  const el = document.createElement('div');
+  el.className = 'flota-rail-portal clima-rail-portal';
+  el.setAttribute('data-hnf-portal-surface', 'clima-ot-resumen');
+  if (!ot) {
+    el.innerHTML =
+      '<p class="flota-rail-portal__empty muted">Seleccioná una OT para ver el resumen operativo.</p>';
+    return el;
+  }
+  el.setAttribute('data-ot-id', String(ot.id || ''));
+  el.setAttribute('data-ot-estado', String(ot.estado || ''));
+  const iso = ot.updatedAt ? new Date(ot.updatedAt).toISOString() : '';
+  el.setAttribute('data-ot-updated-at', iso);
+  const k = document.createElement('div');
+  k.className = 'flota-rail-portal__kicker';
+  k.textContent = 'Resumen operativo (base portal cliente)';
+  const dl = document.createElement('dl');
+  dl.className = 'flota-rail-portal__dl';
+  const row = (dt, dd) => {
+    const dtt = document.createElement('dt');
+    dtt.textContent = dt;
+    const ddd = document.createElement('dd');
+    ddd.textContent = dd;
+    dl.append(dtt, ddd);
+  };
+  row('Estado', String(ot.estado || '—'));
+  row('Cliente', ot.cliente || '—');
+  row('Ubicación', [ot.direccion, ot.comuna].filter(Boolean).join(', ') || '—');
+  row('Técnico', ot.tecnicoAsignado || '—');
+  row('Servicio', `${ot.tipoServicio || '—'} / ${ot.subtipoServicio || '—'}`);
+  row('Última actualización', formatAuditTs(ot.updatedAt));
+  el.append(k, dl);
+  return el;
+};
+
+const appendClimaIntelToRail = (parent, ot, { intelListFilter, intelGuidance, actions, otEconomicsSaved }) => {
+  const hasIntelFilter = intelFilterActiveKeys(intelListFilter).length > 0;
+  const hasIntelGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
+  if (!hasIntelFilter && !hasIntelGuide) return;
+  const intelStrip = document.createElement('div');
+  intelStrip.className = 'intel-guide-stack flota-rail-intel';
+  if (hasIntelGuide) {
+    const g = document.createElement('div');
+    g.className = 'intel-guide-banner';
+    const title = document.createElement('div');
+    title.className = 'intel-guide-banner__title';
+    title.textContent = 'Inteligencia operativa';
+    g.append(title);
+    const mkLine = (k, v) => {
+      if (!v) return;
+      const lab = document.createElement('div');
+      lab.className = 'intel-guide-banner__k';
+      lab.textContent = k;
+      const p = document.createElement('p');
+      p.className = 'intel-guide-banner__p';
+      p.textContent = v;
+      g.append(lab, p);
+    };
+    mkLine('Por qué estás acá', intelGuidance.why);
+    mkLine('Qué corregir', intelGuidance.fix);
+    mkLine('Cierra cuando', intelGuidance.unlock);
+    if (intelGuidance.recordLabel) {
+      mkLine('Registro', String(intelGuidance.recordLabel));
+    }
+    intelStrip.append(g);
+    const chkItems = buildClimaIntelChecklist(ot, otEconomicsSaved);
+    if (chkItems.length) {
+      const box = document.createElement('div');
+      box.className = 'intel-guide-checklist';
+      const hh = document.createElement('div');
+      hh.className = 'intel-guide-checklist__h';
+      hh.textContent = 'Checklist';
+      const ul = document.createElement('ul');
+      ul.className = 'intel-guide-checklist__ul';
+      chkItems.forEach(({ ok, label }) => {
+        const li = document.createElement('li');
+        li.className = ok ? 'intel-guide-checklist__li is-ok' : 'intel-guide-checklist__li is-pend';
+        li.textContent = `${ok ? '✓ ' : '○ '}${label}`;
+        ul.append(li);
+      });
+      box.append(hh, ul);
+      intelStrip.append(box);
+    }
+  }
+  if (hasIntelFilter) {
+    const ban = document.createElement('div');
+    ban.className = 'intel-filter-banner intel-filter-banner--nested';
+    const lab = document.createElement('span');
+    lab.className = 'intel-filter-banner__text';
+    lab.textContent = 'Listado filtrado desde inteligencia.';
+    ban.append(lab);
+    intelStrip.append(ban);
+  }
+  const act = document.createElement('div');
+  act.className = 'intel-guide-actions';
+  const clr = document.createElement('button');
+  clr.type = 'button';
+  clr.className = 'secondary-button';
+  clr.textContent = hasIntelFilter ? 'Quitar filtro y guía' : 'Cerrar guía';
+  clr.addEventListener('click', () =>
+    hasIntelFilter ? actions?.clearIntelUiFilters?.() : actions?.dismissIntelGuidance?.()
+  );
+  act.append(clr);
+  intelStrip.append(act);
+  parent.append(intelStrip);
+};
+
 export const climaView = ({
   data,
   actions,
@@ -1970,17 +2096,14 @@ export const climaView = ({
   intelListFilter,
   intelGuidance,
   isPatchingOtOperational,
+  navigateToView,
 } = {}) => {
-  const section = document.createElement('section');
-  section.className = 'ot-workspace hnf-op-view hnf-op-view--clima';
-
   const header = document.createElement('div');
-  header.className = 'module-header';
+  header.className = 'module-header flota-module-header--enterprise';
   header.innerHTML =
-    '<h2>Clima · ejecución OT</h2><p class="muted">Módulo técnico <strong class="hnf-accent-clima">HVAC</strong>: precisión de campo. Orden en pantalla: <strong>A</strong> completar ahora · <strong>B</strong> datos automáticos · <strong>C</strong> evidencia visita · <strong>D</strong> cierre. Flujo: ingreso → Bandeja → asignación → <strong>ejecución acá</strong> → informe → cierre.</p>';
+    '<h2>Clima · ejecución OT</h2><p class="muted flota-module-header__lead">HVAC HNF: bandeja a la izquierda, ficha por etapas al centro, contexto + Jarvis a la derecha. Cierre sujeto a evidencias y economía persistida en servidor.</p>';
 
   const flowStrip = createHnfOperationalFlowStrip(3);
-  const climaIdentity = createHnfClimaOpsIdentityCard();
 
   if (feedback?.message) {
     const notice = document.createElement('div');
@@ -2045,32 +2168,13 @@ export const climaView = ({
   }).length;
   const eqTotal = ots.reduce((t, o) => t + (o.equipos?.length || 0), 0);
 
-  const cards = document.createElement('div');
-  cards.className = 'cards';
-  [
-    {
-      title: 'Órdenes de trabajo',
-      description: 'Resumen rápido.',
-      items: [
-        `Total: ${ots.length}`,
-        `Nueva / asignada: ${pendingCount}`,
-        `En proceso / validación: ${inProgressCount}`,
-      ],
-    },
-    {
-      title: 'Equipos',
-      description: 'En todas las visitas.',
-      items: [`Equipos cargados: ${eqTotal}`, `Tope por visita: ${MAX_EQUIPOS}`],
-    },
-    {
-      title: 'Antes de cerrar',
-      description: 'Requisitos.',
-      items: [
-        'Fotos antes, durante y después por equipo',
-        'Checklist completo y texto de resumen de visita',
-      ],
-    },
-  ].forEach((item) => cards.append(createCard(item)));
+  const ew = createHnfEnterpriseWorkspace({
+    variant: 'clima',
+    ariaLabel: 'Clima · órdenes de trabajo',
+  });
+  ew.root.classList.add('ot-workspace', 'hnf-op-view', 'hnf-op-view--clima');
+  ew.header.classList.add('hnf-clima__hero');
+  ew.body.classList.add('hnf-clima__body');
 
   const formCard = document.createElement('article');
   formCard.className = 'ot-form-card ot-flow-app ot-flow-app--create';
@@ -2335,110 +2439,68 @@ export const climaView = ({
 
   formCard.append(formHeader, createProgress, createJarvis, createStageBody, createFooter);
 
-  const overview = document.createElement('div');
-  overview.className = 'hnf-cc-split-pane hnf-cc-split-pane--clima';
+  const { details: altaOtDetails, body: altaOtBody } = createHnfEwDetails('Crear nueva OT (etapas)', false);
+  altaOtBody.append(formCard);
+
+  const { split: workspaceSplit, railNav, main: workspaceMain, railCtx } = createHnfEwSplitThree();
+  workspaceSplit.classList.add('hnf-cc-split-pane--clima-enterprise');
+  workspaceMain.classList.add('hnf-cc-split-pane__center');
 
   const listCard = document.createElement('article');
   listCard.className = 'ot-list-card ot-list-card--split-rail hnf-cc-split-pane__rail hnf-cc-split-pane__rail--left';
   listCard.innerHTML =
-    '<div class="ot-list-card__header"><h3>OT activas</h3><p class="muted">Panel izquierdo · Urgencias 4h RM / 12h regiones. Centro: flujo por etapas. Derecha: resumen + Jarvis.</p></div>';
+    '<div class="ot-list-card__header"><h3 class="flota-list-heading">Bandeja OT</h3><p class="muted small">Filtrá por cliente. La fila permanece seleccionada tras guardar en servidor.</p></div>';
 
-  const hasIntelFilter = intelFilterActiveKeys(intelListFilter).length > 0;
-  const hasIntelGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
-  if (hasIntelFilter || hasIntelGuide) {
-    const stack = document.createElement('div');
-    stack.className = 'intel-guide-stack';
-    if (hasIntelGuide) {
-      const g = document.createElement('div');
-      g.className = 'intel-guide-banner';
-      const title = document.createElement('div');
-      title.className = 'intel-guide-banner__title';
-      title.textContent = 'Resolución guiada · inteligencia operativa';
-      g.append(title);
-      const mkLine = (k, v) => {
-        if (!v) return;
-        const lab = document.createElement('div');
-        lab.className = 'intel-guide-banner__k';
-        lab.textContent = k;
-        const p = document.createElement('p');
-        p.className = 'intel-guide-banner__p';
-        p.textContent = v;
-        g.append(lab, p);
-      };
-      mkLine('Por qué estás acá', intelGuidance.why);
-      mkLine('Qué corregir', intelGuidance.fix);
-      mkLine('Cierra cuando', intelGuidance.unlock);
-      if (intelGuidance.recordLabel) {
-        mkLine('Registro', String(intelGuidance.recordLabel));
-      }
-      stack.append(g);
-      const chkItems = buildClimaIntelChecklist(selectedOT, otEconomicsSaved);
-      if (chkItems.length) {
-        const box = document.createElement('div');
-        box.className = 'intel-guide-checklist';
-        const hh = document.createElement('div');
-        hh.className = 'intel-guide-checklist__h';
-        hh.textContent = 'Checklist (reglas actuales)';
-        const ul = document.createElement('ul');
-        ul.className = 'intel-guide-checklist__ul';
-        chkItems.forEach(({ ok, label }) => {
-          const li = document.createElement('li');
-          li.className = ok ? 'intel-guide-checklist__li is-ok' : 'intel-guide-checklist__li is-pend';
-          li.textContent = `${ok ? '✓ ' : '○ '}${label}`;
-          ul.append(li);
-        });
-        box.append(hh, ul);
-        stack.append(box);
-      }
-    }
-    if (hasIntelFilter) {
-      const ban = document.createElement('div');
-      ban.className = 'intel-filter-banner intel-filter-banner--nested';
-      const lab = document.createElement('span');
-      lab.className = 'intel-filter-banner__text';
-      lab.textContent = 'Listado filtrado desde el Centro de inteligencia.';
-      ban.append(lab);
-      stack.append(ban);
-    }
-    const act = document.createElement('div');
-    act.className = 'intel-guide-actions';
-    const clr = document.createElement('button');
-    clr.type = 'button';
-    clr.className = 'secondary-button';
-    clr.textContent = hasIntelFilter ? 'Quitar filtro y guía' : 'Cerrar guía';
-    clr.addEventListener('click', () =>
-      hasIntelFilter ? actions?.clearIntelUiFilters?.() : actions?.dismissIntelGuidance?.()
-    );
-    act.append(clr);
-    stack.append(act);
-    listCard.insertBefore(stack, listCard.firstChild);
-  }
+  const filtTitle = document.createElement('div');
+  filtTitle.className = 'flota-desk-heading';
+  filtTitle.innerHTML =
+    '<strong>Listado</strong> <span class="muted small">· Fuente: servidor · SLA en chips</span>';
+
+  const filtRow = document.createElement('div');
+  filtRow.className = 'flota-filters';
+  const fCliente = document.createElement('input');
+  fCliente.type = 'search';
+  fCliente.placeholder = 'Filtrar por cliente (contiene)';
+  filtRow.append(fCliente);
 
   const list = document.createElement('div');
   list.className = 'ot-list ot-list--split-pane';
 
-  if (opRole === 'flota') {
-    const empty = document.createElement('p');
-    empty.className = 'muted';
-    empty.textContent =
-      'Tu bandeja de OT de Flota está en el módulo Flota. Este listado es para operación Clima / HVAC.';
-    list.append(empty);
-  } else if (!ots.length) {
-    const empty = document.createElement('p');
-    empty.className = 'muted';
-    empty.textContent =
-      integrationStatus === 'sin conexión'
-        ? 'Sin conexión al servidor: no hay órdenes cargadas. Revisá la red y tocá «Actualizar datos».'
-        : 'No hay OT. Creá una visita arriba o sincronizá cuando el servidor esté disponible.';
-    list.append(empty);
-  } else if (!listOts.length) {
-    const empty = document.createElement('p');
-    empty.className = 'muted';
-    empty.textContent =
-      'Ninguna OT coincide con el filtro inteligente. Quitá el filtro o ajustá criterios en el módulo.';
-    list.append(empty);
-  } else {
-    listOts.forEach((item) => {
+  const renderOtList = () => {
+    list.innerHTML = '';
+    const qCliente = fCliente.value.trim().toLowerCase();
+    const rows = qCliente.length
+      ? listOts.filter((o) => String(o.cliente || '').toLowerCase().includes(qCliente))
+      : listOts;
+
+    if (opRole === 'flota') {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent =
+        'Tu bandeja de OT de Flota está en el módulo Flota. Este listado es para operación Clima / HVAC.';
+      list.append(empty);
+      return;
+    }
+    if (!ots.length) {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent =
+        integrationStatus === 'sin conexión'
+          ? 'Sin conexión al servidor: no hay órdenes cargadas. Revisá la red y tocá «Actualizar datos».'
+          : 'No hay OT. Desplegá «Crear nueva OT» arriba o sincronizá cuando el servidor esté disponible.';
+      list.append(empty);
+      return;
+    }
+    if (!rows.length) {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent = qCliente.length
+        ? 'Ninguna OT coincide con el texto de cliente.'
+        : 'Ninguna OT coincide con el filtro inteligente. Quitá el filtro o ajustá criterios en el módulo.';
+      list.append(empty);
+      return;
+    }
+    rows.forEach((item) => {
       const button = document.createElement('button');
       button.type = 'button';
       const isTarget = intelGuidance?.recordLabel && item.id === intelGuidance.recordLabel;
@@ -2479,28 +2541,40 @@ export const climaView = ({
       button.addEventListener('click', () => actions.selectOT(item.id));
       list.append(button);
     });
-  }
+    queueMicrotask(() => {
+      const t =
+        list.querySelector('.ot-list__item.is-intel-target') || list.querySelector('.ot-list__item.is-active');
+      t?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    });
+  };
+
+  fCliente.addEventListener('input', () => renderOtList());
 
   listCard.append(list);
-  queueMicrotask(() => {
-    const t = list.querySelector('.ot-list__item.is-intel-target') || list.querySelector('.ot-list__item.is-active');
-    t?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-  });
+  railNav.append(filtTitle, filtRow, listCard);
 
-  const contextRail = document.createElement('aside');
-  contextRail.className = 'hnf-cc-split-pane__rail hnf-cc-split-pane__rail--right ot-context-rail';
-  contextRail.setAttribute('aria-label', 'Resumen ejecutivo y copiloto Jarvis');
+  const contextRail = railCtx;
+  contextRail.classList.add('hnf-cc-split-pane__rail', 'hnf-cc-split-pane__rail--right', 'ot-context-rail');
+  contextRail.setAttribute('aria-label', 'Portal, inteligencia, disciplina, resumen y Jarvis');
 
   const detailCard = document.createElement('article');
   detailCard.className = 'ot-detail-card ot-saas-dashboard ot-detail-card--split-workspace hnf-cc-split-pane__center';
 
   if (!selectedOT) {
     detailCard.innerHTML =
-      '<h3>Detalle de la visita</h3><p class="muted">Creá una orden arriba o elegí una del listado a la izquierda.</p>';
+      '<h3>Detalle de la visita</h3><p class="muted">Desplegá «Crear nueva OT» arriba o elegí una fila en la bandeja.</p>';
+    contextRail.replaceChildren();
+    contextRail.append(buildClimaPortalStrip(null));
+    appendClimaIntelToRail(contextRail, null, {
+      intelListFilter,
+      intelGuidance,
+      actions,
+      otEconomicsSaved,
+    });
     const emptyCtx = document.createElement('p');
     emptyCtx.className = 'ot-context-rail__empty';
     emptyCtx.textContent =
-      'Seleccioná una OT para ver cliente, meta de informe (2 días hábiles), estado PDF y sugerencias Jarvis.';
+      'Seleccioná una OT para resumen tipo portal, bloqueos, disciplina técnica, ejecutivo y Jarvis por etapa.';
     contextRail.append(emptyCtx);
   } else {
     mountClimaOtDetailFlow(detailCard, contextRail, {
@@ -2513,10 +2587,15 @@ export const climaView = ({
       isSavingEquipos,
       isPatchingOtOperational,
       otEconomicsSaved,
+      allOts: ots,
+      navigateToView,
+      intelListFilter,
+      intelGuidance,
     });
   }
 
-  overview.append(listCard, detailCard, contextRail);
+  workspaceMain.append(detailCard);
+  ew.body.append(workspaceSplit);
 
   const offlineBanner =
     integrationStatus === 'sin conexión'
@@ -2530,19 +2609,33 @@ export const climaView = ({
         })()
       : null;
 
-  const heroBand = document.createElement('div');
-  heroBand.className = 'hnf-clima__hero';
-  heroBand.append(header, flowStrip, climaIdentity, ...(offlineBanner ? [offlineBanner] : []), climaToolbar);
+  ew.header.append(header);
 
-  const statsBand = document.createElement('div');
-  statsBand.className = 'hnf-clima__stats';
-  statsBand.append(cards);
+  const signalsStrip = document.createElement('div');
+  signalsStrip.className = 'hnf-ew-signals-strip';
+  const p1 = document.createElement('span');
+  p1.className = 'hnf-ew-pill-metric';
+  p1.textContent = `OT en servidor: ${ots.length}`;
+  const p2 = document.createElement('span');
+  p2.className = 'hnf-ew-pill-metric';
+  p2.textContent = `Nueva/asignada: ${pendingCount}`;
+  const p3 = document.createElement('span');
+  p3.className = 'hnf-ew-pill-metric';
+  p3.textContent = `En curso: ${inProgressCount}`;
+  const p4 = document.createElement('span');
+  p4.className = 'hnf-ew-pill-metric';
+  p4.textContent = `Equipos (suma): ${eqTotal}`;
+  const p5 = document.createElement('span');
+  p5.className = 'hnf-ew-pill-metric';
+  p5.textContent = `Integración: ${integrationStatus || '—'}`;
+  signalsStrip.append(p1, p2, p3, p4, p5);
+  ew.signals.append(...(offlineBanner ? [offlineBanner] : []), signalsStrip);
 
-  const workBand = document.createElement('div');
-  workBand.className = 'hnf-clima__body';
-  workBand.append(formCard, overview);
+  ew.flow.append(flowStrip);
 
-  section.append(heroBand, statsBand, workBand);
+  ew.quick.append(altaOtDetails, climaToolbar);
 
-  return section;
+  renderOtList();
+
+  return ew.root;
 };

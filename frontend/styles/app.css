@@ -944,6 +944,10 @@ select option {
   min-height: min(68vh, 760px);
 }
 
+.hnf-cc-split-pane--clima-enterprise {
+  min-height: min(64vh, 780px);
+}
+
 .hnf-cc-split-pane__rail {
   min-height: 0;
   display: flex;

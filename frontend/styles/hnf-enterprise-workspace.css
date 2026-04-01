@@ -60,6 +60,11 @@
   background: linear-gradient(180deg, rgba(34, 211, 238, 0.06) 0%, var(--surface-soft, rgba(15, 23, 42, 0.45)) 100%);
 }
 
+.hnf-ew--clima .hnf-ew__quick {
+  border-color: rgba(56, 189, 248, 0.22);
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.06) 0%, var(--surface-soft, rgba(15, 23, 42, 0.45)) 100%);
+}
+
 .hnf-ew__body {
   display: flex;
   flex-direction: column;
@@ -133,7 +138,8 @@
 }
 
 @media (max-width: 899px) {
-  .hnf-ew--flota .hnf-ew-split__cell--nav .ot-list.ot-list--split-pane {
+  .hnf-ew--flota .hnf-ew-split__cell--nav .ot-list.ot-list--split-pane,
+  .hnf-ew--clima .hnf-ew-split__cell--nav .ot-list.ot-list--split-pane {
     max-height: min(36vh, 320px);
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -142,12 +148,16 @@
 
 .hnf-ew--flota .hnf-ew-split__cell--nav .ot-list-card,
 .hnf-ew--flota .hnf-ew-split__cell--main .ot-detail-card,
-.hnf-ew--flota .hnf-ew-split__cell--context {
+.hnf-ew--flota .hnf-ew-split__cell--context,
+.hnf-ew--clima .hnf-ew-split__cell--nav .ot-list-card,
+.hnf-ew--clima .hnf-ew-split__cell--main .ot-detail-card,
+.hnf-ew--clima .hnf-ew-split__cell--context {
   flex: 1;
   min-height: 0;
 }
 
-.hnf-ew--flota .hnf-ew-split__cell--main.hnf-cc-split-pane__center {
+.hnf-ew--flota .hnf-ew-split__cell--main.hnf-cc-split-pane__center,
+.hnf-ew--clima .hnf-ew-split__cell--main.hnf-cc-split-pane__center {
   display: flex;
   flex-direction: column;
   min-width: 0;
