@@ -2320,6 +2320,8 @@ export const climaView = ({
   g0m.append(otcwWrapField(suLb));
   b0.append(g0m);
   panel0.append(g0, d0);
+  const ctLbl = panel0.querySelector('.hnf-otcw-field[data-otcw-field="contactoTerreno"] .form-field__label');
+  if (ctLbl) ctLbl.textContent = 'Contacto';
 
   const panel1 = mkPanel(1);
   const g1 = document.createElement('div');
@@ -2467,19 +2469,19 @@ export const climaView = ({
   rtLb.className = 'form-field hnf-otcw-field__inner';
   rtLb.append(
     Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Descripción corta' }),
-    Object.assign(document.createElement('textarea'), { name: 'resumenTrabajo', rows: 5, className: 'hnf-otcw-textarea' })
+    Object.assign(document.createElement('textarea'), { name: 'resumenTrabajo', rows: 3, className: 'hnf-otcw-textarea' })
   );
   const rqLb = document.createElement('label');
   rqLb.className = 'form-field hnf-otcw-field__inner';
   rqLb.append(
     Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Requerimiento del cliente' }),
-    Object.assign(document.createElement('textarea'), { name: 'reqClienteWs', rows: 5, className: 'hnf-otcw-textarea' })
+    Object.assign(document.createElement('textarea'), { name: 'reqClienteWs', rows: 3, className: 'hnf-otcw-textarea' })
   );
   const oiLb = document.createElement('label');
   oiLb.className = 'form-field hnf-otcw-field__inner';
   oiLb.append(
     Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Observación interna' }),
-    Object.assign(document.createElement('textarea'), { name: 'observacionesInternaWs', rows: 5, className: 'hnf-otcw-textarea' })
+    Object.assign(document.createElement('textarea'), { name: 'observacionesInternaWs', rows: 3, className: 'hnf-otcw-textarea' })
   );
   const { details: d3, body: b3 } = createHnfEwDetails('Más datos', false);
   const g3m = document.createElement('div');
@@ -2522,7 +2524,7 @@ export const climaView = ({
   const review = document.createElement('div');
   review.className = 'hnf-otcw-review';
   review.innerHTML =
-    '<h3 class="hnf-otcw-review__title">Resumen</h3><ul class="hnf-otcw-review__list"></ul><div class="hnf-otcw-review__checks muted" role="status"></div>';
+    '<ul class="hnf-otcw-review__list" aria-label="Vista previa"></ul><p class="hnf-otcw-review__checks muted" role="status"></p>';
   const reviewList = review.querySelector('.hnf-otcw-review__list');
   const reviewChecks = review.querySelector('.hnf-otcw-review__checks');
   const refreshReview = () => {
@@ -2540,12 +2542,7 @@ export const climaView = ({
     add('Servicio', `${form.elements.tipoServicio?.value || ''} / ${form.elements.subtipoServicio?.value || ''}`);
     add('Fecha', `${form.elements.fecha?.value || ''} ${form.elements.hora?.value || ''}`);
     add('Pedido / técnico', `${form.elements.origenPedidoWs?.value || ''} · ${resolveTecnicoFromAltaForm(form)}`);
-    if (reviewChecks) {
-      const v = validateOtCreateWorkspaceSubmit(form);
-      reviewChecks.textContent = v.ok
-        ? 'Listo para crear: datos mínimos completos.'
-        : `Faltan datos: ${Object.values(v.errors).join(' ')}`;
-    }
+    if (reviewChecks) reviewChecks.textContent = '';
   };
   panel5.append(review);
 
@@ -2557,7 +2554,7 @@ export const climaView = ({
   cwTitleRow.className = 'hnf-otcw__title-row';
   const cwH1 = document.createElement('h2');
   cwH1.className = 'hnf-otcw__title';
-  cwH1.textContent = 'Nueva orden de trabajo';
+  cwH1.textContent = 'Nueva OT';
   const btnCloseCreate = document.createElement('button');
   btnCloseCreate.type = 'button';
   btnCloseCreate.className = 'secondary-button hnf-otcw__close';
@@ -2574,17 +2571,7 @@ export const climaView = ({
   progFill.className = 'hnf-otcw__progress-fill';
   progBar.append(progFill);
 
-  const createStepBanner = document.createElement('div');
-  createStepBanner.className = 'hnf-otcw__banner';
-  const createStepTitle = document.createElement('strong');
-  const createStepSub = document.createElement('span');
-  createStepSub.className = 'hnf-otcw__banner-sub';
-  createStepBanner.append(createStepTitle, document.createTextNode(' '), createStepSub);
-
-  const paintCreateStepBanner = () => {
-    const st = OT_CREATE_WORKSPACE_STAGES[createStageIdx];
-    createStepTitle.textContent = `Paso ${createStageIdx + 1} de ${OT_CREATE_WORKSPACE_STAGE_COUNT}`;
-    createStepSub.textContent = st ? `· ${st.label}` : '';
+  const paintCreateProgress = () => {
     const pct = ((createStageIdx + 1) / OT_CREATE_WORKSPACE_STAGE_COUNT) * 100;
     progFill.style.width = `${pct}%`;
   };
@@ -2607,8 +2594,6 @@ export const climaView = ({
   btnDraft.type = 'button';
   btnDraft.className = 'secondary-button';
   btnDraft.textContent = 'Guardar borrador';
-  const createMsg = document.createElement('p');
-  createMsg.className = 'hnf-otcw__footer-msg muted';
   const createBtnNext = document.createElement('button');
   createBtnNext.type = 'button';
   createBtnNext.className = 'primary-button';
@@ -2621,7 +2606,31 @@ export const climaView = ({
   const footerRight = document.createElement('div');
   footerRight.className = 'hnf-otcw__footer-right';
   footerRight.append(createBtnNext, submitButton);
-  createFooter.append(createBtnPrev, btnDraft, createMsg, footerRight);
+  createFooter.append(createBtnPrev, btnDraft, footerRight);
+
+  const focusFirstOtcwInput = () => {
+    requestAnimationFrame(() => {
+      const stage = form.querySelector('.hnf-otcw-stage:not([hidden])');
+      if (!stage) return;
+      const el = stage.querySelector(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      );
+      el?.focus?.({ preventScroll: true });
+    });
+  };
+
+  const refreshOtcwActionState = () => {
+    const last = OT_CREATE_WORKSPACE_STAGE_COUNT - 1;
+    if (createStageIdx < last) {
+      const v = validateOtCreateWorkspaceStage(form, createStageIdx);
+      createBtnNext.disabled = !v.ok;
+      submitButton.disabled = Boolean(isSubmitting);
+    } else {
+      createBtnNext.disabled = true;
+      const sv = validateOtCreateWorkspaceSubmit(form);
+      submitButton.disabled = Boolean(isSubmitting) || !sv.ok;
+    }
+  };
 
   const setCreateStage = (idx) => {
     const n = Math.max(0, Math.min(OT_CREATE_WORKSPACE_STAGE_COUNT - 1, idx));
@@ -2636,14 +2645,15 @@ export const climaView = ({
     createBtnPrev.disabled = n === 0;
     createBtnNext.hidden = n === OT_CREATE_WORKSPACE_STAGE_COUNT - 1;
     submitButton.hidden = n !== OT_CREATE_WORKSPACE_STAGE_COUNT - 1;
-    createMsg.textContent = '';
     createProgress.querySelectorAll('.hnf-otcw__step').forEach((btn, i) => {
       btn.classList.toggle('is-active', i === n);
       btn.classList.toggle('is-done', i < n);
       btn.disabled = i > n;
     });
     if (n === OT_CREATE_WORKSPACE_STAGE_COUNT - 1) refreshReview();
-    paintCreateStepBanner();
+    paintCreateProgress();
+    refreshOtcwActionState();
+    focusFirstOtcwInput();
   };
 
   OT_CREATE_WORKSPACE_STAGES.forEach((st, i) => {
@@ -2658,7 +2668,7 @@ export const climaView = ({
     createProgress.append(btn);
   });
 
-  cwHeader.append(cwTitleRow, createProgress, progBar, createStepBanner);
+  cwHeader.append(cwTitleRow, createProgress, progBar);
 
   const createDialog = document.createElement('dialog');
   createDialog.className = 'hnf-otcw-dialog';
@@ -2676,16 +2686,12 @@ export const climaView = ({
   createBtnPrev.addEventListener('click', () => setCreateStage(createStageIdx - 1));
   btnDraft.addEventListener('click', () => {
     writeCreateOtDraft(form, eqHost);
-    createMsg.textContent = 'Borrador guardado en este equipo.';
     actions?.showFeedback?.({ type: 'success', message: 'Borrador guardado.' });
   });
   createBtnNext.addEventListener('click', () => {
     const v = validateOtCreateWorkspaceStage(form, createStageIdx);
     if (!v.ok) {
       otcwApplyFieldErrors(form, v.errors);
-      const first = Object.values(v.errors)[0];
-      createMsg.textContent = first || 'Revisá los campos marcados.';
-      actions?.showFeedback?.({ type: 'error', message: first || 'Hay campos obligatorios.' });
       return;
     }
     setCreateStage(createStageIdx + 1);
@@ -2693,14 +2699,13 @@ export const climaView = ({
 
   attachCreateOtAutocomplete(form, ots);
   applyCreateOtDraft(form, readCreateOtDraft(), eqHost);
-  form.addEventListener('input', () => {
+  const onFormLive = () => {
+    refreshOtcwActionState();
     window.clearTimeout(draftSaveTimer);
     draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form, eqHost), 450);
-  });
-  form.addEventListener('change', () => {
-    window.clearTimeout(draftSaveTimer);
-    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form, eqHost), 450);
-  });
+  };
+  form.addEventListener('input', onFormLive);
+  form.addEventListener('change', onFormLive);
 
   setCreateStage(createStageIdx);
 
@@ -2711,9 +2716,6 @@ export const climaView = ({
       const target = getOtCreateWorkspaceStageForSubmitErrors(v.errors);
       setCreateStage(target);
       otcwApplyFieldErrors(form, v.errors);
-      const first = Object.values(v.errors)[0];
-      createMsg.textContent = first || 'Revisá los campos marcados.';
-      actions?.showFeedback?.({ type: 'error', message: first || 'Completá los datos obligatorios.' });
       return;
     }
     const equipos = collectEquiposFromWorkspace(eqHost);
@@ -2732,7 +2734,13 @@ export const climaView = ({
   btnOpenCreate.type = 'button';
   btnOpenCreate.className = 'primary-button hnf-clima-action-bar__primary';
   btnOpenCreate.textContent = 'Crear nueva OT';
-  btnOpenCreate.addEventListener('click', () => createDialog.showModal());
+  btnOpenCreate.addEventListener('click', () => {
+    createDialog.showModal();
+    requestAnimationFrame(() => {
+      refreshOtcwActionState();
+      focusFirstOtcwInput();
+    });
+  });
   createActionBar.append(btnOpenCreate, climaToolbar);
 
   const { split: workspaceSplit, railNav, main: workspaceMain, railCtx } = createHnfEwSplitThree();
