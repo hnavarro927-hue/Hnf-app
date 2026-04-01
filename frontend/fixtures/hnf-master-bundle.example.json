@@ -1,81 +1,236 @@
 {
   "clients": [
     {
-      "id": "CLI-DEMO-1",
-      "nombre": "Cliente demo importación",
-      "rut": "",
-      "estado": "activo"
+      "id": "CLI-PUMA",
+      "nombre": "Puma Chile SpA",
+      "rut": "96.000.000-0",
+      "unidadNegocio": "mixto",
+      "estado": "activo",
+      "notas": "Retail · outlet/store/CM · contactos por tienda"
+    },
+    {
+      "id": "CLI-GRAN",
+      "nombre": "Granleasing SpA",
+      "rut": "77.111.111-1",
+      "unidadNegocio": "flota",
+      "estado": "activo",
+      "notas": "Flota · histórico solicitudes"
     }
   ],
   "clientContacts": [
     {
-      "id": "CNT-1",
-      "clientId": "CLI-DEMO-1",
-      "nombre": "Contacto demo",
-      "email": "contacto@ejemplo.cl",
-      "rol": "tienda"
+      "id": "CNT-PUMA-OUT",
+      "clientId": "CLI-PUMA",
+      "nombre": "Alejandra Lira",
+      "cargo": "Contacto tiendas / outlet / store",
+      "email": "alejandra.lira@puma.com",
+      "telefono": "+56 9 0000 0000",
+      "canalPreferido": "correo",
+      "scope": "stores",
+      "sucursalRelacionadaId": "BR-PUMA-OUT-1",
+      "notas": "Coordinación operativa tiendas"
+    },
+    {
+      "id": "CNT-PUMA-CM",
+      "clientId": "CLI-PUMA",
+      "nombre": "Liliana Rivera",
+      "cargo": "Contacto casa matriz",
+      "email": "liliana.rivera@puma.com",
+      "telefono": "+56 2 2000 0000",
+      "canalPreferido": "correo",
+      "scope": "casa_matriz",
+      "notas": "Pisos 1, showroom, piso 13"
     }
   ],
   "branchesOrStores": [
     {
-      "id": "BR-1",
-      "clientId": "CLI-DEMO-1",
-      "nombre": "Sucursal demo",
-      "tipoTienda": "store",
+      "id": "BR-PUMA-OUT-1",
+      "clientId": "CLI-PUMA",
+      "nombre": "Puma Outlet Parque Arauco",
+      "tipo": "outlet",
       "region": "RM",
-      "ciudad": "Santiago"
+      "ciudad": "Las Condes",
+      "direccion": "Av. Presidente Kennedy 5413",
+      "zonaOperativa": "RM Oriente",
+      "contactoPrincipalId": "CNT-PUMA-OUT",
+      "correoLocal": "tienda.outlet@puma.cl",
+      "dmNombre": "DM Outlet",
+      "dmEmail": "dm.outlet@puma.com",
+      "assistantNombre": "Asistente Outlet",
+      "assistantEmail": "asist.outlet@puma.com",
+      "estado": "activo",
+      "notas": "Frecuencia bimensual HVAC"
+    },
+    {
+      "id": "BR-PUMA-CM",
+      "clientId": "CLI-PUMA",
+      "nombre": "Puma Casa Matriz",
+      "tipo": "casa_matriz",
+      "region": "RM",
+      "ciudad": "Santiago",
+      "direccion": "Isidora Goyenechea 3520",
+      "zonaOperativa": "RM",
+      "contactoPrincipalId": "CNT-PUMA-CM",
+      "correoLocal": "cm@puma.cl",
+      "dmNombre": "DM CM",
+      "dmEmail": "dm.cm@puma.com",
+      "assistantNombre": "—",
+      "assistantEmail": "—",
+      "estado": "activo",
+      "notas": "Piso 1, showroom, piso 13"
     }
   ],
   "contracts": [
     {
-      "id": "CTR-1",
-      "clientId": "CLI-DEMO-1",
-      "nombre": "Contrato marco demo",
-      "vigenteDesde": "2026-01-01"
+      "id": "CTR-PUMA-2026",
+      "clientId": "CLI-PUMA",
+      "branchId": "BR-PUMA-OUT-1",
+      "nombreContrato": "Mantención HVAC outlet",
+      "linea": "clima",
+      "modalidadFacturacion": "mensual",
+      "moneda": "CLP",
+      "montoBase": 450000,
+      "frecuenciaFacturacion": "mensual",
+      "vigenciaInicio": "2026-01-01",
+      "vigenciaFin": "2026-12-31",
+      "observaciones": "Incluye visitas según matriz frecuencias"
     }
   ],
   "maintenanceFrequencies": [
     {
-      "id": "FREQ-BI",
-      "label": "bimensual",
-      "monthsBetween": 2
+      "id": "MF-PUMA-OUT",
+      "clientId": "CLI-PUMA",
+      "branchId": "BR-PUMA-OUT-1",
+      "linea": "clima",
+      "frecuencia": "bimensual",
+      "detalle": "Mantención preventiva split y extracción",
+      "mesReferencia": "2026-03",
+      "activo": true
+    },
+    {
+      "id": "MF-PUMA-CM",
+      "clientId": "CLI-PUMA",
+      "branchId": "BR-PUMA-CM",
+      "linea": "clima",
+      "frecuencia": "bimensual",
+      "detalle": "Showroom + oficinas + piso 13",
+      "activo": true
     }
   ],
   "employees": [
     {
-      "id": "EMP-1",
-      "nombre": "Técnico demo",
-      "email": "tecnico@hnf.cl"
+      "id": "EMP-ROMINA",
+      "nombre": "Romina Silva",
+      "rut": "—",
+      "area": "Clima",
+      "especialidad": "Coordinación",
+      "rolOperativo": "coordinadora_clima",
+      "telefono": "+56 9 1111 1111",
+      "email": "romina.silva@hnf.cl",
+      "activo": true,
+      "notas": "Coordinación clima HNF"
+    },
+    {
+      "id": "EMP-BERNABE",
+      "nombre": "Bernabe Villegas",
+      "rut": "—",
+      "area": "Clima",
+      "especialidad": "Técnico HVAC",
+      "rolOperativo": "tecnico_clima",
+      "telefono": "+56 9 2222 2222",
+      "email": "—",
+      "tipoLicencia": "B",
+      "activo": true,
+      "notas": "Terreno clima"
     }
   ],
   "roles": [
     {
-      "id": "ROL-TEC",
-      "label": "Técnico de campo"
+      "id": "ROL-COORD-CLIMA",
+      "label": "Coordinadora Clima",
+      "scope": "operacion_clima",
+      "permisosBase": "{\"bandeja\":true,\"ot\":true}"
+    },
+    {
+      "id": "ROL-TEC-CLIMA",
+      "label": "Técnico Clima",
+      "scope": "campo_clima",
+      "permisosBase": "{\"evidencias\":true}"
     }
   ],
   "serviceCatalog": [
     {
-      "id": "SRV-CLIMA-1",
-      "label": "Mantención HVAC",
-      "area": "clima"
+      "id": "SRV-HVAC-M1",
+      "codigoInterno": "CLIMA-M1",
+      "nombre": "Mantención preventiva HVAC estándar",
+      "linea": "clima",
+      "categoria": "mantencion",
+      "subtipo": "preventiva",
+      "unidadCobro": "visita",
+      "activo": true
+    },
+    {
+      "id": "SRV-FLOTA-R1",
+      "codigoInterno": "FLOTA-R1",
+      "nombre": "Revisión técnica flota liviana",
+      "linea": "flota",
+      "categoria": "revision",
+      "subtipo": "liviana",
+      "unidadCobro": "unidad",
+      "activo": true
     }
   ],
   "pricingCatalog": [
     {
-      "id": "PRC-1",
-      "concepto": "Visita técnica base",
-      "valorReferencia": 85000,
-      "moneda": "CLP"
+      "id": "PRC-HVAC-L1",
+      "serviceId": "SRV-HVAC-M1",
+      "clientId": "CLI-PUMA",
+      "lista": "PUMA_2026",
+      "moneda": "CLP",
+      "precioNeto": 185000,
+      "vigenciaDesde": "2026-01-01",
+      "vigenciaHasta": "2026-12-31",
+      "notas": "Precio referencial outlet"
+    },
+    {
+      "id": "PRC-FLOTA-BASE",
+      "serviceId": "SRV-FLOTA-R1",
+      "lista": "BASE",
+      "moneda": "CLP",
+      "precioNeto": 95000,
+      "vigenciaDesde": "2026-01-01",
+      "vigenciaHasta": "2026-12-31",
+      "notas": "Lista base sin cliente"
     }
   ],
-  "assetsOrEquipment": [
+  "assetCatalog": [
     {
-      "id": "AST-1",
-      "clientId": "CLI-DEMO-1",
-      "branchId": "BR-1",
-      "tipo": "split",
-      "cantidad": 4
+      "id": "AST-PUMA-OUT-SPL",
+      "branchId": "BR-PUMA-OUT-1",
+      "tipoActivo": "split",
+      "subtipo": "pared",
+      "cantidad": 12,
+      "observaciones": "Área ventas + depósito",
+      "costoReferencia": 2800000
+    }
+  ],
+  "payrollCosts": [
+    {
+      "id": "PC-EMP-ROMINA-2026-03",
+      "employeeId": "EMP-ROMINA",
+      "sueldoBase": 1800000,
+      "gratificacion": 0,
+      "bonoAsistencia": 0,
+      "colacion": 80000,
+      "bonoTelefono": 0,
+      "totalHaberes": 1880000,
+      "aportesPatronales": 520000,
+      "costoEmpresa": 2400000,
+      "provisionAntiguedad": 50000,
+      "provisionIndemnizacionMes": 150000,
+      "provisionVacaciones": 120000,
+      "costoEmpresaMes": 2720000,
+      "periodo": "2026-03"
     }
   ]
 }

@@ -18,10 +18,12 @@ function emptyBundle() {
     contracts: [],
     maintenanceFrequencies: [],
     assetsOrEquipment: [],
+    assetCatalog: [],
     employees: [],
     roles: [],
     serviceCatalog: [],
     pricingCatalog: [],
+    payrollCosts: [],
   };
 }
 
@@ -39,11 +41,20 @@ function normalizeBundle(raw) {
   return base;
 }
 
+function coalesceLegacyAssets(b) {
+  if (!Array.isArray(b.assetCatalog) || !b.assetCatalog.length) {
+    if (Array.isArray(b.assetsOrEquipment) && b.assetsOrEquipment.length) {
+      b.assetCatalog = [...b.assetsOrEquipment];
+    }
+  }
+  return b;
+}
+
 function readBundle() {
   try {
     const raw = localStorage.getItem(MD_KEY);
     if (raw) {
-      return normalizeBundle(JSON.parse(raw));
+      return coalesceLegacyAssets(normalizeBundle(JSON.parse(raw)));
     }
     const b = emptyBundle();
     const leg = localStorage.getItem(LEGACY_CLIENTS_KEY);
@@ -51,8 +62,8 @@ function readBundle() {
       const arr = JSON.parse(leg);
       if (Array.isArray(arr) && arr.length) b.clients = arr;
     }
-    localStorage.setItem(MD_KEY, JSON.stringify(b));
-    return b;
+    localStorage.setItem(MD_KEY, JSON.stringify(coalesceLegacyAssets(b)));
+    return coalesceLegacyAssets(b);
   } catch {
     return emptyBundle();
   }
@@ -110,6 +121,9 @@ export function getMasterImportValidationContext() {
   const b = readBundle();
   return {
     existingClientIds: new Set((b.clients || []).map((c) => String(c?.id ?? '').trim()).filter(Boolean)),
+    existingBranchIds: new Set((b.branchesOrStores || []).map((x) => String(x?.id ?? '').trim()).filter(Boolean)),
+    existingEmployeeIds: new Set((b.employees || []).map((x) => String(x?.id ?? '').trim()).filter(Boolean)),
+    existingServiceIds: new Set((b.serviceCatalog || []).map((x) => String(x?.id ?? '').trim()).filter(Boolean)),
   };
 }
 

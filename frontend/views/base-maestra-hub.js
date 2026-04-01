@@ -14,6 +14,7 @@ import { maestroService } from '../services/maestro.service.js';
 import {
   applyMasterImportPatch,
   getMasterImportValidationContext,
+  getMasterBundle,
 } from '../domain/repositories/master-data-repository.js';
 import { validateMasterImportPayload } from '../domain/repositories/master-data-bundle-validator.js';
 import exampleMasterBundle from '../fixtures/hnf-master-bundle.example.json';
@@ -162,6 +163,22 @@ function readFileBase64(file) {
 const ACCEPT_MASIVA =
   'application/pdf,.pdf,.xlsx,.xls,.csv,image/jpeg,image/png,image/webp,.doc,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+/** Máx. filas por tabla bundle (solo lectura) para no penalizar render. */
+const BUNDLE_TABLE_CAP = 250;
+
+function bundleSlice(arr) {
+  const list = Array.isArray(arr) ? arr : [];
+  return { rows: list.slice(0, BUNDLE_TABLE_CAP), total: list.length };
+}
+
+function bundleCapNote(total) {
+  if (total <= BUNDLE_TABLE_CAP) return null;
+  const p = document.createElement('p');
+  p.className = 'muted small';
+  p.textContent = `Mostrando ${BUNDLE_TABLE_CAP} de ${total} filas importadas.`;
+  return p;
+}
+
 export const baseMaestraHubView = ({
   data,
   reloadApp,
@@ -177,6 +194,11 @@ export const baseMaestraHubView = ({
   const tabs = [
     { id: 'clientes', label: 'Clientes' },
     { id: 'contactos', label: 'Contactos' },
+    { id: 'sucursales', label: 'Sucursales' },
+    { id: 'contratos', label: 'Contratos / freq.' },
+    { id: 'catalogos', label: 'Catálogos' },
+    { id: 'activos', label: 'Activos' },
+    { id: 'rrhh', label: 'Costos RRHH' },
     { id: 'personal', label: 'Personal interno' },
     { id: 'tecnicos', label: 'Técnicos' },
     { id: 'conductores', label: 'Conductores' },
@@ -211,8 +233,17 @@ export const baseMaestraHubView = ({
         'Los clientes se validan antes de quedar como referencia para OT y archivos. Si falta información importante para guardar, completá los campos obligatorios.'
       )
     );
-    const list = Array.isArray(data?.hnfExtendedClients) ? data.hnfExtendedClients : [];
+    const bundle = getMasterBundle();
+    const fromBundle = Array.isArray(bundle.clients) && bundle.clients.length > 0;
+    const list = fromBundle ? bundle.clients : Array.isArray(data?.hnfExtendedClients) ? data.hnfExtendedClients : [];
+    const { rows, total } = bundleSlice(list);
     const canEdit = canAccessClientesManual(role);
+    const src = document.createElement('p');
+    src.className = 'muted small';
+    src.textContent = fromBundle
+      ? 'Fuente: bundle maestro local (import JSON). Si está vacío en servidor, seguí usando Carga masiva o Command Center.'
+      : 'Fuente: datos operativos cargados (API). Importá un bundle en Carga masiva para unificar en maestro local.';
+    w.append(src);
     if (!canEdit) {
       const p = document.createElement('p');
       p.className = 'muted small';
@@ -220,18 +251,20 @@ export const baseMaestraHubView = ({
         'Solo Lyn y Hernán editan la ficha completa desde aquí; vos ves el listado. Podés pedir el alta en Command Center · Clientes.';
       w.append(p);
     }
+    const cap = bundleCapNote(total);
+    if (cap) w.append(cap);
     const t = document.createElement('table');
     t.className = 'hnf-core-list__table';
-    t.innerHTML = `<thead><tr><th>ID</th><th>Nombre</th><th>RUT</th><th>Comuna</th><th>Correo</th><th>Estado</th></tr></thead>`;
+    t.innerHTML = `<thead><tr><th>ID</th><th>Nombre</th><th>RUT</th><th>Unidad negocio</th><th>Estado</th><th>Notas</th></tr></thead>`;
     const tb = document.createElement('tbody');
-    for (const c of list) {
+    for (const c of rows) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${esc(c.id)}</td><td>${esc(c.nombre || c.nombre_cliente)}</td><td>${esc(c.rut)}</td><td>${esc(c.comuna)}</td><td>${esc(c.correo || c.correo_principal)}</td><td>${esc(c.estado || 'activo')}</td>`;
+      tr.innerHTML = `<td>${esc(c.id)}</td><td>${esc(c.nombre || c.nombre_cliente)}</td><td>${esc(c.rut)}</td><td>${esc(c.unidadNegocio || '—')}</td><td>${esc(c.estado || 'activo')}</td><td>${esc(c.notas || c.comuna || c.correo || '—')}</td>`;
       tb.append(tr);
     }
     if (!list.length) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="6" class="muted">Sin clientes en base. Usá Command Center → Clientes o cargá datos.</td>`;
+      tr.innerHTML = `<td colspan="6" class="muted">Sin clientes en bundle ni API. Carga masiva → JSON o Command Center.</td>`;
       tb.append(tr);
     }
     t.append(tb);
@@ -251,7 +284,22 @@ export const baseMaestraHubView = ({
     const w = document.createElement('div');
     w.className = 'hnf-base-maestra__panel';
     w.append(jarvisBox('Los contactos se enlazan a un cliente (ID). Jarvis usa esta lista para sugerir coincidencias en archivos.'));
-    const list = Array.isArray(data?.maestroContactos) ? data.maestroContactos : [];
+    const bundle = getMasterBundle();
+    const fromBundle = Array.isArray(bundle.clientContacts) && bundle.clientContacts.length > 0;
+    const list = fromBundle
+      ? bundle.clientContacts
+      : Array.isArray(data?.maestroContactos)
+        ? data.maestroContactos
+        : [];
+    const { rows, total } = bundleSlice(list);
+    const src = document.createElement('p');
+    src.className = 'muted small';
+    src.textContent = fromBundle
+      ? 'Fuente: bundle maestro (clientContacts).'
+      : 'Fuente: maestro en servidor; importá JSON para alinear con bundle local.';
+    w.append(src);
+    const cn = bundleCapNote(total);
+    if (cn) w.append(cn);
     const form = document.createElement('div');
     form.className = 'hnf-core-new tarjeta';
     form.innerHTML = `
@@ -299,11 +347,20 @@ export const baseMaestraHubView = ({
     w.append(form);
     const tbl = document.createElement('table');
     tbl.className = 'hnf-core-list__table';
-    tbl.innerHTML = `<thead><tr><th>ID</th><th>Nombre</th><th>Cliente</th><th>Correo</th><th>Activo</th></tr></thead>`;
+    tbl.innerHTML = `<thead><tr><th>ID</th><th>Nombre</th><th>Cliente</th><th>Cargo</th><th>Email</th><th>Tel</th><th>Canal</th><th>Ámbito</th></tr></thead>`;
     const tb = document.createElement('tbody');
-    for (const c of list) {
+    for (const c of rows) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${esc(c.id)}</td><td>${esc(c.nombre_contacto)}</td><td>${esc(c.cliente_id)}</td><td>${esc(c.correo)}</td><td>${c.activo ? 'Sí' : 'No'}</td>`;
+      if (fromBundle) {
+        tr.innerHTML = `<td>${esc(c.id)}</td><td>${esc(c.nombre)}</td><td>${esc(c.clientId)}</td><td>${esc(c.cargo)}</td><td>${esc(c.email)}</td><td>${esc(c.telefono)}</td><td>${esc(c.canalPreferido)}</td><td>${esc(c.scope)}</td>`;
+      } else {
+        tr.innerHTML = `<td>${esc(c.id)}</td><td>${esc(c.nombre_contacto)}</td><td>${esc(c.cliente_id)}</td><td>${esc(c.cargo)}</td><td>${esc(c.correo)}</td><td>${esc(c.telefono)}</td><td>${esc(c.canal_preferido)}</td><td>—</td>`;
+      }
+      tb.append(tr);
+    }
+    if (!list.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="8" class="muted">Sin contactos.</td>`;
       tb.append(tr);
     }
     tbl.append(tb);
@@ -321,6 +378,34 @@ export const baseMaestraHubView = ({
           : 'Solo gerencia edita el directorio completo; ves el listado.'
       )
     );
+    const bundle = getMasterBundle();
+    const empBundle = Array.isArray(bundle.employees) && bundle.employees.length > 0;
+    if (empBundle) {
+      const h2 = document.createElement('h3');
+      h2.className = 'hnf-base-maestra__title';
+      h2.style.fontSize = '1rem';
+      h2.textContent = 'Personal (bundle maestro · employees)';
+      w.append(h2);
+      const { rows: er, total: et } = bundleSlice(bundle.employees);
+      const n1 = bundleCapNote(et);
+      if (n1) w.append(n1);
+      const te = document.createElement('table');
+      te.className = 'hnf-core-list__table';
+      te.innerHTML = `<thead><tr><th>ID</th><th>Nombre</th><th>RUT</th><th>Área</th><th>Rol op.</th><th>Email</th><th>Activo</th></tr></thead>`;
+      const teb = document.createElement('tbody');
+      for (const e of er) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${esc(e.id)}</td><td>${esc(e.nombre)}</td><td>${esc(e.rut)}</td><td>${esc(e.area)}</td><td>${esc(e.rolOperativo)}</td><td>${esc(e.email)}</td><td>${e.activo ? 'Sí' : 'No'}</td>`;
+        teb.append(tr);
+      }
+      te.append(teb);
+      w.append(te);
+    }
+    const hDir = document.createElement('h3');
+    hDir.className = 'hnf-base-maestra__title';
+    hDir.style.fontSize = '1rem';
+    hDir.textContent = empBundle ? 'Directorio (API / Command Center)' : 'Directorio interno';
+    w.append(hDir);
     const dir = Array.isArray(data?.hnfInternalDirectory) ? data.hnfInternalDirectory : [];
     if (canAccessDirectorioInterno(role)) {
       const hint = document.createElement('p');
@@ -1092,6 +1177,208 @@ export const baseMaestraHubView = ({
     return w;
   };
 
+  const renderSucursales = () => {
+    const w = document.createElement('div');
+    w.className = 'hnf-base-maestra__panel';
+    w.append(jarvisBox('Sucursales / tiendas del bundle: DM, asistente, correo local y vínculo a cliente.'));
+    const b = getMasterBundle();
+    const list = b.branchesOrStores || [];
+    const { rows, total } = bundleSlice(list);
+    const n = bundleCapNote(total);
+    if (n) w.append(n);
+    const t = document.createElement('table');
+    t.className = 'hnf-core-list__table';
+    t.innerHTML = `<thead><tr><th>ID</th><th>Cliente</th><th>Nombre</th><th>Tipo</th><th>Región</th><th>Ciudad</th><th>DM</th><th>Asistente</th><th>Correo local</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${esc(r.id)}</td><td>${esc(r.clientId)}</td><td>${esc(r.nombre)}</td><td>${esc(r.tipo)}</td><td>${esc(r.region)}</td><td>${esc(r.ciudad)}</td><td>${esc(r.dmNombre || '—')}</td><td>${esc(r.assistantNombre || '—')}</td><td>${esc(r.correoLocal || '—')}</td>`;
+      tb.append(tr);
+    }
+    if (!list.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="9" class="muted">Sin sucursales en el bundle. Importá JSON (branchesOrStores).</td>`;
+      tb.append(tr);
+    }
+    t.append(tb);
+    w.append(t);
+    return w;
+  };
+
+  const renderContratos = () => {
+    const w = document.createElement('div');
+    w.className = 'hnf-base-maestra__panel';
+    w.append(jarvisBox('Contratos comerciales y frecuencias de mantención por tienda (solo lectura del bundle).'));
+    const b = getMasterBundle();
+    const h1 = document.createElement('h3');
+    h1.className = 'hnf-base-maestra__title';
+    h1.style.fontSize = '1rem';
+    h1.textContent = 'Contratos';
+    w.append(h1);
+    const c0 = bundleSlice(b.contracts || []);
+    const c0n = bundleCapNote(c0.total);
+    if (c0n) w.append(c0n);
+    const t1 = document.createElement('table');
+    t1.className = 'hnf-core-list__table';
+    t1.innerHTML = `<thead><tr><th>ID</th><th>Cliente</th><th>Nombre</th><th>Línea</th><th>Moneda</th><th>Monto</th><th>Vigencia</th></tr></thead>`;
+    const tb1 = document.createElement('tbody');
+    for (const r of c0.rows) {
+      const tr = document.createElement('tr');
+      const vig = `${esc(r.vigenciaInicio || r.vigenteDesde || '—')} → ${esc(r.vigenciaFin || r.vigenteHasta || '—')}`;
+      tr.innerHTML = `<td>${esc(r.id)}</td><td>${esc(r.clientId)}</td><td>${esc(r.nombreContrato || r.nombre)}</td><td>${esc(r.linea)}</td><td>${esc(r.moneda)}</td><td>${esc(r.montoBase)}</td><td>${vig}</td>`;
+      tb1.append(tr);
+    }
+    if (!(b.contracts || []).length) {
+      const tr0 = document.createElement('tr');
+      tr0.innerHTML = `<td colspan="7" class="muted">Sin contratos importados.</td>`;
+      tb1.append(tr0);
+    }
+    t1.append(tb1);
+    w.append(t1);
+
+    const h2 = document.createElement('h3');
+    h2.className = 'hnf-base-maestra__title';
+    h2.style.fontSize = '1rem';
+    h2.textContent = 'Frecuencias de mantención';
+    w.append(h2);
+    const f0 = bundleSlice(b.maintenanceFrequencies || []);
+    const f0n = bundleCapNote(f0.total);
+    if (f0n) w.append(f0n);
+    const t2 = document.createElement('table');
+    t2.className = 'hnf-core-list__table';
+    t2.innerHTML = `<thead><tr><th>ID</th><th>Cliente</th><th>Sucursal</th><th>Línea</th><th>Frecuencia</th><th>Activo</th></tr></thead>`;
+    const tb2 = document.createElement('tbody');
+    for (const r of f0.rows) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${esc(r.id)}</td><td>${esc(r.clientId)}</td><td>${esc(r.branchId)}</td><td>${esc(r.linea)}</td><td>${esc(r.frecuencia || r.label)}</td><td>${r.activo ? 'Sí' : 'No'}</td>`;
+      tb2.append(tr);
+    }
+    if (!(b.maintenanceFrequencies || []).length) {
+      const trf = document.createElement('tr');
+      trf.innerHTML = `<td colspan="6" class="muted">Sin frecuencias importadas.</td>`;
+      tb2.append(trf);
+    }
+    t2.append(tb2);
+    w.append(t2);
+    return w;
+  };
+
+  const renderCatalogos = () => {
+    const w = document.createElement('div');
+    w.className = 'hnf-base-maestra__panel';
+    w.append(jarvisBox('Roles, servicios y listas de precio del bundle maestro.'));
+    const b = getMasterBundle();
+
+    const mkBlock = (title, list, headers, rowHtml, emptyColspan) => {
+      const h = document.createElement('h3');
+      h.className = 'hnf-base-maestra__title';
+      h.style.fontSize = '1rem';
+      h.textContent = title;
+      w.append(h);
+      const { rows, total } = bundleSlice(list);
+      const n = bundleCapNote(total);
+      if (n) w.append(n);
+      const t = document.createElement('table');
+      t.className = 'hnf-core-list__table';
+      t.innerHTML = headers;
+      const tb = document.createElement('tbody');
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = rowHtml(r);
+        tb.append(tr);
+      }
+      if (!list.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="${emptyColspan}" class="muted">Vacío.</td>`;
+        tb.append(tr);
+      }
+      t.append(tb);
+      w.append(t);
+    };
+
+    mkBlock(
+      'Roles',
+      b.roles || [],
+      `<thead><tr><th>ID</th><th>Label</th><th>Scope</th><th>Permisos base</th></tr></thead>`,
+      (r) =>
+        `<td>${esc(r.id)}</td><td>${esc(r.label)}</td><td>${esc(r.scope)}</td><td>${esc(typeof r.permisosBase === 'object' ? JSON.stringify(r.permisosBase) : r.permisosBase)}</td>`,
+      4
+    );
+    mkBlock(
+      'Catálogo de servicios',
+      b.serviceCatalog || [],
+      `<thead><tr><th>ID</th><th>Código</th><th>Nombre</th><th>Línea</th><th>Unidad cobro</th><th>Activo</th></tr></thead>`,
+      (r) =>
+        `<td>${esc(r.id)}</td><td>${esc(r.codigoInterno)}</td><td>${esc(r.nombre || r.label)}</td><td>${esc(r.linea || r.area)}</td><td>${esc(r.unidadCobro)}</td><td>${r.activo ? 'Sí' : 'No'}</td>`,
+      6
+    );
+    mkBlock(
+      'Tarifas / precios',
+      b.pricingCatalog || [],
+      `<thead><tr><th>ID</th><th>Servicio</th><th>Lista</th><th>Cliente</th><th>Precio</th><th>Vigencia</th></tr></thead>`,
+      (r) =>
+        `<td>${esc(r.id)}</td><td>${esc(r.serviceId)}</td><td>${esc(r.lista)}</td><td>${esc(r.clientId || '—')}</td><td>${esc(r.precioNeto ?? r.valorReferencia)} ${esc(r.moneda)}</td><td>${esc(r.vigenciaDesde)} → ${esc(r.vigenciaHasta)}</td>`,
+      6
+    );
+    return w;
+  };
+
+  const renderActivos = () => {
+    const w = document.createElement('div');
+    w.className = 'hnf-base-maestra__panel';
+    w.append(jarvisBox('Activos por sucursal (assetCatalog).'));
+    const b = getMasterBundle();
+    const list = b.assetCatalog || [];
+    const { rows, total } = bundleSlice(list);
+    const n = bundleCapNote(total);
+    if (n) w.append(n);
+    const t = document.createElement('table');
+    t.className = 'hnf-core-list__table';
+    t.innerHTML = `<thead><tr><th>ID</th><th>Sucursal</th><th>Tipo</th><th>Subtipo</th><th>Cant.</th><th>Costo ref.</th><th>Obs.</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${esc(r.id)}</td><td>${esc(r.branchId)}</td><td>${esc(r.tipoActivo || r.tipo)}</td><td>${esc(r.subtipo)}</td><td>${esc(r.cantidad)}</td><td>${esc(r.costoReferencia ?? '—')}</td><td>${esc(r.observaciones)}</td>`;
+      tb.append(tr);
+    }
+    if (!list.length) {
+      const tra = document.createElement('tr');
+      tra.innerHTML = `<td colspan="7" class="muted">Sin activos. Importá assetCatalog (o assetsOrEquipment legacy).</td>`;
+      tb.append(tra);
+    }
+    t.append(tb);
+    w.append(t);
+    return w;
+  };
+
+  const renderRrhh = () => {
+    const w = document.createElement('div');
+    w.className = 'hnf-base-maestra__panel';
+    w.append(jarvisBox('Costos empresa por empleado y período (payrollCosts).'));
+    const b = getMasterBundle();
+    const list = b.payrollCosts || [];
+    const { rows, total } = bundleSlice(list);
+    const n = bundleCapNote(total);
+    if (n) w.append(n);
+    const t = document.createElement('table');
+    t.className = 'hnf-core-list__table';
+    t.innerHTML = `<thead><tr><th>ID</th><th>Empleado</th><th>Período</th><th>Sueldo base</th><th>Total haberes</th><th>Costo empresa</th><th>Costo empresa / mes</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${esc(r.id)}</td><td>${esc(r.employeeId)}</td><td>${esc(r.periodo)}</td><td>${esc(r.sueldoBase)}</td><td>${esc(r.totalHaberes)}</td><td>${esc(r.costoEmpresa)}</td><td>${esc(r.costoEmpresaMes)}</td>`;
+      tb.append(tr);
+    }
+    if (!list.length) {
+      const trp = document.createElement('tr');
+      trp.innerHTML = `<td colspan="7" class="muted">Sin costos importados.</td>`;
+      tb.append(trp);
+    }
+    t.append(tb);
+    w.append(t);
+    return w;
+  };
+
   const renderCarga = () => {
     const w = document.createElement('div');
     w.className = 'hnf-base-maestra__panel';
@@ -1105,7 +1392,7 @@ export const baseMaestraHubView = ({
     const pJson = document.createElement('p');
     pJson.className = 'muted small';
     pJson.textContent =
-      'Pegá un objeto JSON. Cada sección presente reemplaza solo esa lista en el bundle (hnf.md.bundle.v1). Los clientes se sincronizan con la clave legacy para OT locales. No reemplaza datos que no vengan en el archivo.';
+      'Secciones: clients, clientContacts, branchesOrStores, contracts, maintenanceFrequencies, employees, roles, serviceCatalog, pricingCatalog, assetCatalog, payrollCosts (assetsOrEquipment se acepta como alias hacia activos). Cada clave presente reemplaza solo esa lista en hnf.md.bundle.v1.';
 
     const taJson = document.createElement('textarea');
     taJson.className = 'hnf-maestro-json-import__ta';
@@ -1300,6 +1587,11 @@ export const baseMaestraHubView = ({
     const map = {
       clientes: renderClientes,
       contactos: renderContactos,
+      sucursales: renderSucursales,
+      contratos: renderContratos,
+      catalogos: renderCatalogos,
+      activos: renderActivos,
+      rrhh: renderRrhh,
       personal: renderPersonal,
       tecnicos: renderTecnicos,
       conductores: renderConductores,
