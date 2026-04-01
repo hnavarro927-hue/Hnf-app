@@ -1,0 +1,81 @@
+{
+  "clients": [
+    {
+      "id": "CLI-DEMO-1",
+      "nombre": "Cliente demo importación",
+      "rut": "",
+      "estado": "activo"
+    }
+  ],
+  "clientContacts": [
+    {
+      "id": "CNT-1",
+      "clientId": "CLI-DEMO-1",
+      "nombre": "Contacto demo",
+      "email": "contacto@ejemplo.cl",
+      "rol": "tienda"
+    }
+  ],
+  "branchesOrStores": [
+    {
+      "id": "BR-1",
+      "clientId": "CLI-DEMO-1",
+      "nombre": "Sucursal demo",
+      "tipoTienda": "store",
+      "region": "RM",
+      "ciudad": "Santiago"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "CTR-1",
+      "clientId": "CLI-DEMO-1",
+      "nombre": "Contrato marco demo",
+      "vigenteDesde": "2026-01-01"
+    }
+  ],
+  "maintenanceFrequencies": [
+    {
+      "id": "FREQ-BI",
+      "label": "bimensual",
+      "monthsBetween": 2
+    }
+  ],
+  "employees": [
+    {
+      "id": "EMP-1",
+      "nombre": "Técnico demo",
+      "email": "tecnico@hnf.cl"
+    }
+  ],
+  "roles": [
+    {
+      "id": "ROL-TEC",
+      "label": "Técnico de campo"
+    }
+  ],
+  "serviceCatalog": [
+    {
+      "id": "SRV-CLIMA-1",
+      "label": "Mantención HVAC",
+      "area": "clima"
+    }
+  ],
+  "pricingCatalog": [
+    {
+      "id": "PRC-1",
+      "concepto": "Visita técnica base",
+      "valorReferencia": 85000,
+      "moneda": "CLP"
+    }
+  ],
+  "assetsOrEquipment": [
+    {
+      "id": "AST-1",
+      "clientId": "CLI-DEMO-1",
+      "branchId": "BR-1",
+      "tipo": "split",
+      "cantidad": 4
+    }
+  ]
+}

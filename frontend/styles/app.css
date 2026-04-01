@@ -23938,6 +23938,41 @@ body.hnf-viewport-tablet .ot-flow-progress__label {
   border-color: var(--accent-clima);
   color: var(--text);
 }
+.hnf-maestro-json-import {
+  margin-bottom: 0.5rem;
+}
+.hnf-maestro-json-import__ta {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.65rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+  min-height: 10rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+.hnf-maestro-json-import__err {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0.35rem 0;
+}
+.hnf-maestro-json-import__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.hnf-maestro-json-import__sep {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
 .hnf-maestro-doc-card {
   padding: 0.75rem 1rem;
   margin-bottom: 0.65rem;

@@ -4,6 +4,8 @@
  * Sustituible por fetch/API manteniendo la misma superficie de funciones.
  */
 
+import { MASTER_IMPORT_SECTION_KEYS } from './master-data-bundle-validator.js';
+
 const MD_KEY = 'hnf.md.bundle.v1';
 const LEGACY_CLIENTS_KEY = 'hnf.local.clients.v1';
 
@@ -81,7 +83,34 @@ export function saveMasterBundle(partial) {
   const cur = readBundle();
   const next = normalizeBundle({ ...cur, ...partial, version: 1 });
   writeBundle(next);
+  syncLegacyClientsMirror(next.clients);
   return next;
+}
+
+/**
+ * Aplica un patch validado: cada sección presente reemplaza por completo esa lista en el bundle.
+ * @param {Record<string, object[]>} patch
+ */
+export function applyMasterImportPatch(patch) {
+  if (!patch || typeof patch !== 'object') return getMasterBundle();
+  const cur = readBundle();
+  const next = normalizeBundle({ ...cur });
+  for (const k of MASTER_IMPORT_SECTION_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(patch, k) && Array.isArray(patch[k])) {
+      next[k] = patch[k];
+    }
+  }
+  writeBundle(next);
+  syncLegacyClientsMirror(next.clients);
+  return next;
+}
+
+/** Contexto para validar clientId contra clientes ya persistidos. */
+export function getMasterImportValidationContext() {
+  const b = readBundle();
+  return {
+    existingClientIds: new Set((b.clients || []).map((c) => String(c?.id ?? '').trim()).filter(Boolean)),
+  };
 }
 
 /** Clientes mínimos (compat registro local + OT). */

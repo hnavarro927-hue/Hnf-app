@@ -11,6 +11,12 @@ import {
   resolveOperatorRole,
 } from '../domain/hnf-operator-role.js';
 import { maestroService } from '../services/maestro.service.js';
+import {
+  applyMasterImportPatch,
+  getMasterImportValidationContext,
+} from '../domain/repositories/master-data-repository.js';
+import { validateMasterImportPayload } from '../domain/repositories/master-data-bundle-validator.js';
+import exampleMasterBundle from '../fixtures/hnf-master-bundle.example.json';
 
 const esc = (s) =>
   String(s ?? '')
@@ -1089,9 +1095,100 @@ export const baseMaestraHubView = ({
   const renderCarga = () => {
     const w = document.createElement('div');
     w.className = 'hnf-base-maestra__panel';
+
+    const jsonCard = document.createElement('div');
+    jsonCard.className = 'tarjeta hnf-maestro-json-import';
+    const hJson = document.createElement('h2');
+    hJson.className = 'hnf-base-maestra__title';
+    hJson.style.fontSize = '1.05rem';
+    hJson.textContent = 'Importación JSON · bundle maestro local';
+    const pJson = document.createElement('p');
+    pJson.className = 'muted small';
+    pJson.textContent =
+      'Pegá un objeto JSON. Cada sección presente reemplaza solo esa lista en el bundle (hnf.md.bundle.v1). Los clientes se sincronizan con la clave legacy para OT locales. No reemplaza datos que no vengan en el archivo.';
+
+    const taJson = document.createElement('textarea');
+    taJson.className = 'hnf-maestro-json-import__ta';
+    taJson.setAttribute('aria-label', 'JSON base maestra');
+    taJson.spellcheck = false;
+    taJson.placeholder = '{ "clients": [ { "id": "X", "nombre": "…" } ], … }';
+
+    const errJson = document.createElement('pre');
+    errJson.className = 'hnf-maestro-json-import__err';
+    errJson.hidden = true;
+
+    const setJsonErr = (msg, isError) => {
+      if (!msg) {
+        errJson.hidden = true;
+        errJson.textContent = '';
+        return;
+      }
+      errJson.hidden = false;
+      errJson.textContent = msg;
+      errJson.className = isError
+        ? 'hnf-maestro-json-import__err form-feedback form-feedback--error small'
+        : 'hnf-maestro-json-import__err form-feedback form-feedback--success small';
+    };
+
+    const parseValidate = () => {
+      setJsonErr('', false);
+      let parsed;
+      try {
+        parsed = JSON.parse(String(taJson.value || '').trim() || '{}');
+      } catch (e) {
+        setJsonErr(`JSON inválido: ${e?.message || e}`, true);
+        return null;
+      }
+      const { ok, errors, patch } = validateMasterImportPayload(parsed, getMasterImportValidationContext());
+      if (!ok) {
+        setJsonErr(errors.join('\n'), true);
+        return null;
+      }
+      return patch;
+    };
+
+    const rowJson = document.createElement('div');
+    rowJson.className = 'hnf-maestro-json-import__btns';
+    const btnEjemplo = document.createElement('button');
+    btnEjemplo.type = 'button';
+    btnEjemplo.className = 'secondary-button';
+    btnEjemplo.textContent = 'Cargar ejemplo';
+    btnEjemplo.addEventListener('click', () => {
+      taJson.value = JSON.stringify(exampleMasterBundle, null, 2);
+      setJsonErr('', false);
+    });
+    const btnValidar = document.createElement('button');
+    btnValidar.type = 'button';
+    btnValidar.className = 'secondary-button';
+    btnValidar.textContent = 'Validar';
+    btnValidar.addEventListener('click', () => {
+      const patch = parseValidate();
+      if (patch) setJsonErr('Validación correcta. Podés importar al bundle maestro.', false);
+    });
+    const btnImportar = document.createElement('button');
+    btnImportar.type = 'button';
+    btnImportar.className = 'primary-button';
+    btnImportar.textContent = 'Importar al bundle maestro';
+    btnImportar.addEventListener('click', () => {
+      const patch = parseValidate();
+      if (!patch) return;
+      applyMasterImportPatch(patch);
+      showFb('Importación aplicada al bundle maestro.', false);
+      void refresh();
+    });
+    rowJson.append(btnEjemplo, btnValidar, btnImportar);
+    jsonCard.append(hJson, pJson, taJson, errJson, rowJson);
+    w.append(jsonCard);
+
+    const sep = document.createElement('hr');
+    sep.className = 'hnf-maestro-json-import__sep';
+    w.append(sep);
+
     w.append(
       jarvisBox(
-        `Arrastrá archivos o elegí varios. Formatos: PDF, Excel, CSV, imágenes, Word. Máximo ~12 MB por archivo. Se guarda en ${appConfig.apiBaseUrl} (servidor HNF).`
+        offline
+          ? 'Sin red: la subida de archivos al servidor no está disponible. Usá la importación JSON arriba o volvé cuando haya conexión.'
+          : `Arrastrá archivos o elegí varios. Formatos: PDF, Excel, CSV, imágenes, Word. Máximo ~12 MB por archivo. Se guarda en ${appConfig.apiBaseUrl} (servidor HNF).`
       )
     );
     let files = [];
@@ -1159,6 +1256,9 @@ export const baseMaestraHubView = ({
     btnSend.className = 'primary-button';
     btnSend.textContent = 'Procesar con Jarvis y dejar pendiente de revisión';
     btnSend.disabled = offline;
+    btnPick.disabled = offline;
+    zone.style.opacity = offline ? '0.55' : '';
+    zone.style.pointerEvents = offline ? 'none' : '';
     btnSend.addEventListener('click', async () => {
       if (!files.length) {
         showFb('Falta información importante para guardar: elegí al menos un archivo.', true);
@@ -1190,7 +1290,7 @@ export const baseMaestraHubView = ({
 
   const renderActive = () => {
     host.replaceChildren();
-    if (offline) {
+    if (offline && active !== 'carga') {
       const p = document.createElement('p');
       p.className = 'form-feedback form-feedback--error';
       p.textContent = 'Sin conexión al servidor: la base maestra requiere red.';
