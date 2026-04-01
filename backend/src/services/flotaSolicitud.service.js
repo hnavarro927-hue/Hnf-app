@@ -4,6 +4,9 @@ import {
   validateSolicitudFlotaPatch,
 } from '../validators/flotaSolicitud.validator.js';
 
+const MSG_CIERRE_OT_FLOTA =
+  'Debes completar costos y observación antes de cerrar la OT';
+
 const PATCH_KEYS = [
   'cliente',
   'tipoServicio',
@@ -54,15 +57,15 @@ const buildCreatePayload = (body) => {
     responsable: String(body.responsable ?? '').trim(),
     observacion: String(body.observacion ?? '').trim(),
     observacionCierre: String(body.observacionCierre ?? '').trim(),
-    costoCombustible: body.costoCombustible,
-    costoPeaje: body.costoPeaje,
-    costoChofer: body.costoChofer,
-    costoExterno: body.costoExterno,
-    materiales: body.materiales,
-    manoObra: body.manoObra,
-    costoTraslado: body.costoTraslado,
-    otros: body.otros,
-    ingresoEstimado: body.ingresoEstimado ?? body.monto,
+    costoCombustible: body.costoCombustible ?? 0,
+    costoPeaje: body.costoPeaje ?? 0,
+    costoChofer: body.costoChofer ?? 0,
+    costoExterno: body.costoExterno ?? 0,
+    materiales: body.materiales ?? 0,
+    manoObra: body.manoObra ?? 0,
+    costoTraslado: body.costoTraslado ?? 0,
+    otros: body.otros ?? 0,
+    ingresoEstimado: body.ingresoEstimado,
     ingresoFinal: body.ingresoFinal,
     montoCobrado: body.montoCobrado,
     monto: body.monto,
@@ -111,18 +114,14 @@ export const flotaSolicitudService = {
     }
 
     if (targetEstado === 'cerrada') {
-      if (merged.costoTotal <= 0) {
-        return {
-          error: 'No se puede cerrar sin costos registrados (el costo total debe ser mayor que 0).',
-          code: 'RULE_CERRADA_COSTOS',
-        };
+      if (!asignadoReal(merged.conductor) || !asignadoReal(merged.vehiculo)) {
+        return { error: MSG_CIERRE_OT_FLOTA, code: 'RULE_CERRADA_ASIGNACION' };
       }
-      const obsFin = String(merged.observacionCierre || merged.observacion || '').trim();
-      if (!obsFin) {
-        return {
-          error: 'No se puede cerrar sin observación final (completá «observación de cierre» o «observación»).',
-          code: 'RULE_CERRADA_OBS',
-        };
+      if (merged.costoTotal <= 0) {
+        return { error: MSG_CIERRE_OT_FLOTA, code: 'RULE_CERRADA_COSTOS' };
+      }
+      if (!String(merged.observacionCierre || '').trim()) {
+        return { error: MSG_CIERRE_OT_FLOTA, code: 'RULE_CERRADA_OBS' };
       }
     }
 

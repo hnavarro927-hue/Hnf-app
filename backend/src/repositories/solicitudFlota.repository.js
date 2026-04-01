@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { costoTotalOperativo, utilidadOperativa } from '../domain/flota-solicitud-economics.js';
 import { solicitudFlotaModel } from '../models/solicitudFlota.model.js';
 import { appendHistorial } from '../utils/historialUtil.js';
 
@@ -51,28 +52,6 @@ const migrateTipoServicio = (raw) => {
   return 'traslado';
 };
 
-const computeCostoTotal = (s) =>
-  round2(
-    round2(s.costoCombustible) +
-      round2(s.costoPeaje) +
-      round2(s.costoChofer) +
-      round2(s.costoExterno) +
-      round2(s.materiales) +
-      round2(s.manoObra) +
-      round2(s.costoTraslado) +
-      round2(s.otros)
-  );
-
-const computeUtilidad = (s) => {
-  const ing =
-    round2(s.ingresoFinal) ||
-    round2(s.montoCobrado) ||
-    round2(s.monto) ||
-    round2(s.ingresoEstimado);
-  const ct = computeCostoTotal(s);
-  return round2(ing - ct);
-};
-
 export const normalizeSolicitudShape = (s) => {
   const tipoServicio = migrateTipoServicio(s);
   const estado = migrateEstado(s.estado);
@@ -118,8 +97,8 @@ export const normalizeSolicitudShape = (s) => {
   if (!base.conductor) base.conductor = 'Por asignar';
   if (!base.vehiculo) base.vehiculo = 'Por asignar';
 
-  const costoTotal = computeCostoTotal(base);
-  const utilidad = computeUtilidad({ ...base, costoTotal });
+  const costoTotal = costoTotalOperativo(base);
+  const utilidad = utilidadOperativa(base);
   return {
     ...base,
     costoTotal,

@@ -13,6 +13,7 @@ import {
   runJarvisDocumentReview,
   suggestAssetSignalsFromDocument,
 } from './technical-document-intelligence.js';
+import { tarifaBaseOperativa, utilidadOperativa } from './flota-solicitud-economics.js';
 
 export const HNF_INTELLIGENCE_ENGINE_ID = 'hnf.intelligenceEngine';
 export const HNF_INTELLIGENCE_VERSION = '2026-03-22';
@@ -76,9 +77,13 @@ const climaOtCosto = (o) => roundMoney(o.costoTotal);
 const climaOtUtilidad = (o) => roundMoney(o.utilidad ?? climaOtIngresoReal(o) - climaOtCosto(o));
 
 const flotaSolIngresoReal = (s) => {
+  const tb = tarifaBaseOperativa(s);
+  if (tb > 0 && s.estado === 'cerrada') return roundMoney(tb);
   const f = roundMoney(s.ingresoFinal);
   return f > 0 ? f : 0;
 };
+
+const flotaSolUtilidadReal = (s) => roundMoney(s.utilidad ?? utilidadOperativa(s));
 
 const economicsPersistedOk = (ot) =>
   roundMoney(ot?.montoCobrado) > 0 && roundMoney(ot?.costoTotal) > 0;
@@ -112,9 +117,9 @@ export const INTEL_GUIDANCE_TEXT = {
     unlock: 'Estado coherente con el trabajo realizado y economía válida si aplica.',
   },
   FLO_SIN_INGRESO: {
-    why: 'Solicitud en cerrada sin ingreso final cargado.',
-    fix: 'Completá ingreso final y guardá el formulario.',
-    unlock: 'Ingreso final > 0 guardado en servidor.',
+    why: 'Solicitud cerrada sin costo operativo válido (combustible + peaje + externo).',
+    fix: 'Registrá costos directos, observación de cierre, conductor y vehículo; guardá o corregí el cierre.',
+    unlock: 'Costo operativo total > 0 en servidor.',
   },
   FLO_RUTA_STALE: {
     why: 'En ruta sin actualización reciente según umbral del motor.',
@@ -229,10 +234,7 @@ export function getOperationalSnapshot(viewData) {
   const climaUtilidadMes = otMonthClima.reduce((t, o) => t + climaOtUtilidad(o), 0);
   const flotaSolIngresoRealMes = flotaMonth.reduce((t, s) => t + flotaSolIngresoReal(s), 0);
   const flotaSolCostoMes = flotaMonth.reduce((t, s) => t + roundMoney(s.costoTotal), 0);
-  const flotaSolUtilidadRealMes = flotaMonth.reduce((t, s) => {
-    const inc = flotaSolIngresoReal(s);
-    return inc > 0 ? t + roundMoney(inc - roundMoney(s.costoTotal)) : t;
-  }, 0);
+  const flotaSolUtilidadRealMes = flotaMonth.reduce((t, s) => t + flotaSolUtilidadReal(s), 0);
   const otFlotaTipoIngresoMes = otMonthFlotaTipo.reduce((t, o) => t + climaOtIngresoReal(o), 0);
   const otFlotaTipoCostoMes = otMonthFlotaTipo.reduce((t, o) => t + climaOtCosto(o), 0);
   const otFlotaTipoUtilidadMes = otMonthFlotaTipo.reduce((t, o) => t + climaOtUtilidad(o), 0);
@@ -265,7 +267,7 @@ export function getOperationalSnapshot(viewData) {
   /** Completada operativa aún sin pasar a «cerrada» (administración). «en_ruta» no cuenta aquí. */
   const sinCerrar = flotaList.filter((s) => s.estado === 'completada').length;
   const sinIngresoFinal = flotaList.filter(
-    (s) => s.estado === 'cerrada' && roundMoney(s.ingresoFinal) <= 0
+    (s) => s.estado === 'cerrada' && roundMoney(s.costoTotal) <= 0
   ).length;
   const pendientesFlota = flotaList.filter((s) =>
     ['recibida', 'evaluacion', 'cotizada', 'aprobada', 'programada'].includes(String(s.estado || ''))
@@ -387,8 +389,8 @@ export function detectOperationalIssues(snapshot, rawViewData = null) {
       tipo: 'CRITICO',
       modulo: 'flota',
       code: 'FLO_SIN_INGRESO',
-      mensaje: 'Flota cerrada sin ingreso final',
-      accion: 'Completar ingreso final en solicitudes cerradas',
+      mensaje: 'Flota cerrada sin costos operativos válidos',
+      accion: 'Registrar combustible, peaje y externo; observación de cierre y asignación real',
       count: f.sinIngresoFinal,
     });
   }
@@ -398,7 +400,7 @@ export function detectOperationalIssues(snapshot, rawViewData = null) {
       modulo: 'flota',
       code: 'FLO_SIN_CERRAR',
       mensaje: 'Flota en «completada» sin cierre administrativo (pasar a «cerrada»)',
-      accion: 'Completar cierre admin.: observación, costos e ingreso final según reglas de flota',
+      accion: 'Cerrar con costos operativos, observación de cierre, conductor y vehículo reales',
       count: f.sinCerrar,
     });
   }
@@ -544,7 +546,7 @@ export function detectOperationalIssues(snapshot, rawViewData = null) {
       if (o.estado === 'terminado' && roundMoney(o.montoCobrado) <= 0) bump(o.cliente, 'sinCobroTerm');
     }
     for (const s of flotaMonth) {
-      if (s.estado === 'cerrada' && roundMoney(s.ingresoFinal) <= 0) bump(s.cliente, 'sinIngresoCerrada');
+      if (s.estado === 'cerrada' && roundMoney(s.costoTotal) <= 0) bump(s.cliente, 'sinIngresoCerrada');
     }
     const problemClients = [...agg.entries()].filter(
       ([, v]) => v.sinCobroTerm > 0 || v.sinIngresoCerrada > 0
@@ -822,12 +824,12 @@ export function buildIntelExecutionQueue(rawViewData) {
 
   for (const s of flotaList) {
     if (s.estado !== 'cerrada') continue;
-    if (roundMoney(s.ingresoFinal) > 0) continue;
+    if (roundMoney(s.costoTotal) > 0) continue;
     add({
       tipo: 'CRITICO',
       codigo: 'FLO_SIN_INGRESO',
       modulo: 'flota',
-      titulo: `${s.id} · cerrada sin ingreso final`,
+      titulo: `${s.id} · cerrada sin costos operativos`,
       descripcion: s.cliente || '—',
       accionCorta: 'Abrir solicitud',
       refKey: s.id,
@@ -1054,7 +1056,7 @@ export function buildIntelExecutionQueue(rawViewData) {
     if (o.estado === 'terminado' && roundMoney(o.montoCobrado) <= 0) bump(o.cliente, 'sinCobroTerm');
   }
   for (const s of flotaMonth) {
-    if (s.estado === 'cerrada' && roundMoney(s.ingresoFinal) <= 0) bump(s.cliente, 'sinIngresoCerrada');
+    if (s.estado === 'cerrada' && roundMoney(s.costoTotal) <= 0) bump(s.cliente, 'sinIngresoCerrada');
   }
   for (const [nombre, v] of agg) {
     if (nombre === '—') continue;
@@ -1064,7 +1066,7 @@ export function buildIntelExecutionQueue(rawViewData) {
   names.slice(0, 4).forEach(({ nombre, v }) => {
     const parts = [];
     if (v.sinCobroTerm) parts.push(`${v.sinCobroTerm} OT sin cobro`);
-    if (v.sinIngresoCerrada) parts.push(`${v.sinIngresoCerrada} flota sin ingreso`);
+    if (v.sinIngresoCerrada) parts.push(`${v.sinIngresoCerrada} flota sin costo operativo`);
     add({
       tipo: 'ATENCION',
       codigo: 'FIN_CLIENTE',

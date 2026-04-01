@@ -1774,6 +1774,52 @@ select option {
   border-top: 1px solid var(--border);
 }
 
+.flota-detail-toolbar--tight {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: none;
+}
+
+.flota-detail-form__blocks-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .flota-detail-form__blocks-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.flota-op-block .flota-detail-subtitle:first-child {
+  margin-top: 0;
+}
+
+.flota-op-block .flota-detail-subtitle--panel:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.flota-op-grid--compact {
+  margin-top: 8px;
+  gap: 10px 12px;
+}
+
+input.flota-utilidad--pos.ot-economics-readonly,
+input.flota-utilidad--pos {
+  color: #15803d !important;
+  font-weight: 700;
+}
+
+input.flota-utilidad--neg.ot-economics-readonly,
+input.flota-utilidad--neg {
+  color: #b91c1c !important;
+  font-weight: 700;
+}
+
 .flota-historial {
   margin: 0;
   padding-left: 18px;

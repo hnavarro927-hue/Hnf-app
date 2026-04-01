@@ -29,6 +29,7 @@ import { blobToDataUrl, generateOtPdfBlob } from './services/pdf.service.js';
 import { otService } from './services/ot.service.js';
 import { vehicleService } from './services/vehicle.service.js';
 import { buildHnfAdnSnapshot } from './domain/hnf-adn.js';
+import { tarifaBaseOperativa } from './domain/flota-solicitud-economics.js';
 import { climaView } from './views/clima.js';
 import { flotaView } from './views/flota.js';
 import { adminView } from './views/admin.js';
@@ -958,7 +959,8 @@ const getJarvisOsState = () => {
   }
   for (const s of d.flotaSolicitudes || []) {
     if (String(s.estado || '').toLowerCase() === 'cerrada') continue;
-    bloqueos += roundOtMoney(s.ingresoFinal || s.ingresoEstimado || s.monto || 0);
+    const tb = tarifaBaseOperativa(s);
+    bloqueos += roundOtMoney(tb || s.ingresoFinal || s.ingresoEstimado || s.monto || 0);
   }
   const opps = Array.isArray(d.commercialOpportunities) ? d.commercialOpportunities : [];
   const oportunidades = opps.filter((p) => {

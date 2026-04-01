@@ -12,6 +12,7 @@ import {
   runAIAnalysis,
 } from '../domain/hnf-intelligence-engine.js';
 import { computeCommercialOpportunitySummary } from '../domain/technical-document-intelligence.js';
+import { tarifaBaseOperativa, utilidadOperativa } from '../domain/flota-solicitud-economics.js';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -82,23 +83,23 @@ const roundMoney = (v) => {
 const isOtClima = (o) => (o.tipoServicio || 'clima') !== 'flota';
 const isOtFlotaTipo = (o) => String(o.tipoServicio || 'clima') === 'flota';
 
-/** Ingreso real flota (solicitud): solo ingresoFinal > 0. Referencia aparte. */
+/** Ingreso real: traslado cerrado = tarifa base fija; otros tipos = ingreso final legacy si existe. */
 const flotaSolIngresoReal = (s) => {
+  const tb = tarifaBaseOperativa(s);
+  if (tb > 0 && s.estado === 'cerrada') return roundMoney(tb);
   const f = roundMoney(s.ingresoFinal);
   return f > 0 ? f : 0;
 };
 
-/** Referencia visual si aún no hay ingreso final positivo. */
+/** Referencia si aún no cuenta como ingreso real (p. ej. traslado abierto → tarifa). */
 const flotaSolIngresoReferencia = (s) => {
-  if (roundMoney(s.ingresoFinal) > 0) return 0;
+  if (flotaSolIngresoReal(s) > 0) return 0;
+  const tb = tarifaBaseOperativa(s);
+  if (tb > 0) return roundMoney(tb);
   return roundMoney(s.ingresoEstimado) || roundMoney(s.monto) || 0;
 };
 
-const flotaSolUtilidadReal = (s) => {
-  const inc = flotaSolIngresoReal(s);
-  if (inc <= 0) return 0;
-  return roundMoney(inc - roundMoney(s.costoTotal));
-};
+const flotaSolUtilidadReal = (s) => roundMoney(s.utilidad ?? utilidadOperativa(s));
 
 const climaOtIngresoReal = (o) => roundMoney(o.montoCobrado);
 const climaOtCosto = (o) => roundMoney(o.costoTotal);
@@ -390,7 +391,7 @@ export const dashboardView = ({
   ).length;
 
   const flotaCerradaSinIngresoFinal = flotaSolicitudes.filter(
-    (s) => s.estado === 'cerrada' && roundMoney(s.ingresoFinal) <= 0
+    (s) => s.estado === 'cerrada' && roundMoney(s.costoTotal) <= 0
   ).length;
 
   const flotaRecibidaMas2Dias = flotaSolicitudes.filter((s) => {
@@ -1174,7 +1175,7 @@ export const dashboardView = ({
       <li><strong>OT terminadas sin costos</strong> · ${otSinCostos}</li>
       <li><strong>OT informadas no cobradas</strong> · ${otInformadasNoCobradas}</li>
       <li><strong>OT terminadas sin informe</strong> · ${otTerminadasNoInformadas}</li>
-      <li><strong>Flota cerrada sin ingreso final</strong> · ${flotaCerradaSinIngresoFinal}</li>
+      <li><strong>Flota cerrada sin costo operativo</strong> · ${flotaCerradaSinIngresoFinal}</li>
       <li><strong>Tiendas sin mantención futura (tras realizada)</strong> · ${mantSinContinuidadTiendas}</li>
       <li><strong>Flota «recibida» &gt; 2 días</strong> · ${flotaRecibidaMas2Dias}</li>
     </ul>
@@ -1189,8 +1190,8 @@ export const dashboardView = ({
     <p class="muted dashboard-gerencial__eyebrow">Control de números · ${mesTitulo}</p>
     <p class="dashboard-gerencial__criterio">
       <strong>Criterio financiero:</strong> Clima → ingreso real = <code>montoCobrado</code>, utilidad = <code>montoCobrado − costoTotal</code>.
-      Flota (solicitudes) → ingreso real solo si <code>ingresoFinal &gt; 0</code>; utilidad real = <code>ingresoFinal − costoTotal</code> en esos casos.
-      La columna «Referencia estimada» usa <code>ingresoEstimado</code> / <code>monto</code> <em>solo</em> cuando no hay ingreso final positivo — no se suma al ingreso real total.
+      Flota (solicitudes) → traslado cerrado: ingreso real = tarifa base ($15.000); otros tipos: <code>ingresoFinal</code> legacy si aplica. Utilidad = <code>utilidad</code> del servidor o tarifa/ingreso − costo operativo (combustible + peaje + externo).
+      La columna «Referencia estimada» usa tarifa traslado u <code>ingresoEstimado</code> / <code>monto</code> cuando aún no hay ingreso real del mes — no se suma al ingreso real total.
       El <strong>margen %</strong> es <code>utilidad real ÷ ingreso real</code>; si el ingreso real es 0 se muestra «—» (no usa ingreso estimado).
     </p>
   `;

@@ -5,6 +5,7 @@
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
 import { finanzasHnfService } from '../services/finanzas-hnf.service.js';
+import { tarifaBaseOperativa } from '../domain/flota-solicitud-economics.js';
 
 const fmtMoney = (n) => {
   const x = Math.round(Number(n) || 0);
@@ -73,7 +74,8 @@ export const finanzasOperativoView = ({
   for (const s of sol) {
     if (String(s?.estado || '').toLowerCase() === 'cerrada') continue;
     flotaAbierta += 1;
-    flotaMonto += roundMoney(s.ingresoFinal || s.ingresoEstimado || s.monto || 0);
+    const tb = tarifaBaseOperativa(s);
+    flotaMonto += roundMoney(tb || s.ingresoFinal || s.ingresoEstimado || s.monto || 0);
   }
 
   const gastosMes = expenses.reduce((acc, e) => acc + roundMoney(e?.monto ?? e?.amount ?? 0), 0);

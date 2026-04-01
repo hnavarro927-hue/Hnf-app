@@ -10,6 +10,11 @@ import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flo
 import { createHnfFlotaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import { filtrarOtsPorRolBackend } from '../domain/hnf-operativa-reglas.js';
+import {
+  costoTotalOperativo,
+  flotaEconomicsLivePreview,
+  tarifaBaseOperativa,
+} from '../domain/flota-solicitud-economics.js';
 
 const TIPO_SERVICIO_OPTS = [
   { value: 'traslado', label: 'Traslado' },
@@ -29,7 +34,7 @@ const flotaPipelineHint = (sel) => {
   }
   if (next === 'cerrada') {
     parts.push(
-      'Para cerrar: costo total guardado > 0, observación de cierre u observación general, y si cambiaste el formulario usá «Guardar datos» antes de «Siguiente estado».'
+      'Para cerrar: conductor y vehículo reales, combustible + peaje + externo con total > 0, observación de cierre obligatoria. «Cerrar OT» guarda y cierra en un paso.'
     );
   }
   if (next === 'programada' || next === 'aprobada') {
@@ -47,7 +52,10 @@ const buildFlotaIntelChecklist = (sel, guidance) => {
   if (!sel) return [];
   const items = [];
   if (guidance?.codigo === 'FLO_SIN_INGRESO') {
-    items.push({ ok: round2(sel.ingresoFinal) > 0, label: 'Ingreso final > 0 guardado' });
+    items.push({
+      ok: costoTotalOperativo(sel) > 0 || round2(sel.costoTotal) > 0,
+      label: 'Costo operativo (combustible + peaje + externo) > 0',
+    });
   }
   if (guidance?.codigo === 'FLO_RUTA_STALE' && sel.estado === 'en_ruta') {
     items.push({
@@ -115,19 +123,12 @@ const round2 = (v) => {
   return Math.round(Math.max(0, n) * 100) / 100;
 };
 
-const sumCostosForm = (el) => {
+const MSG_CIERRE_FLOTA = 'Debes completar costos y observación antes de cerrar la OT';
+
+const sumTresCostosForm = (el) => {
   if (!el) return 0;
   const q = (n) => round2(el.querySelector(`[name="${n}"]`)?.value);
-  return round2(
-    q('costoCombustible') +
-      q('costoPeaje') +
-      q('costoChofer') +
-      q('costoExterno') +
-      q('materiales') +
-      q('manoObra') +
-      q('costoTraslado') +
-      q('otros')
-  );
+  return round2(q('costoCombustible') + q('costoPeaje') + q('costoExterno'));
 };
 
 const asignadoReal = (v) => {
@@ -185,7 +186,7 @@ export const flotaView = ({
   const header = document.createElement('div');
   header.className = 'module-header';
   header.innerHTML =
-    '<h2>Flota · solicitudes</h2><p class="muted">Módulo <strong class="hnf-accent-flota">logística móvil</strong>: rutas, vehículos y estados en campo. <strong>Seguimiento:</strong> tipo de servicio, <strong>origen / destino</strong>, conductor, vehículo y <strong>pipeline</strong>. <strong>Guardar datos</strong> graba costos e ingresos; <strong>Siguiente estado</strong> avanza el circuito (validaciones en backend). Para <strong>cerrar</strong>: costos con total &gt; 0 y observación de cierre u observación general.</p>';
+    '<h2>Flota · solicitudes</h2><p class="muted">Módulo <strong class="hnf-accent-flota">logística móvil</strong> operativo: <strong>traslado</strong> usa tarifa base fija ($15.000) menos costos directos (combustible, peaje, externo). <strong>Guardar datos</strong> persiste el formulario; al <strong>cerrar</strong> se valida conductor, vehículo, costo total &gt; 0 y observación de cierre (backend y pantalla).</p>';
 
   const flowStrip = createHnfOperationalFlowStrip(3);
   const flotaIdentity = createHnfFlotaOpsIdentityCard();
@@ -273,7 +274,11 @@ export const flotaView = ({
   const resumenWrap = document.createElement('div');
   resumenWrap.className = 'plan-table-wrap';
 
-  const ingresoRow = (s) => round2(s.ingresoEstimado) || round2(s.monto) || 0;
+  const ingresoRow = (s) => {
+    const tb = tarifaBaseOperativa(s);
+    if (tb > 0) return tb;
+    return round2(s.ingresoEstimado) || round2(s.monto) || 0;
+  };
 
   const renderResumen = () => {
     const pref = monthPrefix();
@@ -289,7 +294,7 @@ export const flotaView = ({
     const table = document.createElement('table');
     table.className = 'plan-table flota-table';
     table.innerHTML =
-      '<thead><tr><th>Cliente</th><th>Solicitudes en el mes</th><th>Ingreso estimado (suma)</th></tr></thead>';
+      '<thead><tr><th>Cliente</th><th>Solicitudes en el mes</th><th>Tarifa traslado / ingreso ref. (suma)</th></tr></thead>';
     const tb = document.createElement('tbody');
     const rows = [...byCliente.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     if (!rows.length) {
@@ -734,15 +739,17 @@ export const flotaView = ({
     formDetail.className = 'flota-detail-form';
     formDetail.addEventListener('submit', (ev) => ev.preventDefault());
 
-    const gridClass = 'ot-form__grid';
+    const gridClass = 'ot-form__grid flota-op-grid--compact';
     const addGrid = (title, { panel = false } = {}) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'flota-op-block';
       const h = document.createElement('h4');
       h.className = `flota-detail-subtitle${panel ? ' flota-detail-subtitle--panel' : ''}`.trim();
       h.textContent = title;
       const g = document.createElement('div');
       g.className = gridClass;
-      formDetail.append(h, g);
-      return g;
+      wrap.append(h, g);
+      return { wrap, grid: g };
     };
 
     const addLabeled = (grid, label, node) => {
@@ -755,7 +762,10 @@ export const flotaView = ({
       grid.append(w);
     };
 
-    let g1 = addGrid('Datos operativos (servicio y ruta)');
+    const topRow = document.createElement('div');
+    topRow.className = 'flota-detail-form__blocks-row';
+
+    const { wrap: w1, grid: g1 } = addGrid('1 · OPERACIÓN');
     addLabeled(g1, 'Cliente', mkInput('cliente', 'text', sel.cliente));
     const tipoD = document.createElement('select');
     tipoD.name = 'tipoServicio';
@@ -769,69 +779,74 @@ export const flotaView = ({
     addLabeled(g1, 'Conductor', mkInput('conductor', 'text', sel.conductor));
     const vehIn = mkInput('vehiculo', 'text', sel.vehiculo, { list: 'flota-vehiculos-datalist2' });
     addLabeled(g1, 'Vehículo', vehIn);
-
     const estadoD = document.createElement('select');
     estadoD.name = 'estado';
     FLOTA_ESTADO_CHAIN.forEach((e) => estadoD.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
     estadoD.value = sel.estado || 'recibida';
-    addLabeled(g1, 'Estado (selector libre)', estadoD);
-
-    addLabeled(g1, 'Detalle', (() => {
-      const t = document.createElement('textarea');
-      t.name = 'detalle';
-      t.rows = 2;
-      t.value = sel.detalle || '';
-      return t;
-    })());
+    addLabeled(g1, 'Estado', estadoD);
+    addLabeled(
+      g1,
+      'Detalle',
+      (() => {
+        const t = document.createElement('textarea');
+        t.name = 'detalle';
+        t.rows = 1;
+        t.value = sel.detalle || '';
+        return t;
+      })()
+    );
     addLabeled(g1, 'Responsable', mkInput('responsable', 'text', sel.responsable));
-    addLabeled(g1, 'Observación', (() => {
-      const t = document.createElement('textarea');
-      t.name = 'observacion';
-      t.rows = 2;
-      t.value = sel.observacion || '';
-      return t;
-    })());
-    addLabeled(g1, 'Observación de cierre', (() => {
-      const t = document.createElement('textarea');
-      t.name = 'observacionCierre';
-      t.rows = 2;
-      t.placeholder = 'Obligatoria al pasar a cerrada (o usá observación si ya está completa)';
-      t.value = sel.observacionCierre || '';
-      return t;
-    })());
+    addLabeled(
+      g1,
+      'Observación',
+      (() => {
+        const t = document.createElement('textarea');
+        t.name = 'observacion';
+        t.rows = 1;
+        t.value = sel.observacion || '';
+        return t;
+      })()
+    );
+
+    const { wrap: w2, grid: g2 } = addGrid('2 · COSTOS', { panel: true });
+    addLabeled(g2, 'Combustible', mkInput('costoCombustible', 'number', sel.costoCombustible ?? 0));
+    addLabeled(g2, 'Peaje', mkInput('costoPeaje', 'number', sel.costoPeaje ?? 0));
+    addLabeled(g2, 'Externo', mkInput('costoExterno', 'number', sel.costoExterno ?? 0));
+
+    topRow.append(w1, w2);
+    formDetail.append(topRow);
 
     const dl2 = document.createElement('datalist');
     dl2.id = 'flota-vehiculos-datalist2';
     plates.forEach((p) => dl2.append(new Option(p)));
     formDetail.append(dl2);
 
-    let g2 = addGrid('Costos de operación', { panel: true });
-    addLabeled(g2, 'Combustible', mkInput('costoCombustible', 'number', sel.costoCombustible));
-    addLabeled(g2, 'Peaje', mkInput('costoPeaje', 'number', sel.costoPeaje));
-    addLabeled(g2, 'Chofer', mkInput('costoChofer', 'number', sel.costoChofer));
-    addLabeled(g2, 'Externo', mkInput('costoExterno', 'number', sel.costoExterno));
+    const { wrap: wRes, grid: gRes } = addGrid('3 · RESULTADO (solo lectura)', { panel: true });
+    const tarifaRO = mkInput('_tarifaBase', 'text', '0', { readOnly: true });
+    const costoRO = mkInput('_costoTotalLive', 'text', '0', { readOnly: true });
+    const utilRO = mkInput('_utilidadLive', 'text', '0', { readOnly: true });
+    utilRO.setAttribute('aria-live', 'polite');
+    addLabeled(gRes, 'Tarifa base', tarifaRO);
+    addLabeled(gRes, 'Costo total', costoRO);
+    addLabeled(gRes, 'Utilidad', utilRO);
+    formDetail.append(wRes);
 
-    let g3 = addGrid('Costos agregados', { panel: true });
-    addLabeled(g3, 'Materiales', mkInput('materiales', 'number', sel.materiales));
-    addLabeled(g3, 'Mano de obra', mkInput('manoObra', 'number', sel.manoObra));
-    addLabeled(g3, 'Traslado', mkInput('costoTraslado', 'number', sel.costoTraslado));
-    addLabeled(g3, 'Otros', mkInput('otros', 'number', sel.otros));
-
-    let g4 = addGrid('Totales e ingreso (control interno)', { panel: true });
-    addLabeled(
-      g4,
-      'Costo total (servidor)',
-      mkInput('_costoTotal', 'text', String(sel.costoTotal ?? 0), { readOnly: true })
-    );
-    addLabeled(
-      g4,
-      'Utilidad (servidor)',
-      mkInput('_utilidad', 'text', String(sel.utilidad ?? 0), { readOnly: true })
-    );
-    addLabeled(g4, 'Ingreso estimado', mkInput('ingresoEstimado', 'number', sel.ingresoEstimado));
-    addLabeled(g4, 'Ingreso final', mkInput('ingresoFinal', 'number', sel.ingresoFinal));
-    addLabeled(g4, 'Monto cobrado', mkInput('montoCobrado', 'number', sel.montoCobrado));
-    addLabeled(g4, 'Monto (legacy)', mkInput('monto', 'number', sel.monto));
+    const syncEconomics = () => {
+      const partial = {
+        tipoServicio: formDetail.querySelector('[name=tipoServicio]')?.value,
+        costoCombustible: formDetail.querySelector('[name=costoCombustible]')?.value,
+        costoPeaje: formDetail.querySelector('[name=costoPeaje]')?.value,
+        costoExterno: formDetail.querySelector('[name=costoExterno]')?.value,
+      };
+      const { tarifaBase, costoTotal, utilidad } = flotaEconomicsLivePreview(partial, sel);
+      tarifaRO.value = String(tarifaBase);
+      costoRO.value = String(costoTotal);
+      utilRO.value = String(utilidad);
+      utilRO.classList.remove('flota-utilidad--pos', 'flota-utilidad--neg');
+      if (utilidad > 0) utilRO.classList.add('flota-utilidad--pos');
+      else if (utilidad < 0) utilRO.classList.add('flota-utilidad--neg');
+    };
+    syncEconomics();
 
     const collectPayload = () => ({
       cliente: formDetail.querySelector('[name=cliente]')?.value?.trim() || sel.cliente,
@@ -849,26 +864,16 @@ export const flotaView = ({
       observacionCierre: formDetail.querySelector('[name=observacionCierre]')?.value?.trim() ?? '',
       costoCombustible: round2(formDetail.querySelector('[name=costoCombustible]')?.value),
       costoPeaje: round2(formDetail.querySelector('[name=costoPeaje]')?.value),
-      costoChofer: round2(formDetail.querySelector('[name=costoChofer]')?.value),
       costoExterno: round2(formDetail.querySelector('[name=costoExterno]')?.value),
-      materiales: round2(formDetail.querySelector('[name=materiales]')?.value),
-      manoObra: round2(formDetail.querySelector('[name=manoObra]')?.value),
-      costoTraslado: round2(formDetail.querySelector('[name=costoTraslado]')?.value),
-      otros: round2(formDetail.querySelector('[name=otros]')?.value),
-      ingresoEstimado: round2(formDetail.querySelector('[name=ingresoEstimado]')?.value),
-      ingresoFinal: round2(formDetail.querySelector('[name=ingresoFinal]')?.value),
-      montoCobrado: round2(formDetail.querySelector('[name=montoCobrado]')?.value),
-      monto: round2(formDetail.querySelector('[name=monto]')?.value),
     });
 
-    const toolbar = document.createElement('div');
-    toolbar.className = 'flota-detail-toolbar';
-
+    const midBar = document.createElement('div');
+    midBar.className = 'flota-detail-toolbar';
     const btnSave = document.createElement('button');
     btnSave.type = 'button';
     btnSave.className = 'primary-button';
     btnSave.textContent = 'Guardar datos';
-    btnSave.title = 'Graba en el servidor todo lo que figura en el formulario (incluye estado si lo cambiaste en el selector).';
+    btnSave.title = 'Graba operación y costos en el servidor (tarifa, costo total y utilidad las recalcula el backend).';
     btnSave.addEventListener('click', async () => {
       if (btnSave.disabled) return;
       const prevLabel = btnSave.textContent;
@@ -884,96 +889,108 @@ export const flotaView = ({
         btnSave.disabled = false;
       }
     });
+    midBar.append(btnSave);
+    formDetail.append(midBar);
 
+    const { wrap: w4, grid: g4 } = addGrid('4 · CIERRE', { panel: true });
+    addLabeled(
+      g4,
+      'Observación de cierre',
+      (() => {
+        const t = document.createElement('textarea');
+        t.name = 'observacionCierre';
+        t.rows = 2;
+        t.placeholder = 'Obligatoria para cerrar la OT';
+        t.value = sel.observacionCierre || '';
+        return t;
+      })()
+    );
+    const closeBar = document.createElement('div');
+    closeBar.className = 'flota-detail-toolbar flota-detail-toolbar--tight';
     const next = flotaNextEstado(sel.estado);
     const btnNext = document.createElement('button');
     btnNext.type = 'button';
-    btnNext.className = 'secondary-button flota-btn-next';
-    btnNext.textContent = next ? `Siguiente: ${FLOTA_ESTADO_LABELS[next]}` : 'Último estado alcanzado';
-    btnNext.title = next
-      ? `Solo cambia el estado a «${FLOTA_ESTADO_LABELS[next]}». No guarda el resto del formulario: usá Guardar datos si cargaste costos u observaciones.`
-      : '';
+    btnNext.className = next === 'cerrada' ? 'primary-button flota-btn-next' : 'secondary-button flota-btn-next';
+    btnNext.textContent = next
+      ? next === 'cerrada'
+        ? 'Cerrar OT'
+        : `Siguiente: ${FLOTA_ESTADO_LABELS[next]}`
+      : 'Último estado alcanzado';
     btnNext.disabled = !next;
 
-    const cond = formDetail.querySelector('[name=conductor]')?.value;
-    const veh = formDetail.querySelector('[name=vehiculo]')?.value;
-    if (next === 'en_ruta' && (!asignadoReal(cond) || !asignadoReal(veh))) {
-      btnNext.disabled = true;
-      btnNext.title = 'Asigná conductor y vehículo reales antes de «En ruta».';
-    }
-
-    const obsCierre = formDetail.querySelector('[name=observacionCierre]')?.value?.trim();
-    const obs = formDetail.querySelector('[name=observacion]')?.value?.trim();
-    const localTotal = sumCostosForm(formDetail);
-    if (next === 'cerrada') {
-      if (localTotal <= 0) {
+    const refreshNextGate = () => {
+      const nxt = flotaNextEstado(sel.estado);
+      syncEconomics();
+      if (!nxt) {
         btnNext.disabled = true;
-        btnNext.title = 'Registrá costos (total > 0) y guardá antes de cerrar, o completá los campos y usá Guardar datos.';
+        btnNext.title = '';
+        return;
       }
-      if (!(obsCierre || obs)) {
-        btnNext.disabled = true;
-        btnNext.title = 'Completá observación de cierre o observación antes de cerrar.';
+      let dis = false;
+      let title = '';
+      if (nxt === 'en_ruta') {
+        const c = formDetail.querySelector('[name=conductor]')?.value;
+        const v = formDetail.querySelector('[name=vehiculo]')?.value;
+        if (!asignadoReal(c) || !asignadoReal(v)) {
+          dis = true;
+          title = 'Asigná conductor y vehículo reales antes de «En ruta».';
+        }
       }
-    }
+      if (nxt === 'cerrada') {
+        const c = formDetail.querySelector('[name=conductor]')?.value;
+        const v = formDetail.querySelector('[name=vehiculo]')?.value;
+        const obsC = formDetail.querySelector('[name=observacionCierre]')?.value?.trim();
+        const t = sumTresCostosForm(formDetail);
+        if (!asignadoReal(c) || !asignadoReal(v) || t <= 0 || !obsC) {
+          dis = true;
+          title = MSG_CIERRE_FLOTA;
+        }
+      }
+      btnNext.disabled = dis;
+      btnNext.title = title
+        ? title
+        : nxt === 'cerrada'
+          ? 'Guarda datos operativos y costos, y aplica estado cerrada (validado en servidor).'
+          : `Cambia el estado a «${FLOTA_ESTADO_LABELS[nxt]}» (sin guardar el resto del formulario salvo al cerrar).`;
+    };
+    refreshNextGate();
 
     btnNext.addEventListener('click', async () => {
       if (!next || btnNext.disabled) return;
       const prevLabel = btnNext.textContent;
       btnNext.disabled = true;
-      btnNext.textContent = 'Avanzando…';
+      btnNext.textContent = next === 'cerrada' ? 'Cerrando…' : 'Avanzando…';
       try {
+        if (next === 'cerrada') {
+          await flotaSolicitudService.patch(sel.id, collectPayload());
+        }
         await flotaSolicitudService.patch(sel.id, { estado: next });
         notifyGlobal('success', `Estado actualizado a «${FLOTA_ESTADO_LABELS[next]}».`);
         await runReload();
       } catch (err) {
         notifyGlobal('error', err.message || 'No se pudo cambiar el estado.');
         btnNext.textContent = prevLabel;
-        btnNext.disabled = false;
+        refreshNextGate();
       }
     });
 
-    [formDetail.querySelector('[name=conductor]'), formDetail.querySelector('[name=vehiculo]')].forEach(
-      (inp) => {
-        inp?.addEventListener('input', () => {
-          const nxt = flotaNextEstado(sel.estado);
-          if (nxt !== 'en_ruta') return;
-          const c = formDetail.querySelector('[name=conductor]')?.value;
-          const v = formDetail.querySelector('[name=vehiculo]')?.value;
-          btnNext.disabled = !asignadoReal(c) || !asignadoReal(v);
-          btnNext.title = btnNext.disabled
-            ? 'Asigná conductor y vehículo reales antes de «En ruta».'
-            : '';
-        });
-      }
-    );
+    closeBar.append(btnNext);
+    w4.append(closeBar);
+    formDetail.append(w4);
 
+    const wireRefresh = () => refreshNextGate();
     [
+      'conductor',
+      'vehiculo',
+      'tipoServicio',
       'costoCombustible',
       'costoPeaje',
-      'costoChofer',
       'costoExterno',
-      'materiales',
-      'manoObra',
-      'costoTraslado',
-      'otros',
       'observacionCierre',
-      'observacion',
     ].forEach((nm) => {
-      formDetail.querySelector(`[name=${nm}]`)?.addEventListener('input', () => {
-        const nxt = flotaNextEstado(sel.estado);
-        if (nxt !== 'cerrada') return;
-        const t = sumCostosForm(formDetail);
-        const o1 = formDetail.querySelector('[name=observacionCierre]')?.value?.trim();
-        const o2 = formDetail.querySelector('[name=observacion]')?.value?.trim();
-        btnNext.disabled = t <= 0 || !(o1 || o2);
-        btnNext.title = btnNext.disabled
-          ? 'Para cerrar: costos con total > 0 y observación final.'
-          : '';
-      });
+      formDetail.querySelector(`[name=${nm}]`)?.addEventListener('input', wireRefresh);
+      formDetail.querySelector(`[name=${nm}]`)?.addEventListener('change', wireRefresh);
     });
-
-    toolbar.append(btnSave, btnNext);
-    formDetail.append(toolbar);
 
     const hist = sel.historial;
     if (Array.isArray(hist) && hist.length) {

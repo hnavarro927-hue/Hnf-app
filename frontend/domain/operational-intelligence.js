@@ -14,6 +14,7 @@ import {
   otCanClose,
 } from '../utils/ot-evidence.js';
 import { flotaNextEstado, FLOTA_ESTADO_LABELS } from '../constants/flotaPipeline.js';
+import { costoTotalOperativo } from './flota-solicitud-economics.js';
 
 export const OPERATIONAL_CONTEXT_SCHEMA = 'hnf.operationalContext';
 export const OPERATIONAL_CONTEXT_VERSION = '2025-03-23';
@@ -103,19 +104,7 @@ const asignadoReal = (v) => {
   return t.length > 0 && t.toLowerCase() !== 'por asignar' && t !== '—';
 };
 
-const flotaSumCostos = (s) => {
-  const r = (x) => roundMoney(x);
-  return r(
-    r(s?.costoCombustible) +
-      r(s?.costoPeaje) +
-      r(s?.costoChofer) +
-      r(s?.costoExterno) +
-      r(s?.materiales) +
-      r(s?.manoObra) +
-      r(s?.costoTraslado) +
-      r(s?.otros)
-  );
-};
+const flotaCostoOperativoTotal = (s) => costoTotalOperativo(s);
 
 /**
  * Brief de solicitud flota para avance y cierre.
@@ -137,20 +126,27 @@ export function buildFlotaOperationalBrief(solicitud) {
     }
   }
   if (next === 'cerrada') {
-    const total = flotaSumCostos(s);
-    const obs = String(s.observacionCierre || s.observacion || '').trim();
+    if (!asignadoReal(s.conductor) || !asignadoReal(s.vehiculo)) {
+      blockers.push({
+        code: 'CERRADA_ASIGNACION',
+        severity: 'block',
+        detail: 'Conductor y vehículo deben ser reales antes de cerrar.',
+      });
+    }
+    const total = flotaCostoOperativoTotal(s);
+    const obs = String(s.observacionCierre || '').trim();
     if (total <= 0) {
       blockers.push({
         code: 'CERRADA_COSTOS',
         severity: 'block',
-        detail: 'Costo total debe ser mayor que cero (guardá datos en servidor).',
+        detail: 'Costo operativo (combustible + peaje + externo) debe sumar más que cero.',
       });
     }
     if (!obs) {
       blockers.push({
         code: 'CERRADA_OBSERVACION',
         severity: 'block',
-        detail: 'Observación de cierre u observación general obligatoria.',
+        detail: 'Observación de cierre obligatoria antes de cerrar.',
       });
     }
   }
@@ -173,7 +169,7 @@ export function buildFlotaOperationalBrief(solicitud) {
     nextEstado: next,
     flags: {
       isTerminal: estado === 'cerrada',
-      costoTotal: flotaSumCostos(s),
+      costoTotal: flotaCostoOperativoTotal(s),
     },
     blockers,
     suggestedActions,

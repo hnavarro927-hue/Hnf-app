@@ -151,13 +151,12 @@ export function collectDiagnostics(snapshot) {
     const id = s.id || '—';
     const estado = s.estado || 'recibida';
     if (estado === 'cerrada') {
-      const ing = roundMoney(s.ingresoFinal) || roundMoney(s.montoCobrado);
-      if (ing <= 0) {
+      if (roundMoney(s.costoTotal) <= 0) {
         push({
           severity: 'warning',
           code: 'FLOTA_CERRADA_SIN_INGRESO',
           domain: 'flota',
-          title: 'Solicitud cerrada sin ingreso final positivo',
+          title: 'Solicitud cerrada sin costo operativo registrado',
           detail: `${id} · ${s.cliente || '—'}`,
           ref: { type: 'flotaSolicitud', id },
           module: 'flota',
@@ -371,22 +370,20 @@ export function runAssistantQuery(queryId, snapshot) {
       const otCerrSin = snapshot.ots.filter(
         (o) => o.estado === 'terminado' && roundMoney(o.montoCobrado) <= 0
       );
-      const fl = snapshot.flota.filter(
-        (s) => s.estado === 'cerrada' && roundMoney(s.ingresoFinal) <= 0 && roundMoney(s.montoCobrado) <= 0
-      );
+      const fl = snapshot.flota.filter((s) => s.estado === 'cerrada' && roundMoney(s.costoTotal) <= 0);
       return {
         title: 'Cobros e ingresos registrados',
         intro:
-          'Trabajos sin monto cobrado (Clima) o sin ingreso final (Flota cerrada) según los números en servidor.',
+          'Trabajos sin monto cobrado (Clima) o flota cerrada sin costo operativo (combustible + peaje + externo).',
         bullets: formatList(
           [
             ...otSin.map((o) => `OT abierta ${o.id} · ${o.cliente} · monto cobrado 0`),
             ...otCerrSin.map((o) => `OT terminada ${o.id} · ${o.cliente} · revisar facturación`),
-            ...fl.map((s) => `Flota cerrada ${s.id} · ${s.cliente} · sin ingreso final`),
+            ...fl.map((s) => `Flota cerrada ${s.id} · ${s.cliente} · sin costos operativos`),
           ],
           'No se detectaron casos flag en esta categoría.'
         ),
-        foot: 'Los importes deben guardarse con «Guardar resultado económico» o «Guardar datos» en Flota.',
+        foot: 'En Flota: costos directos y cierre con observación; en Clima: «Guardar resultado económico».',
       };
     }
 
