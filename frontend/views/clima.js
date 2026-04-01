@@ -641,33 +641,6 @@ const buildOtExecutiveSummaryCard = (ot, { economicsSaved = false } = {}) => {
   return article;
 };
 
-const DETAIL_STAGE_HERO = {
-  entrada: {
-    title: 'Entrada · sitio y contacto',
-    lede: 'Datos del cliente, ubicación e historial reciente. Base para clasificar y asignar.',
-  },
-  clasificacion: {
-    title: 'Clasificación operativa',
-    lede: 'Origen, prioridad y tipo de intervención. Alineá la OT con el flujo comercial y técnico.',
-  },
-  asignacion: {
-    title: 'Asignación y estado',
-    lede: 'Estado en servidor, técnico y modo manual o Jarvis. Definí responsable antes de ejecución.',
-  },
-  ejecucion: {
-    title: 'Ejecución en terreno',
-    lede: 'Textos, equipos y evidencia fotográfica antes / durante / después.',
-  },
-  informe: {
-    title: 'Informe y economía',
-    lede: 'Checklist de calidad, vista previa al cliente y generación de PDF.',
-  },
-  cierre: {
-    title: 'Cierre formal',
-    lede: 'Validación final, cierre de OT y eliminación (solo admin).',
-  },
-};
-
 const buildOtOperationalSummarySection = (ot) => {
   const block = document.createElement('div');
   block.className = 'ot-op-detail__summary-block';
@@ -1190,12 +1163,12 @@ const mountClimaOtDetailFlow = (
   detailCard.replaceChildren();
   contextRail.replaceChildren();
 
-  detailCard.classList.add('ot-flow-app', 'ot-flow-app--detail');
+  detailCard.classList.add('ot-flow-app', 'ot-flow-app--detail', 'ot-clima-detail-card');
   const flowRoot = document.createElement('div');
-  flowRoot.className = 'ot-flow-app__inner ot-flow-app__inner--workspace';
+  flowRoot.className = 'ot-flow-app__inner ot-flow-app__inner--workspace ot-clima-exec-stepped';
 
   const compactHeader = document.createElement('header');
-  compactHeader.className = 'ot-saas-sticky ot-flow-compact-header';
+  compactHeader.className = 'ot-saas-sticky ot-flow-compact-header ot-clima-compact-header';
   const meta = document.createElement('div');
   meta.className = 'ot-saas-sticky__meta';
   [
@@ -1219,7 +1192,7 @@ const mountClimaOtDetailFlow = (
   compactHeader.append(meta);
 
   const progressNav = document.createElement('nav');
-  progressNav.className = 'ot-flow-progress';
+  progressNav.className = 'ot-flow-progress ot-clima-stage-tabs';
   progressNav.setAttribute('aria-label', 'Etapas de la OT');
 
   const jarvisAside = document.createElement('aside');
@@ -1244,9 +1217,6 @@ const mountClimaOtDetailFlow = (
   progressFill.className = 'ot-flow-progress-bar__fill';
   progressWrap.append(progressFill);
 
-  const stageHero = document.createElement('div');
-  stageHero.className = 'ot-flow-stage-hero';
-
   const validationBanner = document.createElement('div');
   validationBanner.className = 'ot-flow-validation-banner';
   validationBanner.hidden = true;
@@ -1256,7 +1226,7 @@ const mountClimaOtDetailFlow = (
   stageRow.className = 'ot-flow-command-stage-row';
 
   const stageBody = document.createElement('div');
-  stageBody.className = 'ot-flow-stage-body';
+  stageBody.className = 'ot-flow-stage-body ot-clima-stage-scroll';
 
   const mkPanel = (idx) => {
     const p = document.createElement('section');
@@ -1366,7 +1336,15 @@ const mountClimaOtDetailFlow = (
   const h1 = document.createElement('h3');
   h1.className = 'ot-flow-stage-title';
   h1.textContent = 'Clasificación';
-  p1.append(h1, buildOtOperationalSummarySection(selectedOT));
+  const sumBlock = buildOtOperationalSummarySection(selectedOT);
+  const sumGrid = sumBlock.querySelector('.ot-op-detail__grid');
+  if (sumGrid) {
+    sumGrid.remove();
+    const { details: sumMore, body: sumMoreBody } = createHnfEwDetails('Más datos de clasificación (gerencial)', false);
+    sumMoreBody.append(sumGrid);
+    sumBlock.append(sumMore);
+  }
+  p1.append(h1, sumBlock);
 
   const p2 = mkPanel(2);
   const h2 = document.createElement('h3');
@@ -1580,10 +1558,8 @@ const mountClimaOtDetailFlow = (
     checklist.append(row);
   });
   checklistPanel.append(checklist);
-  const previewPanel = document.createElement('article');
-  previewPanel.className = 'ot-saas-block';
-  previewPanel.innerHTML = '<h4>Vista previa</h4>';
-  previewPanel.append(createClientPreview(selectedOT));
+  const { details: previewDet, body: previewBody } = createHnfEwDetails('Vista previa informe (cliente)', false);
+  previewBody.append(createClientPreview(selectedOT));
   const pdfTop = document.createElement('button');
   pdfTop.type = 'button';
   pdfTop.className = 'secondary-button ot-flow-footer__btn';
@@ -1624,7 +1600,7 @@ const mountClimaOtDetailFlow = (
   btnEnviarCliente.addEventListener('click', async () => actions.enviarInformeCliente(selectedOT));
   envioClienteBlock.append(envioTit, envioEstado, envioMeta, btnEnviarCliente);
 
-  p4.append(h4, checklistPanel, previewPanel, pdfTop, envioClienteBlock);
+  p4.append(h4, checklistPanel, previewDet, pdfTop, envioClienteBlock);
 
   const p5 = mkPanel(5);
   const h5 = document.createElement('h3');
@@ -1667,7 +1643,7 @@ const mountClimaOtDetailFlow = (
   stageRow.append(stageBody);
 
   const footer = document.createElement('div');
-  footer.className = 'ot-flow-footer';
+  footer.className = 'ot-flow-footer ot-clima-stage-footer';
   const btnPrev = document.createElement('button');
   btnPrev.type = 'button';
   btnPrev.className = 'secondary-button ot-flow-footer__btn';
@@ -1746,20 +1722,6 @@ const mountClimaOtDetailFlow = (
     const pct = ((n + 1) / CLIMA_OT_FLOW_STAGES.length) * 100;
     progressFill.style.width = `${pct}%`;
 
-    const stMeta = CLIMA_OT_FLOW_STAGES[n];
-    const heroMeta = DETAIL_STAGE_HERO[stMeta.id] || { title: stMeta.label, lede: '' };
-    stageHero.replaceChildren();
-    const ey = document.createElement('span');
-    ey.className = 'ot-flow-stage-hero__eyebrow';
-    ey.textContent = `Etapa ${n + 1} de ${CLIMA_OT_FLOW_STAGES.length} · ${stMeta.label}`;
-    const h2 = document.createElement('h2');
-    h2.className = 'ot-flow-stage-hero__title';
-    h2.textContent = heroMeta.title;
-    const sub = document.createElement('p');
-    sub.className = 'ot-flow-stage-hero__lede';
-    sub.textContent = heroMeta.lede;
-    stageHero.append(ey, h2, sub);
-
     btnPrev.disabled = n === 0;
     btnNext.hidden = n === CLIMA_OT_FLOW_STAGES.length - 1 || ro;
     btnNext.textContent = n === 4 ? 'Ir a cierre' : 'Siguiente etapa';
@@ -1831,16 +1793,8 @@ const mountClimaOtDetailFlow = (
   });
 
   const mainColumn = document.createElement('div');
-  mainColumn.className = 'ot-flow-command-main';
-  mainColumn.append(
-    compactHeader,
-    progressWrap,
-    progressNav,
-    stageHero,
-    validationBanner,
-    stageRow,
-    footer
-  );
+  mainColumn.className = 'ot-flow-command-main ot-clima-command-main';
+  mainColumn.append(compactHeader, progressWrap, progressNav, validationBanner, stageRow, footer);
   contextRail.append(buildClimaPortalStrip(selectedOT));
   appendClimaIntelToRail(contextRail, selectedOT, {
     intelListFilter,
@@ -2180,13 +2134,12 @@ export const climaView = ({
   formCard.className = 'ot-form-card ot-flow-app ot-flow-app--create';
 
   const formHeader = document.createElement('div');
-  formHeader.className = 'ot-form-card__header';
-  formHeader.innerHTML = `
-    <div>
-      <p class="muted">Nueva visita · flujo por etapas</p>
-      <h3>Crear OT</h3>
-      <p class="muted ot-flow-app__lede">Una etapa por pantalla. Podés volver atrás tocando una etapa ya visitada.</p>
-    </div>
+  formHeader.className = 'ot-form-card__header hnf-clima-create-dialog__header';
+  const formHeaderIntro = document.createElement('div');
+  formHeaderIntro.innerHTML = `
+    <p class="muted">Nueva visita · flujo por etapas</p>
+    <h3>Crear OT</h3>
+    <p class="muted ot-flow-app__lede">Una etapa por pantalla. Podés volver atrás tocando una etapa ya visitada.</p>
   `;
 
   const form = document.createElement('form');
@@ -2437,10 +2390,27 @@ export const climaView = ({
     await actions.createOT(payload);
   });
 
-  formCard.append(formHeader, createProgress, createJarvis, createStageBody, createFooter);
+  const createDialog = document.createElement('dialog');
+  createDialog.className = 'hnf-clima-create-dialog';
+  createDialog.setAttribute('aria-label', 'Crear nueva orden de trabajo');
+  const btnCloseCreate = document.createElement('button');
+  btnCloseCreate.type = 'button';
+  btnCloseCreate.className = 'secondary-button hnf-clima-create-dialog__close';
+  btnCloseCreate.textContent = 'Cerrar';
+  btnCloseCreate.addEventListener('click', () => createDialog.close());
+  formHeader.append(formHeaderIntro, btnCloseCreate);
 
-  const { details: altaOtDetails, body: altaOtBody } = createHnfEwDetails('Crear nueva OT (etapas)', false);
-  altaOtBody.append(formCard);
+  formCard.append(formHeader, createProgress, createJarvis, createStageBody, createFooter);
+  createDialog.append(formCard);
+
+  const createActionBar = document.createElement('div');
+  createActionBar.className = 'hnf-clima-action-bar';
+  const btnOpenCreate = document.createElement('button');
+  btnOpenCreate.type = 'button';
+  btnOpenCreate.className = 'primary-button hnf-clima-action-bar__primary';
+  btnOpenCreate.textContent = 'Crear nueva OT';
+  btnOpenCreate.addEventListener('click', () => createDialog.showModal());
+  createActionBar.append(btnOpenCreate, climaToolbar);
 
   const { split: workspaceSplit, railNav, main: workspaceMain, railCtx } = createHnfEwSplitThree();
   workspaceSplit.classList.add('hnf-cc-split-pane--clima-enterprise');
@@ -2487,7 +2457,7 @@ export const climaView = ({
       empty.textContent =
         integrationStatus === 'sin conexión'
           ? 'Sin conexión al servidor: no hay órdenes cargadas. Revisá la red y tocá «Actualizar datos».'
-          : 'No hay OT. Desplegá «Crear nueva OT» arriba o sincronizá cuando el servidor esté disponible.';
+          : 'No hay OT. Tocá «Crear nueva OT» en la barra de acciones o sincronizá cuando el servidor esté disponible.';
       list.append(empty);
       return;
     }
@@ -2562,7 +2532,7 @@ export const climaView = ({
 
   if (!selectedOT) {
     detailCard.innerHTML =
-      '<h3>Detalle de la visita</h3><p class="muted">Desplegá «Crear nueva OT» arriba o elegí una fila en la bandeja.</p>';
+      '<h3>Detalle de la visita</h3><p class="muted">Tocá «Crear nueva OT» en la barra de acciones o elegí una fila en la bandeja.</p>';
     contextRail.replaceChildren();
     contextRail.append(buildClimaPortalStrip(null));
     appendClimaIntelToRail(contextRail, null, {
@@ -2633,7 +2603,8 @@ export const climaView = ({
 
   ew.flow.append(flowStrip);
 
-  ew.quick.append(altaOtDetails, climaToolbar);
+  ew.quick.append(createActionBar);
+  ew.root.append(createDialog);
 
   renderOtList();
 

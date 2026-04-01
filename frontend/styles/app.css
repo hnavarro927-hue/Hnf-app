@@ -945,7 +945,9 @@ select option {
 }
 
 .hnf-cc-split-pane--clima-enterprise {
-  min-height: min(64vh, 780px);
+  min-height: min(48vh, 520px);
+  max-height: calc(100dvh - 220px);
+  overflow: hidden;
 }
 
 .hnf-cc-split-pane__rail {
@@ -1044,6 +1046,181 @@ select option {
   flex: 1;
   min-height: 0;
   max-height: none;
+}
+
+/* Clima · ejecución OT: una etapa visible, scroll solo en el panel central */
+.hnf-op-view--clima.hnf-ew {
+  max-height: calc(100dvh - 72px);
+  overflow: hidden;
+}
+
+.hnf-op-view--clima .hnf-ew__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ot-clima-detail-card.ot-detail-card--split-workspace {
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ot-flow-app__inner--workspace.ot-clima-exec-stepped {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+.ot-clima-exec-stepped .ot-clima-command-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.ot-clima-exec-stepped .ot-flow-command-stage-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ot-clima-exec-stepped .ot-clima-stage-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ot-clima-exec-stepped .ot-clima-stage-footer {
+  flex-shrink: 0;
+}
+
+.ot-clima-exec-stepped .ot-flow-stage-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ot-clima-stage-tabs {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 2px;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.ot-clima-stage-tabs .ot-flow-progress__arrow {
+  display: none;
+}
+
+.ot-clima-stage-tabs .ot-flow-progress__step {
+  flex: 0 0 auto;
+}
+
+.ot-clima-exec-stepped .ot-flow-progress-bar-wrap,
+.ot-clima-exec-stepped .ot-flow-validation-banner {
+  flex-shrink: 0;
+}
+
+.ot-clima-compact-header {
+  flex-shrink: 0;
+}
+
+.ot-clima-compact-header .ot-saas-sticky__meta {
+  flex-wrap: wrap;
+}
+
+/* Barra acciones + modal crear OT (Clima) */
+.hnf-clima-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.hnf-clima-action-bar .module-toolbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hnf-clima-create-dialog {
+  max-width: min(96vw, 780px);
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 18px;
+  background: rgba(12, 16, 26, 0.98);
+  color: var(--text, #f1f5f9);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.55);
+}
+
+.hnf-clima-create-dialog::backdrop {
+  background: rgba(2, 6, 14, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.hnf-clima-create-dialog .ot-form-card.ot-flow-app--create {
+  display: flex;
+  flex-direction: column;
+  max-height: min(88dvh, 920px);
+  min-height: 0;
+  margin: 0;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.hnf-clima-create-dialog .ot-flow-stage-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.hnf-clima-create-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.hnf-clima-create-dialog__close {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+@media (max-width: 720px) {
+  .hnf-op-view--clima.hnf-ew {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hnf-cc-split-pane--clima-enterprise {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 .ot-list--split-pane {
