@@ -940,6 +940,10 @@ select option {
   min-height: min(78vh, 860px);
 }
 
+.hnf-cc-split-pane--flota-enterprise {
+  min-height: min(68vh, 760px);
+}
+
 .hnf-cc-split-pane__rail {
   min-height: 0;
   display: flex;
@@ -1832,6 +1836,144 @@ input.flota-utilidad--neg {
 
 .flota-form--create {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.flota-form.flota-alta-toolbar {
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px 10px;
+  padding: 12px 14px;
+}
+
+.flota-form.flota-alta-toolbar .form-field {
+  margin: 0;
+}
+
+.flota-form.flota-alta-toolbar textarea {
+  min-height: 2.25rem;
+  grid-column: span 1;
+}
+
+.flota-alta-heading {
+  margin: 14px 20px 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.flota-secondary-details {
+  margin: 0 20px 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.flota-secondary-details__summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.flota-secondary-details--table .plan-table-wrap {
+  margin: 12px 0 0;
+}
+
+.flota-module-header--enterprise .module-header h2 {
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.flota-module-header__lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 72ch;
+}
+
+.flota-desk-heading {
+  margin: 8px 0 6px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.flota-list-heading {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.flota-rail-portal {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.06);
+  flex-shrink: 0;
+}
+
+.flota-rail-portal__kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.flota-rail-portal__dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.flota-rail-portal__dl dt {
+  margin: 0;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.flota-rail-portal__dl dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.flota-rail-portal__empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+.flota-detail-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flota-op-block--dense .flota-detail-subtitle--dense {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.flota-op-block--dense .flota-detail-subtitle--panel {
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.flota-detail-toolbar--dense {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.flota-rail-intel {
+  flex-shrink: 0;
+}
+
+.flota-historial-details {
+  margin-top: 10px;
 }
 
 .ot-economics-modern {

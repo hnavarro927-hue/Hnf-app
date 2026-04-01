@@ -1,4 +1,3 @@
-import { createCard } from '../components/card.js';
 import {
   FLOTA_ESTADO_CHAIN,
   FLOTA_ESTADO_LABELS,
@@ -10,7 +9,6 @@ import {
   flotaSolicitudService,
 } from '../services/flota-solicitud.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
-import { createHnfFlotaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import { filtrarOtsPorRolBackend } from '../domain/hnf-operativa-reglas.js';
 import {
@@ -41,7 +39,7 @@ const flotaPipelineHint = (sel) => {
     );
   }
   if (next === 'programada' || next === 'aprobada') {
-    parts.push('Revisá que origen, destino y responsable estén claros para quien ejecuta.');
+    parts.push('Revisá que origen y destino estén claros para quien ejecuta.');
   }
   return parts.join(' ');
 };
@@ -69,55 +67,6 @@ const buildFlotaIntelChecklist = (sel, guidance) => {
   const brief = buildFlotaOperationalBrief(sel);
   brief.blockers.forEach((b) => items.push({ ok: false, label: b.detail }));
   return items;
-};
-
-const buildFlotaTraceBubbles = (sel) => {
-  const wrap = document.createElement('div');
-  wrap.className = 'flota-trace-bubbles';
-  const h = document.createElement('h4');
-  h.className = 'flota-trace-bubbles__title';
-  h.textContent = 'Trazabilidad 360° · Unidad';
-  const grid = document.createElement('div');
-  grid.className = 'flota-trace-bubbles__grid';
-  const idx = FLOTA_ESTADO_CHAIN.indexOf(sel.estado);
-  const ix = (id) => {
-    const j = FLOTA_ESTADO_CHAIN.indexOf(id);
-    return j < 0 ? 999 : j;
-  };
-  const neumOk = idx >= ix('programada');
-  const motorOk = round2(sel.costoCombustible) > 0 || idx >= ix('en_ruta');
-  const frenosOk = idx >= ix('completada');
-  const motorWarn = !motorOk && idx >= ix('evaluacion');
-  const mk = (emoji, title, tier, sub) => {
-    const b = document.createElement('div');
-    b.className = `flota-trace-bubble flota-trace-bubble--${tier}`;
-    b.setAttribute('role', 'img');
-    b.setAttribute('aria-label', `${title}: ${sub}`);
-    const orb = document.createElement('span');
-    orb.className = 'flota-trace-bubble__orb';
-    orb.textContent = emoji;
-    const body = document.createElement('div');
-    body.className = 'flota-trace-bubble__body';
-    const strong = document.createElement('strong');
-    strong.textContent = title;
-    const small = document.createElement('small');
-    small.textContent = sub;
-    body.append(strong, small);
-    b.append(orb, body);
-    return b;
-  };
-  grid.append(
-    mk('🛞', 'Neumáticos', neumOk ? 'ok' : 'pending', neumOk ? 'Listo para ruta' : 'Revisar asignación'),
-    mk(
-      '⚙',
-      'Motor',
-      motorOk ? 'ok' : motorWarn ? 'warn' : 'pending',
-      motorOk ? 'Energía / combustible OK' : motorWarn ? 'Registrar combustible' : 'En espera'
-    ),
-    mk('🛑', 'Frenos', frenosOk ? 'ok' : 'pending', frenosOk ? 'Cierre operativo' : 'Pendiente etapa')
-  );
-  wrap.append(h, grid);
-  return wrap;
 };
 
 const round2 = (v) => {
@@ -152,6 +101,51 @@ const defaultHora = () => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
+const fmtShortTs = (iso) => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return '—';
+  }
+};
+
+/** Bloque derecho: mismos campos que una futura vista cliente (data-* estables). */
+const buildFlotaPortalStrip = (sel) => {
+  const el = document.createElement('div');
+  el.className = 'flota-rail-portal';
+  el.setAttribute('data-hnf-portal-surface', 'flota-solicitud-resumen');
+  if (!sel) {
+    el.innerHTML =
+      '<p class="flota-rail-portal__empty muted">Seleccioná una solicitud para ver el resumen tipo portal.</p>';
+    return el;
+  }
+  el.setAttribute('data-flota-id', String(sel.id || ''));
+  el.setAttribute('data-flota-estado', String(sel.estado || ''));
+  const iso = sel.updatedAt ? new Date(sel.updatedAt).toISOString() : '';
+  el.setAttribute('data-flota-updated-at', iso);
+  const t = document.createElement('div');
+  t.className = 'flota-rail-portal__kicker';
+  t.textContent = 'Resumen operativo (base portal cliente)';
+  const dl = document.createElement('dl');
+  dl.className = 'flota-rail-portal__dl';
+  const row = (dt, dd) => {
+    const dtt = document.createElement('dt');
+    dtt.textContent = dt;
+    const ddd = document.createElement('dd');
+    ddd.textContent = dd;
+    dl.append(dtt, ddd);
+  };
+  row('Estado', labelEstado(sel.estado));
+  row('Origen', sel.origen || '—');
+  row('Destino', sel.destino || '—');
+  row('Unidad', sel.vehiculo || '—');
+  row('Conductor', sel.conductor || '—');
+  row('Última actualización', fmtShortTs(sel.updatedAt));
+  el.append(t, dl);
+  return el;
+};
+
 export const flotaView = ({
   data,
   reloadApp,
@@ -167,7 +161,6 @@ export const flotaView = ({
   section.className = 'flota-module hnf-op-view hnf-op-view--flota';
 
   const vehicles = data?.vehicles?.data || [];
-  const expenses = data?.expenses?.data || [];
   const solicitudes = [...(Array.isArray(data?.flotaSolicitudes) ? data.flotaSolicitudes : [])].sort(
     (a, b) => {
       const ts = (s) => String(s?.createdAt || s?.updatedAt || '').trim();
@@ -192,12 +185,10 @@ export const flotaView = ({
   ].sort();
 
   const header = document.createElement('div');
-  header.className = 'module-header';
-  header.innerHTML =
-    '<h2>Flota · solicitudes</h2><p class="muted">Módulo <strong class="hnf-accent-flota">logística móvil</strong> operativo: <strong>traslado</strong> usa tarifa base fija ($15.000) menos costos directos (combustible, peaje, externo). <strong>Guardar datos</strong> persiste el formulario; al <strong>cerrar</strong> se valida conductor, vehículo, costo total &gt; 0 y observación de cierre (backend y pantalla).</p>';
+  header.className = 'module-header flota-module-header--enterprise';
+  header.innerHTML = `<h2>Flota · operación</h2><p class="muted flota-module-header__lead">Estándar HNF: <strong>traslado</strong> = tarifa base $15.000 − (combustible + peaje + externo). <strong>Cerrar OT</strong> exige conductor, unidad, costo &gt; 0 y observación de cierre.</p>`;
 
   const flowStrip = createHnfOperationalFlowStrip(3);
-  const flotaIdentity = createHnfFlotaOpsIdentityCard();
 
   if (flotaFeedback?.message) {
     const notice = document.createElement('div');
@@ -207,62 +198,42 @@ export const flotaView = ({
     header.append(notice);
   }
 
-  const cards = document.createElement('div');
-  cards.className = 'cards';
-  [
-    {
-      title: 'Vehículos',
-      description: 'Referencia interna.',
-      items: [`Registrados: ${vehicles.length}`, 'Podés elegir patente desde la lista al cargar'],
-    },
-    {
-      title: 'Gastos',
-      description: 'Otro módulo.',
-      items: [`Registros: ${expenses.length}`, 'Los ves en Administración'],
-    },
-    {
-      title: 'Solicitudes',
-      description: 'En el sistema.',
-      items: [
-        `Activas en pantalla: ${solicitudes.length}`,
-        'Orden típico: ' + FLOTA_ESTADO_CHAIN.map((e) => FLOTA_ESTADO_LABELS[e]).join(' → '),
-      ],
-    },
-  ].forEach((item) => cards.append(createCard(item)));
-
+  const otBandejaDetails = document.createElement('details');
+  otBandejaDetails.className = 'flota-secondary-details';
+  const otSum = document.createElement('summary');
+  otSum.className = 'flota-secondary-details__summary';
+  otSum.textContent = `OT Clima tipo Flota (${otFlota.length}) — abrir en Clima si aplica`;
   const otBandeja = document.createElement('div');
-  otBandeja.className = 'flota-ot-bandeja';
-  const otBandejaTitle = document.createElement('h3');
-  otBandejaTitle.className = 'flota-section-title';
-  otBandejaTitle.textContent = 'Bandeja OT Flota (Gery)';
+  otBandeja.className = 'flota-ot-bandeja flota-ot-bandeja--compact';
   const otBandejaP = document.createElement('p');
   otBandejaP.className = 'muted small';
   otBandejaP.textContent =
-    'Órdenes de trabajo con tipo Flota. La ejecución detallada (evidencias, cierre) sigue en el módulo Clima cuando compartís flujo OT unificado; acá ves el listado filtrado por línea Flota.';
-  otBandeja.append(otBandejaTitle, otBandejaP);
+    'Listado de respaldo. La solicitud operativa principal es la de este módulo (columna izquierda).';
+  otBandeja.append(otBandejaP);
   if (!otFlota.length) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'No hay OT clasificadas como Flota en el servidor.';
+    empty.textContent = 'Sin OT Clima clasificadas como Flota.';
     otBandeja.append(empty);
   } else {
     const ul = document.createElement('ul');
     ul.className = 'flota-ot-bandeja__list';
-    for (const o of otFlota.slice(0, 40)) {
+    for (const o of otFlota.slice(0, 24)) {
       const li = document.createElement('li');
       li.className = 'flota-ot-bandeja__item';
       const st = String(o.estado || '—');
-      li.innerHTML = `<strong>${o.id}</strong> · ${o.cliente || '—'} · <span class="muted">${st}</span> · ${o.fecha || '—'}`;
+      li.innerHTML = `<strong>${o.id}</strong> · ${o.cliente || '—'} · <span class="muted">${st}</span>`;
       const open = document.createElement('button');
       open.type = 'button';
       open.className = 'secondary-button flota-ot-bandeja__open';
-      open.textContent = 'Abrir en Clima';
+      open.textContent = 'Clima';
       open.addEventListener('click', () => navigateToView?.('clima', { otId: o.id }));
       li.append(open);
       ul.append(li);
     }
     otBandeja.append(ul);
   }
+  otBandejaDetails.append(otSum, otBandeja);
 
   const runReload = async () => {
     if (typeof reloadApp === 'function') return await reloadApp();
@@ -275,12 +246,14 @@ export const flotaView = ({
     }
   };
 
-  const resumenTitle = document.createElement('h3');
-  resumenTitle.className = 'flota-section-title';
-  resumenTitle.textContent = 'Resumen por cliente (mes en curso)';
-
+  const resumenDetails = document.createElement('details');
+  resumenDetails.className = 'flota-secondary-details flota-secondary-details--table';
+  const resumenSum = document.createElement('summary');
+  resumenSum.className = 'flota-secondary-details__summary';
+  resumenSum.textContent = 'Resumen por cliente (mes en curso) — referencia';
   const resumenWrap = document.createElement('div');
   resumenWrap.className = 'plan-table-wrap';
+  resumenDetails.append(resumenSum, resumenWrap);
 
   const ingresoRow = (s) => {
     const tb = tarifaBaseOperativa(s);
@@ -324,12 +297,17 @@ export const flotaView = ({
     resumenWrap.replaceChildren(table);
   };
 
-  const solTitle = document.createElement('h3');
-  solTitle.className = 'flota-section-title';
-  solTitle.textContent = 'Nueva solicitud (campos obligatorios)';
+  const solTitle = document.createElement('div');
+  solTitle.className = 'flota-alta-heading';
+  const solTitleStrong = document.createElement('strong');
+  solTitleStrong.textContent = 'Alta rápida';
+  const solTitleSpan = document.createElement('span');
+  solTitleSpan.className = 'muted small';
+  solTitleSpan.textContent = ' · Siempre inicia en «Recibida» en servidor';
+  solTitle.append(solTitleStrong, solTitleSpan);
 
   const form = document.createElement('form');
-  form.className = 'flota-form flota-form--create';
+  form.className = 'flota-form flota-form--create flota-alta-toolbar';
 
   const addField = (name, label, el) => {
     const w = document.createElement('label');
@@ -385,31 +363,21 @@ export const flotaView = ({
   dl.id = 'flota-vehiculos-datalist';
   plates.forEach((p) => dl.append(new Option(p)));
 
-  const estadoCreate = document.createElement('select');
-  estadoCreate.name = 'estado';
-  FLOTA_ESTADO_CHAIN.forEach((e) => estadoCreate.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
-  estadoCreate.value = 'recibida';
-
   const detalleTa = document.createElement('textarea');
-  detalleTa.rows = 2;
+  detalleTa.name = 'detalle';
+  detalleTa.rows = 1;
   detalleTa.placeholder = 'Detalle (opcional)';
-
-  const responsableIn = document.createElement('input');
-  responsableIn.type = 'text';
-  responsableIn.placeholder = 'Responsable HNF (opcional)';
 
   form.append(
     addField('cliente', 'Cliente', clienteIn),
-    addField('tipoServicio', 'Tipo de servicio', tipoSel),
+    addField('tipoServicio', 'Tipo servicio', tipoSel),
     addField('fecha', 'Fecha', fechaIn),
     addField('hora', 'Hora', horaIn),
     addField('origen', 'Origen', origenIn),
     addField('destino', 'Destino', destinoIn),
     addField('conductor', 'Conductor', conductorIn),
-    addField('vehiculo', 'Vehículo', vehiculoIn),
-    addField('estado', 'Estado inicial', estadoCreate),
+    addField('vehiculo', 'Unidad / patente', vehiculoIn),
     addField('detalle', 'Detalle', detalleTa),
-    addField('responsable', 'Responsable', responsableIn),
     dl
   );
 
@@ -435,9 +403,9 @@ export const flotaView = ({
         destino: destinoIn.value.trim(),
         conductor: conductorIn.value.trim(),
         vehiculo: vehiculoIn.value.trim(),
-        estado: estadoCreate.value,
+        estado: 'recibida',
         detalle: detalleTa.value.trim(),
-        responsable: responsableIn.value.trim(),
+        responsable: '',
         observacion: '',
         observacionCierre: '',
       });
@@ -466,9 +434,10 @@ export const flotaView = ({
     }
   });
 
-  const filtTitle = document.createElement('h3');
-  filtTitle.className = 'flota-section-title';
-  filtTitle.textContent = 'Listado y detalle operativo';
+  const filtTitle = document.createElement('div');
+  filtTitle.className = 'flota-desk-heading';
+  filtTitle.innerHTML =
+    '<strong>Bandeja y ficha</strong> <span class="muted small">· Izquierda: solicitudes · Centro: edición · Derecha: pipeline y alertas</span>';
 
   const filtRow = document.createElement('div');
   filtRow.className = 'flota-filters';
@@ -500,19 +469,19 @@ export const flotaView = ({
   }
 
   const overview = document.createElement('div');
-  overview.className = 'hnf-cc-split-pane hnf-cc-split-pane--flota';
+  overview.className = 'hnf-cc-split-pane hnf-cc-split-pane--flota hnf-cc-split-pane--flota-enterprise';
 
   const listCard = document.createElement('article');
   listCard.className = 'ot-list-card ot-list-card--split-rail hnf-cc-split-pane__rail hnf-cc-split-pane__rail--left';
   listCard.innerHTML =
-    '<div class="ot-list-card__header"><h3>Solicitudes</h3><p class="muted">Elegí una fila para editar costos y avanzar el estado.</p></div>';
+    '<div class="ot-list-card__header"><h3 class="flota-list-heading">Solicitudes</h3><p class="muted small">Tocá una fila: permanece seleccionada tras guardar o cambiar estado.</p></div>';
 
   const list = document.createElement('div');
   list.className = 'ot-list ot-list--split-pane';
 
   const contextRail = document.createElement('aside');
   contextRail.className = 'hnf-cc-split-pane__rail hnf-cc-split-pane__rail--right';
-  contextRail.setAttribute('aria-label', 'Pipeline, contexto y trazabilidad');
+  contextRail.setAttribute('aria-label', 'Resumen tipo portal, pipeline, alertas e inteligencia');
 
   const detailCard = document.createElement('article');
   detailCard.className = 'ot-detail-card ot-detail-card--split-workspace hnf-cc-split-pane__center';
@@ -533,17 +502,19 @@ export const flotaView = ({
     solicitudes[0] ||
     null;
 
-  let intelStrip = null;
-  const hasIntelGuide = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
-  if (hasFlotaIntelFilter || hasIntelGuide) {
-    intelStrip = document.createElement('div');
-    intelStrip.className = 'intel-guide-stack';
-    if (hasIntelGuide) {
+  const appendFlotaIntelPanel = (parent, sel) => {
+    const hasFlotaIntelFilterLocal =
+      flotaIntelFilter && typeof flotaIntelFilter === 'object' && Object.keys(flotaIntelFilter).length > 0;
+    const hasIntelGuideLocal = Boolean(intelGuidance && (intelGuidance.why || intelGuidance.fix));
+    if (!hasFlotaIntelFilterLocal && !hasIntelGuideLocal) return;
+    const intelStrip = document.createElement('div');
+    intelStrip.className = 'intel-guide-stack flota-rail-intel';
+    if (hasIntelGuideLocal) {
       const g = document.createElement('div');
       g.className = 'intel-guide-banner';
       const title = document.createElement('div');
       title.className = 'intel-guide-banner__title';
-      title.textContent = 'Resolución guiada · inteligencia operativa';
+      title.textContent = 'Inteligencia operativa';
       g.append(title);
       const mkLine = (k, v) => {
         if (!v) return;
@@ -562,13 +533,13 @@ export const flotaView = ({
         mkLine('Registro', String(intelGuidance.recordLabel));
       }
       intelStrip.append(g);
-      const chkItems = buildFlotaIntelChecklist(selected, intelGuidance);
+      const chkItems = buildFlotaIntelChecklist(sel, intelGuidance);
       if (chkItems.length) {
         const box = document.createElement('div');
         box.className = 'intel-guide-checklist';
         const hh = document.createElement('div');
         hh.className = 'intel-guide-checklist__h';
-        hh.textContent = 'Checklist (reglas actuales)';
+        hh.textContent = 'Checklist';
         const ul = document.createElement('ul');
         ul.className = 'intel-guide-checklist__ul';
         chkItems.forEach(({ ok, label }) => {
@@ -581,12 +552,12 @@ export const flotaView = ({
         intelStrip.append(box);
       }
     }
-    if (hasFlotaIntelFilter) {
+    if (hasFlotaIntelFilterLocal) {
       const ban = document.createElement('div');
       ban.className = 'intel-filter-banner intel-filter-banner--nested';
       const lab = document.createElement('span');
       lab.className = 'intel-filter-banner__text';
-      lab.textContent = 'Filtro desde inteligencia (también reflejado en el desplegable de estado).';
+      lab.textContent = 'Filtro desde inteligencia (también en el desplegable de estado).';
       ban.append(lab);
       intelStrip.append(ban);
     }
@@ -595,13 +566,14 @@ export const flotaView = ({
     const clr = document.createElement('button');
     clr.type = 'button';
     clr.className = 'secondary-button';
-    clr.textContent = hasFlotaIntelFilter ? 'Quitar filtro y guía' : 'Cerrar guía';
+    clr.textContent = hasFlotaIntelFilterLocal ? 'Quitar filtro y guía' : 'Cerrar guía';
     clr.addEventListener('click', () =>
-      hasFlotaIntelFilter ? actions?.clearIntelUiFilters?.() : actions?.dismissIntelGuidance?.()
+      hasFlotaIntelFilterLocal ? actions?.clearIntelUiFilters?.() : actions?.dismissIntelGuidance?.()
     );
     act.append(clr);
     intelStrip.append(act);
-  }
+    parent.append(intelStrip);
+  };
 
   const renderList = () => {
     list.innerHTML = '';
@@ -683,10 +655,15 @@ export const flotaView = ({
         integrationStatus === 'sin conexión' && !solicitudes.length
           ? '<h3>Detalle</h3><p class="muted">Sin datos del servidor. No se puede mostrar el detalle hasta reconectar.</p>'
           : '<h3>Detalle</h3><p class="muted">Creá una solicitud o elegí una del listado a la izquierda.</p>';
+      const emptyStack = document.createElement('div');
+      emptyStack.className = 'flota-context-rail';
+      emptyStack.append(buildFlotaPortalStrip(null));
       const emptyR = document.createElement('p');
       emptyR.className = 'flota-context-rail__empty';
-      emptyR.textContent = 'Seleccioná una solicitud para ver pipeline, trazabilidad y contexto operativo.';
-      contextRail.append(emptyR);
+      emptyR.textContent = 'Seleccioná una solicitud para ver pipeline, siguiente paso y alertas.';
+      emptyStack.append(emptyR);
+      appendFlotaIntelPanel(emptyStack, null);
+      contextRail.append(emptyStack);
       return;
     }
 
@@ -765,7 +742,8 @@ export const flotaView = ({
 
     const ctxStack = document.createElement('div');
     ctxStack.className = 'flota-context-rail';
-    ctxStack.append(pipeWrap, flotaMeta, opCtx, buildFlotaTraceBubbles(sel));
+    ctxStack.append(buildFlotaPortalStrip(sel), pipeWrap, opCtx, flotaMeta);
+    appendFlotaIntelPanel(ctxStack, sel);
     contextRail.append(ctxStack);
 
     detailCard.append(titleRow);
@@ -777,9 +755,11 @@ export const flotaView = ({
     const gridClass = 'ot-form__grid flota-op-grid--compact';
     const addGrid = (title, { panel = false } = {}) => {
       const wrap = document.createElement('div');
-      wrap.className = 'flota-op-block';
+      wrap.className = 'flota-op-block flota-op-block--dense';
       const h = document.createElement('h4');
-      h.className = `flota-detail-subtitle${panel ? ' flota-detail-subtitle--panel' : ''}`.trim();
+      h.className = `flota-detail-subtitle flota-detail-subtitle--dense${
+        panel ? ' flota-detail-subtitle--panel' : ''
+      }`.trim();
       h.textContent = title;
       const g = document.createElement('div');
       g.className = gridClass;
@@ -797,30 +777,22 @@ export const flotaView = ({
       grid.append(w);
     };
 
-    const topRow = document.createElement('div');
-    topRow.className = 'flota-detail-form__blocks-row';
+    const blocksCol = document.createElement('div');
+    blocksCol.className = 'flota-detail-blocks';
 
-    const { wrap: w1, grid: g1 } = addGrid('1 · OPERACIÓN');
-    addLabeled(g1, 'Cliente', mkInput('cliente', 'text', sel.cliente));
+    const { wrap: wBase, grid: gBase } = addGrid('Datos base');
+    addLabeled(gBase, 'Cliente', mkInput('cliente', 'text', sel.cliente));
     const tipoD = document.createElement('select');
     tipoD.name = 'tipoServicio';
     TIPO_SERVICIO_OPTS.forEach((t) => tipoD.append(new Option(t.label, t.value)));
     tipoD.value = sel.tipoServicio || sel.tipo || 'traslado';
-    addLabeled(g1, 'Tipo de servicio', tipoD);
-    addLabeled(g1, 'Fecha', mkInput('fecha', 'date', sel.fecha));
-    addLabeled(g1, 'Hora', mkInput('hora', 'time', sel.hora || '09:00'));
-    addLabeled(g1, 'Origen', mkInput('origen', 'text', sel.origen));
-    addLabeled(g1, 'Destino', mkInput('destino', 'text', sel.destino));
-    addLabeled(g1, 'Conductor', mkInput('conductor', 'text', sel.conductor));
-    const vehIn = mkInput('vehiculo', 'text', sel.vehiculo, { list: 'flota-vehiculos-datalist2' });
-    addLabeled(g1, 'Vehículo', vehIn);
-    const estadoD = document.createElement('select');
-    estadoD.name = 'estado';
-    FLOTA_ESTADO_CHAIN.forEach((e) => estadoD.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
-    estadoD.value = sel.estado || 'recibida';
-    addLabeled(g1, 'Estado', estadoD);
+    addLabeled(gBase, 'Tipo de servicio', tipoD);
+    addLabeled(gBase, 'Fecha', mkInput('fecha', 'date', sel.fecha));
+    addLabeled(gBase, 'Hora', mkInput('hora', 'time', sel.hora || '09:00'));
+    addLabeled(gBase, 'Origen', mkInput('origen', 'text', sel.origen));
+    addLabeled(gBase, 'Destino', mkInput('destino', 'text', sel.destino));
     addLabeled(
-      g1,
+      gBase,
       'Detalle',
       (() => {
         const t = document.createElement('textarea');
@@ -830,41 +802,84 @@ export const flotaView = ({
         return t;
       })()
     );
-    addLabeled(g1, 'Responsable', mkInput('responsable', 'text', sel.responsable));
+
+    const { wrap: wAsig, grid: gAsig } = addGrid('Asignación');
+    addLabeled(gAsig, 'Conductor', mkInput('conductor', 'text', sel.conductor));
+    const vehIn = mkInput('vehiculo', 'text', sel.vehiculo, { list: 'flota-vehiculos-datalist2' });
+    addLabeled(gAsig, 'Unidad / patente', vehIn);
+
+    const { wrap: wExec, grid: gExec } = addGrid('Ejecución');
+    const estadoD = document.createElement('select');
+    estadoD.name = 'estado';
+    FLOTA_ESTADO_CHAIN.forEach((e) => estadoD.append(new Option(FLOTA_ESTADO_LABELS[e], e)));
+    estadoD.value = sel.estado || 'recibida';
+    addLabeled(gExec, 'Estado (manual)', estadoD);
     addLabeled(
-      g1,
+      gExec,
       'Observación',
       (() => {
         const t = document.createElement('textarea');
         t.name = 'observacion';
         t.rows = 1;
+        t.placeholder = 'Notas operativas (no confundir con cierre)';
         t.value = sel.observacion || '';
         return t;
       })()
     );
 
-    const { wrap: w2, grid: g2 } = addGrid('2 · COSTOS', { panel: true });
-    addLabeled(g2, 'Combustible', mkInput('costoCombustible', 'number', sel.costoCombustible ?? 0));
-    addLabeled(g2, 'Peaje', mkInput('costoPeaje', 'number', sel.costoPeaje ?? 0));
-    addLabeled(g2, 'Externo', mkInput('costoExterno', 'number', sel.costoExterno ?? 0));
+    const midBar = document.createElement('div');
+    midBar.className = 'flota-detail-toolbar flota-detail-toolbar--dense';
+    const btnSave = document.createElement('button');
+    btnSave.type = 'button';
+    btnSave.className = 'primary-button';
+    btnSave.textContent = 'Guardar datos';
+    btnSave.title =
+      'Graba operación y costos en el servidor (tarifa, costo total y utilidad las recalcula el backend).';
 
-    topRow.append(w1, w2);
-    formDetail.append(topRow);
-
-    const dl2 = document.createElement('datalist');
-    dl2.id = 'flota-vehiculos-datalist2';
-    plates.forEach((p) => dl2.append(new Option(p)));
-    formDetail.append(dl2);
-
-    const { wrap: wRes, grid: gRes } = addGrid('3 · RESULTADO (solo lectura)', { panel: true });
+    const { wrap: wCost, grid: gCost } = addGrid('Costos', { panel: true });
+    addLabeled(gCost, 'Combustible', mkInput('costoCombustible', 'number', sel.costoCombustible ?? 0));
+    addLabeled(gCost, 'Peaje', mkInput('costoPeaje', 'number', sel.costoPeaje ?? 0));
+    addLabeled(gCost, 'Externo', mkInput('costoExterno', 'number', sel.costoExterno ?? 0));
     const tarifaRO = mkInput('_tarifaBase', 'text', '0', { readOnly: true });
     const costoRO = mkInput('_costoTotalLive', 'text', '0', { readOnly: true });
     const utilRO = mkInput('_utilidadLive', 'text', '0', { readOnly: true });
     utilRO.setAttribute('aria-live', 'polite');
-    addLabeled(gRes, 'Tarifa base', tarifaRO);
-    addLabeled(gRes, 'Costo total', costoRO);
-    addLabeled(gRes, 'Utilidad', utilRO);
-    formDetail.append(wRes);
+    addLabeled(gCost, 'Tarifa base', tarifaRO);
+    addLabeled(gCost, 'Costo total', costoRO);
+    addLabeled(gCost, 'Utilidad', utilRO);
+
+    const { wrap: wCierre, grid: gCierre } = addGrid('Cierre', { panel: true });
+    addLabeled(
+      gCierre,
+      'Observación de cierre',
+      (() => {
+        const t = document.createElement('textarea');
+        t.name = 'observacionCierre';
+        t.rows = 2;
+        t.placeholder = 'Obligatoria para cerrar la OT';
+        t.value = sel.observacionCierre || '';
+        return t;
+      })()
+    );
+    const closeBar = document.createElement('div');
+    closeBar.className = 'flota-detail-toolbar flota-detail-toolbar--tight';
+    const next = flotaNextEstado(sel.estado);
+    const btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = next === 'cerrada' ? 'primary-button flota-btn-next' : 'secondary-button flota-btn-next';
+    btnNext.textContent = next
+      ? next === 'cerrada'
+        ? 'Cerrar OT'
+        : `Siguiente: ${FLOTA_ESTADO_LABELS[next]}`
+      : 'Último estado alcanzado';
+    btnNext.disabled = !next;
+
+    blocksCol.append(wBase, wAsig, wExec, midBar, wCost, wCierre);
+
+    const dl2 = document.createElement('datalist');
+    dl2.id = 'flota-vehiculos-datalist2';
+    plates.forEach((p) => dl2.append(new Option(p)));
+    formDetail.append(blocksCol, dl2);
 
     const syncEconomics = () => {
       const partial = {
@@ -894,7 +909,7 @@ export const flotaView = ({
       vehiculo: formDetail.querySelector('[name=vehiculo]')?.value?.trim(),
       estado: formDetail.querySelector('[name=estado]')?.value,
       detalle: formDetail.querySelector('[name=detalle]')?.value?.trim() ?? '',
-      responsable: formDetail.querySelector('[name=responsable]')?.value?.trim() ?? '',
+      responsable: String(sel.responsable ?? '').trim(),
       observacion: formDetail.querySelector('[name=observacion]')?.value?.trim() ?? '',
       observacionCierre: formDetail.querySelector('[name=observacionCierre]')?.value?.trim() ?? '',
       costoCombustible: round2(formDetail.querySelector('[name=costoCombustible]')?.value),
@@ -902,13 +917,6 @@ export const flotaView = ({
       costoExterno: round2(formDetail.querySelector('[name=costoExterno]')?.value),
     });
 
-    const midBar = document.createElement('div');
-    midBar.className = 'flota-detail-toolbar';
-    const btnSave = document.createElement('button');
-    btnSave.type = 'button';
-    btnSave.className = 'primary-button';
-    btnSave.textContent = 'Guardar datos';
-    btnSave.title = 'Graba operación y costos en el servidor (tarifa, costo total y utilidad las recalcula el backend).';
     btnSave.addEventListener('click', async () => {
       if (btnSave.disabled) return;
       const prevLabel = btnSave.textContent;
@@ -917,6 +925,7 @@ export const flotaView = ({
       try {
         await flotaSolicitudService.patch(sel.id, collectPayload());
         notifyGlobal('success', `Solicitud ${sel.id} guardada en el servidor.`);
+        actions?.scheduleFlotaSelectAfterReload?.(sel.id);
         await runReload();
       } catch (err) {
         notifyGlobal('error', err.message || 'No se pudo guardar.');
@@ -925,33 +934,6 @@ export const flotaView = ({
       }
     });
     midBar.append(btnSave);
-    formDetail.append(midBar);
-
-    const { wrap: w4, grid: g4 } = addGrid('4 · CIERRE', { panel: true });
-    addLabeled(
-      g4,
-      'Observación de cierre',
-      (() => {
-        const t = document.createElement('textarea');
-        t.name = 'observacionCierre';
-        t.rows = 2;
-        t.placeholder = 'Obligatoria para cerrar la OT';
-        t.value = sel.observacionCierre || '';
-        return t;
-      })()
-    );
-    const closeBar = document.createElement('div');
-    closeBar.className = 'flota-detail-toolbar flota-detail-toolbar--tight';
-    const next = flotaNextEstado(sel.estado);
-    const btnNext = document.createElement('button');
-    btnNext.type = 'button';
-    btnNext.className = next === 'cerrada' ? 'primary-button flota-btn-next' : 'secondary-button flota-btn-next';
-    btnNext.textContent = next
-      ? next === 'cerrada'
-        ? 'Cerrar OT'
-        : `Siguiente: ${FLOTA_ESTADO_LABELS[next]}`
-      : 'Último estado alcanzado';
-    btnNext.disabled = !next;
 
     const refreshNextGate = () => {
       const nxt = flotaNextEstado(sel.estado);
@@ -1001,6 +983,7 @@ export const flotaView = ({
         }
         await flotaSolicitudService.patch(sel.id, { estado: next });
         notifyGlobal('success', `Estado actualizado a «${FLOTA_ESTADO_LABELS[next]}».`);
+        actions?.scheduleFlotaSelectAfterReload?.(sel.id);
         await runReload();
       } catch (err) {
         notifyGlobal('error', err.message || 'No se pudo cambiar el estado.');
@@ -1010,14 +993,14 @@ export const flotaView = ({
     });
 
     closeBar.append(btnNext);
-    w4.append(closeBar);
-    formDetail.append(w4);
+    wCierre.append(closeBar);
 
     const wireRefresh = () => refreshNextGate();
     [
       'conductor',
       'vehiculo',
       'tipoServicio',
+      'estado',
       'costoCombustible',
       'costoPeaje',
       'costoExterno',
@@ -1029,9 +1012,11 @@ export const flotaView = ({
 
     const hist = sel.historial;
     if (Array.isArray(hist) && hist.length) {
-      const hh = document.createElement('h4');
-      hh.className = 'flota-detail-subtitle';
-      hh.textContent = 'Historial y auditoría reciente';
+      const histDet = document.createElement('details');
+      histDet.className = 'flota-secondary-details flota-historial-details';
+      const histSum = document.createElement('summary');
+      histSum.className = 'flota-secondary-details__summary';
+      histSum.textContent = 'Historial y auditoría reciente';
       const ul = document.createElement('ul');
       ul.className = 'flota-historial';
       [...hist]
@@ -1044,7 +1029,8 @@ export const flotaView = ({
           li.textContent = `${at} · ${entry.accion || '—'} · ${entry.detalle || ''}${who}`;
           ul.append(li);
         });
-      formDetail.append(hh, ul);
+      histDet.append(histSum, ul);
+      formDetail.append(histDet);
     }
 
     detailCard.append(formDetail);
@@ -1079,15 +1065,15 @@ export const flotaView = ({
 
   const heroBand = document.createElement('div');
   heroBand.className = 'hnf-flota__hero';
-  heroBand.append(header, flowStrip, flotaIdentity, ...(offlineBanner ? [offlineBanner] : []), cards, otBandeja);
+  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), otBandejaDetails);
 
   const opsBand = document.createElement('div');
   opsBand.className = 'hnf-flota__ops';
-  opsBand.append(resumenTitle, resumenWrap, solTitle, form);
+  opsBand.append(resumenDetails, solTitle, form);
 
   const deskBand = document.createElement('div');
   deskBand.className = 'hnf-flota__desk';
-  deskBand.append(filtTitle, filtRow, ...(intelStrip ? [intelStrip] : []), overview);
+  deskBand.append(filtTitle, filtRow, overview);
 
   section.append(heroBand, opsBand, deskBand);
   renderResumen();
