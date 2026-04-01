@@ -1,0 +1,222 @@
+/**
+ * HNF Enterprise Workspace — layout base compartido (Control gerencial, Flota, Clima).
+ * Jerarquía: header → signals → flow → quick → body.
+ */
+
+.hnf-ew {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hnf-ew__header {
+  flex-shrink: 0;
+}
+
+.hnf-ew__signals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.hnf-ew-signals-row {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .hnf-ew-signals-row {
+    grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr);
+    align-items: stretch;
+  }
+}
+
+.hnf-ew__flow {
+  flex-shrink: 0;
+}
+
+.hnf-ew__quick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 211, 153, 0.16);
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.05) 0%, var(--surface-soft, rgba(15, 23, 42, 0.4)) 100%);
+  flex-shrink: 0;
+}
+
+.hnf-ew--control .hnf-ew__quick {
+  border-color: rgba(34, 211, 238, 0.2);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.06) 0%, var(--surface-soft, rgba(15, 23, 42, 0.45)) 100%);
+}
+
+.hnf-ew__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.hnf-ew-pill-metric {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.35));
+  background: var(--surface, rgba(15, 23, 42, 0.65));
+  color: var(--text, #f1f5f9);
+  white-space: nowrap;
+}
+
+.hnf-ew-signals-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* —— Split 3 (Flota) —— */
+.hnf-ew-split--three {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'nav'
+    'main'
+    'ctx';
+  gap: 12px;
+  align-items: stretch;
+  min-height: min(64vh, 720px);
+}
+
+@media (min-width: 900px) {
+  .hnf-ew-split--three {
+    grid-template-columns: minmax(200px, 0.88fr) minmax(280px, 1.45fr) minmax(200px, 0.92fr);
+    grid-template-areas: 'nav main ctx';
+  }
+}
+
+.hnf-ew-split__cell--nav {
+  grid-area: nav;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hnf-ew-split__cell--main {
+  grid-area: main;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hnf-ew-split__cell--context {
+  grid-area: ctx;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 899px) {
+  .hnf-ew--flota .hnf-ew-split__cell--nav .ot-list.ot-list--split-pane {
+    max-height: min(36vh, 320px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+.hnf-ew--flota .hnf-ew-split__cell--nav .ot-list-card,
+.hnf-ew--flota .hnf-ew-split__cell--main .ot-detail-card,
+.hnf-ew--flota .hnf-ew-split__cell--context {
+  flex: 1;
+  min-height: 0;
+}
+
+.hnf-ew--flota .hnf-ew-split__cell--main.hnf-cc-split-pane__center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* —— Split 2 (Control) —— */
+.hnf-ew-split--control {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@media (min-width: 768px) {
+  .hnf-ew-split--control {
+    grid-template-columns: minmax(220px, 260px) 1fr;
+  }
+}
+
+.hnf-ew-split--control .hnf-ew-split__cell--nav {
+  grid-area: unset;
+}
+
+.hnf-ew-split--control .hnf-ew-split__cell--main {
+  grid-area: unset;
+  min-width: 0;
+}
+
+/* —— Details estándar —— */
+.hnf-ew-details {
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  background: var(--surface-soft, rgba(15, 23, 42, 0.35));
+  padding: 8px 12px;
+}
+
+.hnf-ew-details__summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #94a3b8);
+  list-style-position: outside;
+  padding: 4px 0;
+}
+
+.hnf-ew-details__body {
+  padding: 10px 0 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  margin-top: 6px;
+}
+
+/* Métricas compactas en franja de señales (control) */
+.hnf-ew-kpi-compact-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.hnf-ew-kpi-compact-row .hnf-v2-metric {
+  padding: 10px 12px;
+}
+
+.hnf-ew-kpi-compact-row .hnf-v2-metric__value {
+  font-size: 1.15rem;
+}
+
+.hnf-ew-kpi-compact-row .hnf-v2-metric__label {
+  font-size: 10px;
+}

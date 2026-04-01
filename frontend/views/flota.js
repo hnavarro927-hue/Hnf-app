@@ -9,6 +9,10 @@ import {
   flotaSolicitudService,
 } from '../services/flota-solicitud.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
+import {
+  createHnfEnterpriseWorkspace,
+  createHnfEwSplitThree,
+} from '../components/hnf-enterprise-workspace.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import { filtrarOtsPorRolBackend } from '../domain/hnf-operativa-reglas.js';
 import {
@@ -157,9 +161,6 @@ export const flotaView = ({
   intelGuidance,
   navigateToView,
 } = {}) => {
-  const section = document.createElement('section');
-  section.className = 'flota-module hnf-op-view hnf-op-view--flota';
-
   const vehicles = data?.vehicles?.data || [];
   const solicitudes = [...(Array.isArray(data?.flotaSolicitudes) ? data.flotaSolicitudes : [])].sort(
     (a, b) => {
@@ -183,6 +184,15 @@ export const flotaView = ({
   const plates = [
     ...new Set(vehicles.map((v) => String(v.plate || '').trim()).filter(Boolean)),
   ].sort();
+
+  const ew = createHnfEnterpriseWorkspace({
+    variant: 'flota',
+    ariaLabel: 'Flota · operación',
+  });
+  ew.root.classList.add('flota-module', 'hnf-op-view', 'hnf-op-view--flota');
+  ew.header.classList.add('hnf-flota__hero');
+  ew.body.classList.add('hnf-flota__desk');
+  ew.quick.classList.add('hnf-flota__ops');
 
   const header = document.createElement('div');
   header.className = 'module-header flota-module-header--enterprise';
@@ -468,8 +478,8 @@ export const flotaView = ({
     fEstado.value = flotaIntelFilter.estado;
   }
 
-  const overview = document.createElement('div');
-  overview.className = 'hnf-cc-split-pane hnf-cc-split-pane--flota hnf-cc-split-pane--flota-enterprise';
+  const { split: workspaceSplit, railNav, main: workspaceMain, railCtx } = createHnfEwSplitThree();
+  workspaceMain.classList.add('hnf-cc-split-pane__center');
 
   const listCard = document.createElement('article');
   listCard.className = 'ot-list-card ot-list-card--split-rail hnf-cc-split-pane__rail hnf-cc-split-pane__rail--left';
@@ -479,8 +489,8 @@ export const flotaView = ({
   const list = document.createElement('div');
   list.className = 'ot-list ot-list--split-pane';
 
-  const contextRail = document.createElement('aside');
-  contextRail.className = 'hnf-cc-split-pane__rail hnf-cc-split-pane__rail--right';
+  const contextRail = railCtx;
+  contextRail.classList.add('hnf-cc-split-pane__rail', 'hnf-cc-split-pane__rail--right');
   contextRail.setAttribute('aria-label', 'Resumen tipo portal, pipeline, alertas e inteligencia');
 
   const detailCard = document.createElement('article');
@@ -1037,7 +1047,9 @@ export const flotaView = ({
   };
 
   listCard.append(list);
-  overview.append(listCard, detailCard, contextRail);
+  railNav.append(filtTitle, filtRow, listCard);
+  workspaceMain.append(detailCard);
+  ew.body.append(workspaceSplit);
 
   fCliente.addEventListener('input', () => {
     renderList();
@@ -1063,20 +1075,24 @@ export const flotaView = ({
         })()
       : null;
 
-  const heroBand = document.createElement('div');
-  heroBand.className = 'hnf-flota__hero';
-  heroBand.append(header, flowStrip, ...(offlineBanner ? [offlineBanner] : []), otBandejaDetails);
+  ew.header.append(header);
 
-  const opsBand = document.createElement('div');
-  opsBand.className = 'hnf-flota__ops';
-  opsBand.append(resumenDetails, solTitle, form);
+  const signalsStrip = document.createElement('div');
+  signalsStrip.className = 'hnf-ew-signals-strip';
+  const nSol = document.createElement('span');
+  nSol.className = 'hnf-ew-pill-metric';
+  nSol.textContent = `Solicitudes (servidor): ${solicitudes.length}`;
+  const intg = document.createElement('span');
+  intg.className = 'hnf-ew-pill-metric';
+  intg.textContent = `Integración: ${integrationStatus || '—'}`;
+  signalsStrip.append(nSol, intg);
+  ew.signals.append(...(offlineBanner ? [offlineBanner] : []), signalsStrip);
 
-  const deskBand = document.createElement('div');
-  deskBand.className = 'hnf-flota__desk';
-  deskBand.append(filtTitle, filtRow, overview);
+  ew.flow.append(flowStrip);
 
-  section.append(heroBand, opsBand, deskBand);
+  ew.quick.append(resumenDetails, solTitle, form, otBandejaDetails);
+
   renderResumen();
 
-  return section;
+  return ew.root;
 };
