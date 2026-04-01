@@ -1496,6 +1496,132 @@ select option {
   }
 }
 
+/* Gestión OT — tablero lista densa */
+.hnf-ot-board {
+  padding: 12px clamp(12px, 2vw, 20px) 20px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.hnf-ot-board__header.module-header {
+  margin-bottom: 10px;
+}
+
+.hnf-ot-board__lead {
+  margin: 4px 0 0;
+  max-width: 42rem;
+}
+
+.hnf-ot-board__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hnf-ot-board__filter {
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.hnf-ot-board__scroll {
+  overflow: auto;
+  max-height: calc(100dvh - 210px);
+  min-height: 220px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.hnf-ot-board__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.hnf-ot-board__table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hnf-ot-board__table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.hnf-ot-board__mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.hnf-ot-board__actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.hnf-ot-board__action-select {
+  min-height: 36px;
+  max-width: 168px;
+  font-size: 13px;
+}
+
+.hnf-ot-board__empty {
+  padding: 20px;
+  text-align: center;
+}
+
+.hnf-ot-board__dialog {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 0;
+  max-width: min(96vw, 400px);
+  background: rgba(14, 18, 28, 0.98);
+  color: inherit;
+}
+
+.hnf-ot-board__dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.hnf-ot-board__dialog form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hnf-ot-board__dialog-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.hnf-ot-board__dialog-select,
+.hnf-ot-board__dialog-input {
+  min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 15px;
+}
+
+.hnf-ot-board__dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 720px) {
   .hnf-op-view--clima.hnf-ew {
     max-height: none;

@@ -34,6 +34,7 @@ import { vehicleService } from './services/vehicle.service.js';
 import { buildHnfAdnSnapshot } from './domain/hnf-adn.js';
 import { tarifaBaseOperativa } from './domain/flota-solicitud-economics.js';
 import { climaView } from './views/clima.js';
+import { gestionOtView } from './views/gestion-ot.js';
 import { flotaView } from './views/flota.js';
 import { adminView } from './views/admin.js';
 import { auditoriaView, loadAuditoriaData } from './views/auditoria.js';
@@ -773,6 +774,11 @@ const viewRegistry = {
     load: async () => otService.getAll().catch(() => ({ data: [] })),
   },
 
+  'gestion-ot': {
+    render: gestionOtView,
+    load: async () => otService.getAll().catch(() => ({ data: [] })),
+  },
+
   'documentos-tecnicos': {
     render: technicalDocumentsView,
     load: loadTechnicalDocumentsView,
@@ -1038,7 +1044,9 @@ const recomputeOtEconomicsSaved = () => {
 
 /** Antes de loadViewData tras mutar una OT desde Clima. */
 const preserveClimaSelectionForReload = (otId) => {
-  if (state.activeView === 'clima' && otId) state.pendingOtSelectId = String(otId);
+  if (otId && (state.activeView === 'clima' || state.activeView === 'gestion-ot')) {
+    state.pendingOtSelectId = String(otId);
+  }
 };
 
 const syncSelectedOT = () => {
@@ -1681,7 +1689,7 @@ async function navigateToView(viewId, intelOptions = null) {
     state.intelGuidanceOneShot = null;
   }
   state.pendingIntelNav = intelOptions && typeof intelOptions === 'object' ? intelOptions : null;
-  if (viewId !== 'clima') {
+  if (viewId !== 'clima' && viewId !== 'gestion-ot') {
     state.otFeedback = null;
     state.climaIntelFilter = null;
   }
@@ -1861,6 +1869,7 @@ const render = () => {
           'bandeja-canal',
           'jarvis-intake',
           'clima',
+          'gestion-ot',
           'flota',
           'planificacion',
           'oportunidades',
@@ -1887,6 +1896,7 @@ const render = () => {
           'bandeja-canal': 'bandeja',
           'jarvis-intake': 'bandeja',
           clima: 'clima',
+          'gestion-ot': 'clima',
           flota: 'flota',
           planificacion: 'planificacion',
           oportunidades: 'comercial',

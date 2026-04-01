@@ -20,6 +20,7 @@ export const HNF_FULL_NAV_ORDER = [
   'lyn-aprobacion',
   'planificacion',
   'clima',
+  'gestion-ot',
   'flota',
   'oportunidades',
   'ordenes-compra',
@@ -61,6 +62,9 @@ export function isViewAllowedForModules(modules, viewId) {
   const id = String(viewId || '');
   if (id === 'ingreso-clasico') {
     return mods.includes('*') || mods.includes('ingreso-operativo');
+  }
+  if (id === 'gestion-ot') {
+    return mods.includes('*') || mods.includes('clima') || mods.includes('flota');
   }
   if (mods.includes('*')) return isKnownShellView(viewId);
   return mods.includes(id);

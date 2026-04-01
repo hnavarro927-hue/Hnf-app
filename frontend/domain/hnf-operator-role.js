@@ -34,6 +34,7 @@ export const HNF_OS_NAV_ADMIN = [
   { id: 'ingreso-operativo', icon: '⬊', label: 'Ingesta' },
   { id: 'bandeja-canal', icon: '▣', label: 'Bandeja' },
   { id: 'clima', icon: '◎', label: 'Clima' },
+  { id: 'gestion-ot', icon: '▥', label: 'Gestión OT' },
   { id: 'planificacion', icon: '◷', label: 'Planificación' },
   { id: 'flota', icon: '⛟', label: 'Flota' },
   { id: 'oportunidades', icon: '◈', label: 'Comercial' },
@@ -82,16 +83,17 @@ export function resolveOperatorRole() {
 export function getNavItemsForRole(role) {
   if (role === 'admin') return [...HNF_OS_NAV_ADMIN];
   if (role === 'tecnico') {
-    return [pick('clima'), pick('ingreso-operativo')].filter(Boolean);
+    return [pick('clima'), pick('gestion-ot'), pick('ingreso-operativo')].filter(Boolean);
   }
   if (role === 'conductor') {
-    return [pick('flota'), pick('ingreso-operativo')].filter(Boolean);
+    return [pick('flota'), pick('gestion-ot'), pick('ingreso-operativo')].filter(Boolean);
   }
   if (role === 'clima') {
     return [
       pick('jarvis'),
       pick('centro-control'),
       pick('clima'),
+      pick('gestion-ot'),
       pick('planificacion'),
       pick('ordenes-compra'),
       pick('ingreso-operativo'),
@@ -105,6 +107,7 @@ export function getNavItemsForRole(role) {
       pick('jarvis'),
       pick('centro-control'),
       pick('flota'),
+      pick('gestion-ot'),
       pick('ordenes-compra'),
       pick('ingreso-operativo'),
       HNF_CORE_NAV,
@@ -116,6 +119,7 @@ export function getNavItemsForRole(role) {
     return [
       pick('jarvis'),
       pick('centro-control'),
+      pick('gestion-ot'),
       pick('control-gerencial'),
       pick('oportunidades'),
       pick('ordenes-compra'),

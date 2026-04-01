@@ -64,6 +64,7 @@ export function isShellViewAllowedForBackendRol(rolBackend, viewId) {
   if (backendRolTieneAccesoTotalOt(rolBackend)) return true;
   const r = String(rolBackend || '').toLowerCase().trim();
   const v = String(viewId || '');
+  if (v === 'gestion-ot') return true;
   if (r === 'romina') {
     if (v === 'flota') return false;
     if (VISTAS_GERENCIALES_OPERATIVO_DENY.has(v)) return false;
