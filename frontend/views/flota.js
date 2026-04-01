@@ -5,7 +5,10 @@ import {
   flotaNextEstado,
 } from '../constants/flotaPipeline.js';
 import { buildFlotaOperationalBrief } from '../domain/operational-intelligence.js';
-import { flotaSolicitudService } from '../services/flota-solicitud.service.js';
+import {
+  assertFlotaCreatePersisted,
+  flotaSolicitudService,
+} from '../services/flota-solicitud.service.js';
 import { createHnfOperationalFlowStrip } from '../components/hnf-operational-flow-strip.js';
 import { createHnfFlotaOpsIdentityCard } from '../components/hnf-brand-ops-strip.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
@@ -165,8 +168,13 @@ export const flotaView = ({
 
   const vehicles = data?.vehicles?.data || [];
   const expenses = data?.expenses?.data || [];
-  const solicitudes = [...(data?.flotaSolicitudes || [])].sort((a, b) =>
-    String(b.fecha).localeCompare(String(a.fecha))
+  const solicitudes = [...(Array.isArray(data?.flotaSolicitudes) ? data.flotaSolicitudes : [])].sort(
+    (a, b) => {
+      const ts = (s) => String(s?.createdAt || s?.updatedAt || '').trim();
+      const ca = ts(a).localeCompare(ts(b));
+      if (ca !== 0 && (ts(a) || ts(b))) return -ca;
+      return String(b.fecha || '').localeCompare(String(a.fecha || ''));
+    }
   );
 
   const br = getSessionBackendRole() || 'admin';
@@ -413,8 +421,12 @@ export const flotaView = ({
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (submit.disabled) return;
+    submit.disabled = true;
+    const prevSubmitLabel = submit.textContent;
+    submit.textContent = 'Guardando en servidor…';
     try {
-      await flotaSolicitudService.create({
+      const res = await flotaSolicitudService.create({
         cliente: clienteIn.value.trim(),
         tipoServicio: tipoSel.value,
         fecha: fechaIn.value,
@@ -429,11 +441,28 @@ export const flotaView = ({
         observacion: '',
         observacionCierre: '',
       });
+      const row = assertFlotaCreatePersisted(res);
+      if (import.meta.env?.DEV) {
+        console.info('[HNF flota UI] create persisted', row.id, row.cliente);
+      }
+      actions?.scheduleFlotaSelectAfterReload?.(row.id);
       detalleTa.value = '';
-      notifyGlobal('success', 'Solicitud creada correctamente.');
-      await runReload();
+      notifyGlobal(
+        'success',
+        `Solicitud ${row.id} guardada en servidor. Actualizando listado…`
+      );
+      const ok = await runReload();
+      notifyGlobal(
+        ok ? 'success' : 'error',
+        ok
+          ? `Listado actualizado. Solicitud ${row.id} lista para operar.`
+          : 'La solicitud pudo haberse guardado, pero no se pudo recargar el listado. Tocá «Actualizar datos».'
+      );
     } catch (err) {
-      notifyGlobal('error', err.message || 'No se pudo crear la solicitud.');
+      notifyGlobal('error', err.message || 'No se pudo crear la solicitud en el servidor.');
+    } finally {
+      submit.disabled = false;
+      submit.textContent = prevSubmitLabel;
     }
   });
 
@@ -585,10 +614,16 @@ export const flotaView = ({
     if (!rows.length) {
       const empty = document.createElement('p');
       empty.className = 'muted';
-      empty.textContent =
-        integrationStatus === 'sin conexión' && !solicitudes.length
-          ? 'Sin conexión al servidor: no hay datos cargados. Revisá la red y tocá «Actualizar datos».'
-          : 'No hay solicitudes con este criterio.';
+      if (integrationStatus === 'sin conexión' && !solicitudes.length) {
+        empty.textContent =
+          'Sin conexión al servidor: no hay datos cargados. Revisá la red y tocá «Actualizar datos».';
+      } else if (!solicitudes.length) {
+        empty.textContent =
+          'No hay solicitudes cargadas desde el servidor. Creá una arriba o tocá «Actualizar datos».';
+      } else {
+        empty.textContent =
+          'Ninguna solicitud coincide con el filtro (cliente / estado). Probá «Todos los estados» o limpiá el texto de cliente.';
+      }
       list.append(empty);
       return;
     }

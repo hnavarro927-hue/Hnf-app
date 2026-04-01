@@ -1,4 +1,8 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+/**
+ * Solicitudes Flota — fuente única de verdad: `backend/data/flota_solicitudes.json`.
+ * Lectura siempre desde disco; escritura atómica (tmp + rename) y cola exclusiva anti-carrera.
+ */
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { costoTotalOperativo, utilidadOperativa } from '../domain/flota-solicitud-economics.js';
@@ -8,7 +12,18 @@ import { appendHistorial } from '../utils/historialUtil.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.resolve(__dirname, '../../data/flota_solicitudes.json');
 
-let cache = null;
+const LOG_PREFIX = '[HNF flota/solicitudes store]';
+
+/** Serializa todas las lecturas/escrituras para evitar pérdida por carreras concurrentes. */
+let storeChain = Promise.resolve();
+const withStoreLock = async (fn) => {
+  const run = storeChain.then(() => fn());
+  storeChain = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+};
 
 const NEW_ESTADOS = new Set(solicitudFlotaModel.estados);
 
@@ -107,76 +122,136 @@ export const normalizeSolicitudShape = (s) => {
   };
 };
 
-const loadStore = async () => {
-  if (cache) return cache;
+/**
+ * Lee siempre desde disco (sin caché en memoria entre requests): fuente única = archivo.
+ */
+const readStoreFromDisk = async () => {
   try {
     const raw = await readFile(dataFile, 'utf8');
-    const parsed = JSON.parse(raw);
-    cache = Array.isArray(parsed) ? parsed.map(normalizeSolicitudShape) : [];
-  } catch {
-    cache = [];
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      console.warn(`${LOG_PREFIX} archivo vacío, se usa lista vacía`);
+      return [];
+    }
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed)) {
+      console.warn(`${LOG_PREFIX} JSON no es array, se usa lista vacía`);
+      return [];
+    }
+    return parsed;
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      return [];
+    }
+    console.warn(`${LOG_PREFIX} lectura/parse falló (${e?.message || e}), se usa lista vacía`);
+    return [];
   }
-  return cache;
 };
 
-const saveStore = async (items) => {
+const writeStoreAtomic = async (items) => {
   await mkdir(path.dirname(dataFile), { recursive: true });
-  await writeFile(dataFile, `${JSON.stringify(items, null, 2)}\n`, 'utf8');
-  cache = items;
+  const dir = path.dirname(dataFile);
+  const tmp = path.join(dir, `.flota_solicitudes.${process.pid}.${Date.now()}.tmp`);
+  const payload = `${JSON.stringify(items, null, 2)}\n`;
+  await writeFile(tmp, payload, 'utf8');
+  try {
+    await rename(tmp, dataFile);
+  } catch (e) {
+    if (process.platform === 'win32') {
+      try {
+        await unlink(dataFile);
+      } catch {
+        /* puede no existir */
+      }
+      await rename(tmp, dataFile);
+    } else {
+      try {
+        await unlink(tmp);
+      } catch {
+        /* ignore */
+      }
+      throw e;
+    }
+  }
 };
+
+const sortByRecency = (items) =>
+  [...items].sort((a, b) => {
+    const ts = (s) => String(s?.createdAt || s?.updatedAt || '').trim();
+    const ca = ts(a).localeCompare(ts(b));
+    if (ca !== 0 && (ts(a) || ts(b))) return -ca;
+    return String(b.fecha || '').localeCompare(String(a.fecha || ''));
+  });
 
 export const solicitudFlotaRepository = {
   async findAll(filters = {}) {
-    let items = await loadStore();
-    if (filters.cliente) {
-      const q = String(filters.cliente).trim().toLowerCase();
-      items = items.filter((s) => String(s.cliente || '').toLowerCase().includes(q));
-    }
-    if (filters.estado) {
-      items = items.filter((s) => s.estado === filters.estado);
-    }
-    return items.map(normalizeSolicitudShape).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    return withStoreLock(async () => {
+      let items = (await readStoreFromDisk()).map(normalizeSolicitudShape);
+      if (filters.cliente) {
+        const q = String(filters.cliente).trim().toLowerCase();
+        items = items.filter((s) => String(s.cliente || '').toLowerCase().includes(q));
+      }
+      if (filters.estado) {
+        items = items.filter((s) => s.estado === filters.estado);
+      }
+      const sorted = sortByRecency(items);
+      console.info(`${LOG_PREFIX} list count=${sorted.length} filters=${JSON.stringify(filters)}`);
+      return sorted;
+    });
   },
 
   async findById(id) {
-    const items = await loadStore();
-    const found = items.find((s) => s.id === id);
-    return found ? normalizeSolicitudShape(found) : null;
+    return withStoreLock(async () => {
+      const items = await readStoreFromDisk();
+      const found = items.find((s) => s.id === id);
+      return found ? normalizeSolicitudShape(found) : null;
+    });
   },
 
   async create(payload, actor = 'sistema') {
-    const items = await loadStore();
-    const now = new Date().toISOString();
-    const raw = {
-      id: nextId(items),
-      ...payload,
-      creadoPor: payload.creadoPor || actor,
-      actualizadoPor: actor,
-      historial: appendHistorial({}, 'alta', `Solicitud creada · ${payload.estado || 'recibida'}`, actor),
-      createdAt: now,
-      updatedAt: now,
-    };
-    const item = normalizeSolicitudShape(raw);
-    const next = [...items, item];
-    await saveStore(next);
-    return item;
+    return withStoreLock(async () => {
+      const items = await readStoreFromDisk();
+      const now = new Date().toISOString();
+      const id = nextId(items);
+      const raw = {
+        id,
+        ...payload,
+        creadoPor: payload.creadoPor || actor,
+        actualizadoPor: actor,
+        historial: appendHistorial({}, 'alta', `Solicitud creada · ${payload.estado || 'recibida'}`, actor),
+        createdAt: now,
+        updatedAt: now,
+      };
+      console.info(
+        `${LOG_PREFIX} create id=${id} actor=${actor} cliente=${String(payload.cliente || '').slice(0, 40)} totalAntes=${items.length}`
+      );
+      const item = normalizeSolicitudShape(raw);
+      const next = [...items, item];
+      await writeStoreAtomic(next);
+      console.info(`${LOG_PREFIX} persist OK id=${id} totalDespués=${next.length}`);
+      return item;
+    });
   },
 
   async update(id, patch, historialEntry = null, actor = 'sistema') {
-    const items = await loadStore();
-    const index = items.findIndex((s) => s.id === id);
-    if (index === -1) return null;
-    const cur = normalizeSolicitudShape(items[index]);
-    let updated = { ...cur, ...patch };
-    updated.actualizadoPor = actor;
-    if (historialEntry) {
-      updated.historial = appendHistorial(cur, historialEntry.accion, historialEntry.detalle, actor);
-    }
-    updated.updatedAt = new Date().toISOString();
-    updated = normalizeSolicitudShape(updated);
-    const next = [...items];
-    next[index] = updated;
-    await saveStore(next);
-    return updated;
+    return withStoreLock(async () => {
+      const items = await readStoreFromDisk();
+      const index = items.findIndex((s) => s.id === id);
+      if (index === -1) return null;
+      const cur = normalizeSolicitudShape(items[index]);
+      let updated = { ...cur, ...patch };
+      updated.actualizadoPor = actor;
+      if (historialEntry) {
+        updated.historial = appendHistorial(cur, historialEntry.accion, historialEntry.detalle, actor);
+      }
+      updated.updatedAt = new Date().toISOString();
+      updated = normalizeSolicitudShape(updated);
+      const next = [...items];
+      next[index] = updated;
+      console.info(`${LOG_PREFIX} update id=${id} actor=${actor} total=${next.length}`);
+      await writeStoreAtomic(next);
+      console.info(`${LOG_PREFIX} persist OK patch id=${id}`);
+      return updated;
+    });
   },
 };

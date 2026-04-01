@@ -18,7 +18,10 @@ import {
 import { isShellViewAllowedForBackendRol } from './domain/hnf-operativa-reglas.js';
 import { resolveOperatorRole } from './domain/hnf-operator-role.js';
 import { clientService } from './services/client.service.js';
-import { flotaSolicitudService } from './services/flota-solicitud.service.js';
+import {
+  flotaSolicitudService,
+  unwrapFlotaSolicitudesList,
+} from './services/flota-solicitud.service.js';
 import { expenseService } from './services/expense.service.js';
 import { healthService } from './services/health.service.js';
 import { probeBackendHealth } from './domain/hnf-connectivity.js';
@@ -568,7 +571,7 @@ const loadFullOperationalDataImpl = async () => {
     commercialPropuestas,
     documentosOc,
     commercialOpportunityAlerts,
-    flotaSolicitudes: sol.data ?? [],
+    flotaSolicitudes: unwrapFlotaSolicitudesList(sol),
     whatsappFeed,
     outlookFeed: outlookFeedNorm,
     historicalVault,
@@ -835,7 +838,7 @@ const viewRegistry = {
         otService.getAll().catch(() => ({ data: [] })),
       ]);
 
-      return { vehicles, expenses, flotaSolicitudes: sol.data ?? [], ots };
+      return { vehicles, expenses, flotaSolicitudes: unwrapFlotaSolicitudesList(sol), ots };
     },
   },
 
@@ -890,6 +893,8 @@ const state = {
   viewData: null,
   selectedOTId: null,
   selectedFlotaId: null,
+  /** Tras crear solicitud: seleccionar esta id en el próximo loadViewData y limpiar filtro intel. */
+  pendingFlotaSelectId: null,
   otFeedback: null,
   flotaFeedback: null,
   adminFeedback: null,
@@ -1046,7 +1051,16 @@ const syncSelectedOT = () => {
 
 const syncSelectedFlota = () => {
   if (state.activeView !== 'flota') return;
-  const list = state.viewData?.flotaSolicitudes || [];
+  const list = Array.isArray(state.viewData?.flotaSolicitudes) ? state.viewData.flotaSolicitudes : [];
+  if (state.pendingFlotaSelectId) {
+    const want = state.pendingFlotaSelectId;
+    state.pendingFlotaSelectId = null;
+    state.flotaIntelFilter = null;
+    if (list.some((s) => s.id === want)) {
+      state.selectedFlotaId = want;
+      return;
+    }
+  }
   if (!list.length) {
     state.selectedFlotaId = null;
     return;
@@ -1122,8 +1136,14 @@ const createActions = () => ({
   },
 
   selectFlota: (id) => {
+    state.pendingFlotaSelectId = null;
     state.selectedFlotaId = id;
     render();
+  },
+
+  /** Llamar antes de reload tras POST crear: evita filtro intel que oculta la fila nueva. */
+  scheduleFlotaSelectAfterReload: (id) => {
+    if (id) state.pendingFlotaSelectId = String(id);
   },
 
   setAdminFeedback: (fb) => {

@@ -22,10 +22,15 @@ export const getFlotaSolicitudes = async (request, response) => {
 
 export const postFlotaSolicitud = async (request, response) => {
   const actor = getRequestActor(request);
-  const result = await flotaSolicitudService.create(request.body || {}, actor);
+  const body = request.body || {};
+  console.info(
+    `[HNF flota/solicitudes API] POST create actor=${actor} keys=${Object.keys(body).join(',')}`
+  );
+  const result = await flotaSolicitudService.create(body, actor);
   if (result.errors) {
     return sendError(response, 400, 'Solicitud inválida.', { validations: result.errors });
   }
+  console.info(`[HNF flota/solicitudes API] POST 201 id=${result?.id}`);
   sendSuccess(response, 201, result, { resource: 'flota/solicitudes', action: 'create' });
 };
 
