@@ -2131,7 +2131,7 @@ export const climaView = ({
   ew.body.classList.add('hnf-clima__body');
 
   const formCard = document.createElement('article');
-  formCard.className = 'ot-form-card ot-flow-app ot-flow-app--create';
+  formCard.className = 'ot-form-card ot-flow-app ot-flow-app--create hnf-clima-create-sheet__card';
 
   const formHeader = document.createElement('div');
   formHeader.className = 'ot-form-card__header hnf-clima-create-dialog__header';
@@ -2246,11 +2246,11 @@ export const climaView = ({
   form.append(panel0, panel1, panel2, panel3, panel4, panel5);
 
   const createProgress = document.createElement('nav');
-  createProgress.className = 'ot-flow-progress';
+  createProgress.className = 'ot-flow-progress hnf-clima-create-sheet__steps';
   createProgress.setAttribute('aria-label', 'Etapas de alta');
 
   const createJarvis = document.createElement('aside');
-  createJarvis.className = 'ot-flow-jarvis';
+  createJarvis.className = 'ot-flow-jarvis hnf-clima-create-sheet__jarvis';
   const createJarvisTitle = document.createElement('h4');
   createJarvisTitle.className = 'ot-flow-jarvis__title';
   createJarvisTitle.textContent = 'Jarvis · esta etapa';
@@ -2261,11 +2261,11 @@ export const climaView = ({
   createJarvis.append(createJarvisTitle, createJarvisUl, createJarvisNext);
 
   const createStageBody = document.createElement('div');
-  createStageBody.className = 'ot-flow-stage-body';
+  createStageBody.className = 'ot-flow-stage-body hnf-clima-create-sheet__scroll';
   createStageBody.append(form);
 
   const createFooter = document.createElement('div');
-  createFooter.className = 'ot-flow-footer';
+  createFooter.className = 'ot-flow-footer hnf-clima-create-sheet__footer';
   const createBtnPrev = document.createElement('button');
   createBtnPrev.type = 'button';
   createBtnPrev.className = 'secondary-button ot-flow-footer__btn';
@@ -2391,7 +2391,7 @@ export const climaView = ({
   });
 
   const createDialog = document.createElement('dialog');
-  createDialog.className = 'hnf-clima-create-dialog';
+  createDialog.className = 'hnf-clima-create-dialog hnf-clima-create-sheet';
   createDialog.setAttribute('aria-label', 'Crear nueva orden de trabajo');
   const btnCloseCreate = document.createElement('button');
   btnCloseCreate.type = 'button';
