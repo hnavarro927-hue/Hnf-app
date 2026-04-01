@@ -12,6 +12,7 @@ export const HNF_OT_ORIGEN_SOLICITUD = [
   { value: 'cliente_directo', label: 'Cliente directo' },
   { value: 'interno', label: 'Interno' },
   { value: 'email', label: 'Email' },
+  { value: 'llamada', label: 'Llamada' },
 ];
 
 export const HNF_OT_PRIORIDAD_OPERATIVA = [

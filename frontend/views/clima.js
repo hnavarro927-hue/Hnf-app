@@ -24,14 +24,20 @@ import {
   CLIMA_OT_FLOW_STAGES,
   createFlowStorageKey,
   detailStageStorageKey,
-  jarvisLinesForCreateStage,
   jarvisLinesForDetailStage,
   nextActionHintForDetailStage,
   readStoredStageIndex,
-  validateCreateStageAdvance,
   validateDetailStageAdvance,
   writeStoredStageIndex,
 } from '../domain/clima-ot-flow-stages.js';
+import {
+  OT_CREATE_WORKSPACE_STAGE_COUNT,
+  OT_CREATE_WORKSPACE_STAGES,
+  buildOtCreateWorkspacePayload,
+  getOtCreateWorkspaceStageForSubmitErrors,
+  validateOtCreateWorkspaceStage,
+  validateOtCreateWorkspaceSubmit,
+} from '../domain/ot-create-workspace.js';
 import {
   HNF_OT_OPERATION_MODES,
   HNF_OT_ORIGEN_PEDIDO,
@@ -46,16 +52,6 @@ import {
 import { computeOtSlaTierForClimaListItem } from '../domain/hnf-ot-sla-presentation.js';
 
 const CLIMA_CREATE_DRAFT_KEY = 'hnf-clima-ot-create-draft';
-
-/** Textos cortos para operación en terreno (crear OT). */
-const CLIMA_CREATE_STEP_UI = [
-  { short: 'Cliente', line: 'Dónde es la visita' },
-  { short: 'Visita', line: 'Día y tipo de trabajo' },
-  { short: 'Pedido', line: 'Prioridad y técnico' },
-  { short: 'Notas', line: 'Opcional' },
-  { short: 'Equipos', line: 'Opcional' },
-  { short: 'Listo', line: 'Última revisión' },
-];
 
 const OT_STATUS_OPTIONS = [
   { value: 'nueva', label: 'Nueva' },
@@ -381,128 +377,6 @@ const createStatusBadge = (status, variant = 'estado') => {
   return badge;
 };
 
-const buildOtAltaOperationSection = () => {
-  const fs = document.createElement('fieldset');
-  fs.className = 'ot-form__section ot-form__section--operation';
-  const leg = document.createElement('legend');
-  leg.textContent = 'Cómo llegó el pedido y quién va';
-
-  const primary = document.createElement('div');
-  primary.className = 'ot-form__grid';
-
-  const mk = (labelText, inner) => {
-    const w = document.createElement('label');
-    w.className = 'form-field';
-    const lb = document.createElement('span');
-    lb.className = 'form-field__label';
-    lb.textContent = labelText;
-    w.append(lb, inner);
-    return w;
-  };
-
-  const idInp = document.createElement('input');
-  idInp.type = 'text';
-  idInp.name = 'otCustomId';
-  idInp.placeholder = 'Vacío = número automático';
-  idInp.autocomplete = 'off';
-
-  const modeSel = document.createElement('select');
-  modeSel.name = 'operationModeCreate';
-  HNF_OT_OPERATION_MODES.forEach((o) => {
-    const op = document.createElement('option');
-    op.value = o.value;
-    op.textContent = o.label;
-    modeSel.append(op);
-  });
-
-  const origenSolSel = document.createElement('select');
-  origenSolSel.name = 'origenSolicitudCreate';
-  origenSolSel.required = true;
-  HNF_OT_ORIGEN_SOLICITUD.forEach((o) => {
-    const op = document.createElement('option');
-    op.value = o.value;
-    op.textContent = o.label;
-    origenSolSel.append(op);
-  });
-
-  const waNumInp = document.createElement('input');
-  waNumInp.type = 'tel';
-  waNumInp.name = 'whatsappNumeroCreate';
-  waNumInp.placeholder = '+56 9 …';
-  waNumInp.autocomplete = 'off';
-  const waNomInp = document.createElement('input');
-  waNomInp.type = 'text';
-  waNomInp.name = 'whatsappNombreCreate';
-  waNomInp.placeholder = 'Nombre contacto';
-  waNomInp.autocomplete = 'name';
-
-  const waWrap = document.createElement('div');
-  waWrap.className = 'ot-form__grid';
-  waWrap.hidden = true;
-  waWrap.append(mk('WhatsApp · número *', waNumInp), mk('WhatsApp · nombre *', waNomInp));
-
-  const prioSel = document.createElement('select');
-  prioSel.name = 'prioridadOperativaCreate';
-  prioSel.required = true;
-  HNF_OT_PRIORIDAD_OPERATIVA.forEach((o) => {
-    const op = document.createElement('option');
-    op.value = o.value;
-    op.textContent = o.label;
-    if (o.value === 'media') op.selected = true;
-    prioSel.append(op);
-  });
-
-  const techWrap = document.createElement('div');
-  techWrap.className = 'ot-tech-pick';
-  const techSel = document.createElement('select');
-  techSel.name = 'tecnicoPreset';
-  HNF_OT_TECNICOS_PRESETS.forEach((o) => {
-    const op = document.createElement('option');
-    op.value = o.value;
-    op.textContent = o.label;
-    techSel.append(op);
-  });
-  const otroOpt = document.createElement('option');
-  otroOpt.value = '__otro__';
-  otroOpt.textContent = 'Otro (nombre libre)';
-  techSel.append(otroOpt);
-  const techOther = document.createElement('input');
-  techOther.type = 'text';
-  techOther.name = 'tecnicoOtro';
-  techOther.placeholder = 'Nombre del técnico';
-  techOther.className = 'ot-tech-pick__other';
-  techOther.hidden = true;
-  techSel.addEventListener('change', () => {
-    techOther.hidden = techSel.value !== '__otro__';
-    if (!techOther.hidden) techOther.focus();
-  });
-  techWrap.append(techSel, techOther);
-
-  const hint = document.createElement('p');
-  hint.className = 'muted small';
-  hint.innerHTML =
-    '<strong>Manual:</strong> elegís técnico. <strong>Automático:</strong> el sistema puede asignar después.';
-
-  const { details: moreDet, body: moreBody } = createHnfEwDetails('Más datos', false);
-  moreBody.append(mk('Nº OT (opcional)', idInp), hint, waWrap);
-
-  origenSolSel.addEventListener('change', () => {
-    const isWa = origenSolSel.value === 'whatsapp';
-    waWrap.hidden = !isWa;
-    if (isWa) moreDet.open = true;
-  });
-
-  primary.append(
-    mk('Modo operación', modeSel),
-    mk('Origen del pedido *', origenSolSel),
-    mk('Prioridad *', prioSel),
-    mk('Técnico', techWrap)
-  );
-
-  fs.append(leg, primary, moreDet);
-  return fs;
-};
-
 const resolveTecnicoFromAltaForm = (form) => {
   const preset = form.elements.tecnicoPreset?.value;
   const otro = form.elements.tecnicoOtro?.value?.trim() || '';
@@ -818,101 +692,218 @@ const buildOtOperationalControlsSection = (ot, actions, readOnly, isPatching) =>
   return { element: ctl, flushOperationalSave };
 };
 
-const createEquipoFormRow = (opts = {}) => {
-  const compactAlta = opts.compactAlta === true;
+const otcwStripControlHints = (root) => {
+  root.querySelectorAll('input, textarea, select').forEach((el) => el.removeAttribute('placeholder'));
+};
+
+const otcwWrapField = (fieldLabel) => {
+  const ctl = fieldLabel.querySelector('input, textarea, select');
+  const name = ctl?.name || '';
+  const wrap = document.createElement('div');
+  wrap.className = 'hnf-otcw-field';
+  if (name) wrap.dataset.otcwField = name;
+  const err = document.createElement('p');
+  err.className = 'hnf-otcw-field-error';
+  err.hidden = true;
+  err.setAttribute('role', 'alert');
+  fieldLabel.append(err);
+  wrap.append(fieldLabel);
+  const clear = () => {
+    err.hidden = true;
+    err.textContent = '';
+    wrap.classList.remove('hnf-otcw--invalid');
+  };
+  ctl?.addEventListener('input', clear);
+  ctl?.addEventListener('change', clear);
+  return wrap;
+};
+
+const otcwClearFieldErrors = (form) => {
+  form.querySelectorAll('.hnf-otcw-field-error').forEach((e) => {
+    e.hidden = true;
+    e.textContent = '';
+  });
+  form.querySelectorAll('.hnf-otcw-field').forEach((w) => w.classList.remove('hnf-otcw--invalid'));
+};
+
+const otcwApplyFieldErrors = (form, errors) => {
+  otcwClearFieldErrors(form);
+  for (const [name, msg] of Object.entries(errors || {})) {
+    const w = form.querySelector(`.hnf-otcw-field[data-otcw-field="${name}"]`);
+    if (!w) continue;
+    const err = w.querySelector('.hnf-otcw-field-error');
+    if (err) {
+      err.textContent = msg;
+      err.hidden = false;
+    }
+    w.classList.add('hnf-otcw--invalid');
+  }
+};
+
+const createOtWorkspaceEquipoRow = () => {
   const fs = document.createElement('fieldset');
-  fs.className = 'ot-equipo-form-row';
+  fs.className = 'otcw-equipo-row';
 
   const legend = document.createElement('legend');
   legend.textContent = 'Equipo';
   fs.append(legend);
 
   const grid = document.createElement('div');
-  grid.className = 'ot-form__grid';
+  grid.className = 'hnf-otcw-grid';
 
-  const addTo = (targetGrid, name, label, type, extra = {}) => {
-    const w = document.createElement('label');
-    w.className = 'form-field';
-    const lb = document.createElement('span');
-    lb.className = 'form-field__label';
-    lb.textContent = label;
-    let el;
-    if (type === 'select') {
-      el = document.createElement('select');
-      EQ_ESTADOS.forEach((v) => {
-        const o = document.createElement('option');
-        o.value = v;
-        o.textContent = v;
-        el.append(o);
-      });
-    } else if (type === 'textarea') {
-      el = document.createElement('textarea');
-      el.rows = 3;
-    } else {
-      el = document.createElement('input');
-      el.type = type;
-    }
-    el.name = name;
-    if (extra.accept) {
-      el.accept = extra.accept;
-      el.multiple = true;
-    }
-    w.append(lb, el);
-    targetGrid.append(w);
+  const mk = (labelText, el) => {
+    const lb = document.createElement('label');
+    lb.className = 'form-field hnf-otcw-field__inner';
+    const sp = document.createElement('span');
+    sp.className = 'form-field__label';
+    sp.textContent = labelText;
+    lb.append(sp, el);
+    return otcwWrapField(lb);
   };
 
-  const add = (name, label, type, extra) => addTo(grid, name, label, type, extra);
+  const nombre = document.createElement('input');
+  nombre.type = 'text';
+  nombre.name = 'equipoNombreWs';
+  nombre.autocomplete = 'off';
 
-  add('nombreEquipo', 'Nombre / tipo equipo', 'text');
-  add('estadoEquipo', 'Estado equipo', 'select');
+  const tipo = document.createElement('input');
+  tipo.type = 'text';
+  tipo.name = 'equipoTipoWs';
+  tipo.autocomplete = 'off';
 
-  fs._evidence = initRowEvidence({});
-  fs._checklist = mergeEquipoChecklist({});
+  const estado = document.createElement('select');
+  estado.name = 'equipoEstadoWs';
+  EQ_ESTADOS.forEach((v) => {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = v;
+    estado.append(o);
+  });
+
+  const obsCorta = document.createElement('input');
+  obsCorta.type = 'text';
+  obsCorta.name = 'equipoObsCortaWs';
+  obsCorta.autocomplete = 'off';
+
+  grid.append(
+    mk('Nombre equipo', nombre),
+    mk('Tipo', tipo),
+    mk('Estado inicial', estado),
+    mk('Observación corta', obsCorta)
+  );
+
+  const { details: det, body: body } = createHnfEwDetails('Más datos', false);
+  const inner = document.createElement('div');
+  inner.className = 'hnf-otcw-grid';
+
+  const serie = document.createElement('input');
+  serie.type = 'text';
+  serie.name = 'equipoSerieWs';
+  serie.autocomplete = 'off';
+  const ubic = document.createElement('input');
+  ubic.type = 'text';
+  ubic.name = 'equipoUbicacionWs';
+  ubic.autocomplete = 'off';
+  const rec = document.createElement('textarea');
+  rec.name = 'equipoRecWs';
+  rec.rows = 2;
+  inner.append(mk('Nº serie', serie), mk('Ubicación', ubic), mk('Recomendación', rec));
+  body.append(inner);
 
   const rm = document.createElement('button');
   rm.type = 'button';
   rm.className = 'secondary-button';
   rm.textContent = 'Quitar equipo';
   rm.addEventListener('click', () => {
-    const host = fs.closest('.ot-equipos-create');
-    if (!host || host.querySelectorAll('.ot-equipo-form-row').length <= 1) return;
+    const host = fs.closest('.otcw-equipos');
+    if (!host || host.querySelectorAll('.otcw-equipo-row').length <= 1) return;
     fs.remove();
-    renumberEquipoFormRows(host);
+    renumberOtWorkspaceEquipos(host);
   });
+  body.append(rm);
 
-  if (compactAlta) {
-    const { details: eqMore, body: eqMoreBody } = createHnfEwDetails('Más datos del equipo', false);
-    const inner = document.createElement('div');
-    inner.className = 'ot-form__grid';
-    addTo(inner, 'observaciones', 'Observaciones', 'textarea');
-    addTo(inner, 'accionesRealizadas', 'Acciones realizadas', 'textarea');
-    addTo(inner, 'recomendaciones', 'Recomendaciones', 'textarea');
-    attachEvidenceUI(inner, fs._evidence, 'fotografiasAntes', 'Fotos ANTES', false);
-    attachEvidenceUI(inner, fs._evidence, 'fotografiasDurante', 'Fotos DURANTE', false);
-    attachEvidenceUI(inner, fs._evidence, 'fotografiasDespues', 'Fotos DESPUÉS', false);
-    attachChecklistUI(inner, fs._checklist, false);
-    eqMoreBody.append(inner, rm);
-    fs.append(grid, eqMore);
-  } else {
-    add('observaciones', 'Observaciones', 'textarea');
-    add('accionesRealizadas', 'Acciones realizadas', 'textarea');
-    add('recomendaciones', 'Recomendaciones', 'textarea');
-    attachEvidenceUI(grid, fs._evidence, 'fotografiasAntes', 'Fotos ANTES', false);
-    attachEvidenceUI(grid, fs._evidence, 'fotografiasDurante', 'Fotos DURANTE', false);
-    attachEvidenceUI(grid, fs._evidence, 'fotografiasDespues', 'Fotos DESPUÉS', false);
-    attachChecklistUI(grid, fs._checklist, false);
-    grid.append(rm);
-    fs.append(grid);
-  }
-
+  fs.append(grid, det);
   return fs;
 };
 
-const renumberEquipoFormRows = (container) => {
-  container.querySelectorAll('.ot-equipo-form-row').forEach((row, i) => {
+const renumberOtWorkspaceEquipos = (container) => {
+  container.querySelectorAll('.otcw-equipo-row').forEach((row, i) => {
     const leg = row.querySelector('legend');
     if (leg) leg.textContent = `Equipo ${i + 1}`;
   });
+};
+
+const OTWS_EQUIPO_DRAFT_NAMES = new Set([
+  'equipoNombreWs',
+  'equipoTipoWs',
+  'equipoEstadoWs',
+  'equipoObsCortaWs',
+  'equipoSerieWs',
+  'equipoUbicacionWs',
+  'equipoRecWs',
+]);
+
+const serializeWorkspaceEquiposForDraft = (host) => {
+  if (!host) return [];
+  return [...host.querySelectorAll('.otcw-equipo-row')].map((row) => {
+    const o = {};
+    for (const name of OTWS_EQUIPO_DRAFT_NAMES) {
+      const el = row.querySelector(`[name="${name}"]`);
+      o[name] = el && 'value' in el ? el.value : '';
+    }
+    return o;
+  });
+};
+
+const applyWorkspaceEquiposFromDraft = (host, rows) => {
+  if (!host) return;
+  host.querySelectorAll('.otcw-equipo-row').forEach((r) => r.remove());
+  const list = Array.isArray(rows) && rows.length ? rows : [{}];
+  for (const data of list) {
+    const fs = createOtWorkspaceEquipoRow();
+    host.append(fs);
+    for (const name of OTWS_EQUIPO_DRAFT_NAMES) {
+      const el = fs.querySelector(`[name="${name}"]`);
+      if (el && 'value' in el && data[name] != null) el.value = String(data[name]);
+    }
+  }
+  renumberOtWorkspaceEquipos(host);
+};
+
+const collectEquiposFromWorkspace = (container) => {
+  const rows = container.querySelectorAll('.otcw-equipo-row');
+  const out = [];
+  let idx = 0;
+  for (const row of rows) {
+    const nombre = row.querySelector('[name="equipoNombreWs"]')?.value?.trim() || '';
+    const tipo = row.querySelector('[name="equipoTipoWs"]')?.value?.trim() || '';
+    const estado = row.querySelector('[name="equipoEstadoWs"]')?.value || 'operativo';
+    const obsCorta = row.querySelector('[name="equipoObsCortaWs"]')?.value?.trim() || '';
+    const serie = row.querySelector('[name="equipoSerieWs"]')?.value?.trim() || '';
+    const ubic = row.querySelector('[name="equipoUbicacionWs"]')?.value?.trim() || '';
+    const rec = row.querySelector('[name="equipoRecWs"]')?.value?.trim() || '';
+    const nombreEquipo = [nombre, tipo].filter(Boolean).join(' · ') || `Equipo ${idx + 1}`;
+    const obsParts = [];
+    if (serie) obsParts.push(`Serie: ${serie}`);
+    if (ubic) obsParts.push(`Ubicación: ${ubic}`);
+    if (obsCorta) obsParts.push(obsCorta);
+    const emptyEv = initRowEvidence({});
+    out.push({
+      nombreEquipo,
+      estadoEquipo: estado,
+      observaciones: obsParts.join('\n'),
+      accionesRealizadas: '',
+      recomendaciones: rec,
+      checklist: mergeEquipoChecklist({}).map(({ id, label, realizado }) => ({
+        id,
+        label,
+        realizado: Boolean(realizado),
+      })),
+      ...collectEquipoEvidencePayload(emptyEv),
+    });
+    idx += 1;
+  }
+  return out;
 };
 
 const uniqueSortedStrings = (vals, cap = 80) => {
@@ -940,11 +931,17 @@ const attachCreateOtAutocomplete = (form, otsList) => {
   const clientes = uniqueSortedStrings(otsList.map((o) => o.cliente));
   const direcciones = uniqueSortedStrings(otsList.map((o) => o.direccion));
   const tecnicos = uniqueSortedStrings(otsList.map((o) => o.tecnicoAsignado));
+  const comunas = uniqueSortedStrings(otsList.map((o) => o.comuna));
+  const sucursales = uniqueSortedStrings(otsList.map((o) => o.tiendaNombre));
   ensureDatalist('hnf-create-ot-clientes', clientes);
   ensureDatalist('hnf-create-ot-direcciones', direcciones);
   ensureDatalist('hnf-create-ot-tecnicos', tecnicos);
+  ensureDatalist('hnf-otcw-comunas', comunas);
+  ensureDatalist('hnf-otcw-sucursales', sucursales);
   form.elements.cliente?.setAttribute('list', 'hnf-create-ot-clientes');
   form.elements.direccion?.setAttribute('list', 'hnf-create-ot-direcciones');
+  form.elements.comuna?.setAttribute('list', 'hnf-otcw-comunas');
+  form.elements.sucursalCreate?.setAttribute('list', 'hnf-otcw-sucursales');
   form.elements.tecnicoOtro?.setAttribute('list', 'hnf-create-ot-tecnicos');
 };
 
@@ -958,7 +955,7 @@ const readCreateOtDraft = () => {
   }
 };
 
-const writeCreateOtDraft = (form) => {
+const writeCreateOtDraft = (form, equiposHost) => {
   if (!form) return;
   try {
     const snap = {};
@@ -966,12 +963,14 @@ const writeCreateOtDraft = (form) => {
     for (let i = 0; i < els.length; i++) {
       const el = els[i];
       if (!el.name || el.type === 'file' || el.type === 'submit' || el.type === 'button') continue;
+      if (equiposHost && OTWS_EQUIPO_DRAFT_NAMES.has(el.name)) continue;
       if (el.type === 'checkbox' || el.type === 'radio') {
         if (el.checked) snap[el.name] = el.value;
       } else {
         snap[el.name] = el.value;
       }
     }
+    if (equiposHost) snap.__otcwEquipos = serializeWorkspaceEquiposForDraft(equiposHost);
     localStorage.setItem(CLIMA_CREATE_DRAFT_KEY, JSON.stringify(snap));
   } catch {
     /* quota */
@@ -986,9 +985,12 @@ const clearCreateOtDraft = () => {
   }
 };
 
-const applyCreateOtDraft = (form, data) => {
+const applyCreateOtDraft = (form, data, equiposHost) => {
   if (!form || !data || typeof data !== 'object') return;
+  const equiposSnap = data.__otcwEquipos;
   for (const [k, v] of Object.entries(data)) {
+    if (k === '__otcwEquipos') continue;
+    if (Array.isArray(equiposSnap) && OTWS_EQUIPO_DRAFT_NAMES.has(k)) continue;
     const str = String(v);
     const el = form.elements[k];
     if (!el) continue;
@@ -1008,34 +1010,12 @@ const applyCreateOtDraft = (form, data) => {
     }
     if ('value' in el && el.type !== 'file') el.value = str;
   }
+  if (equiposHost && Array.isArray(equiposSnap)) {
+    applyWorkspaceEquiposFromDraft(equiposHost, equiposSnap);
+  }
   form.elements.origenSolicitudCreate?.dispatchEvent(new Event('change', { bubbles: true }));
   form.elements.tecnicoPreset?.dispatchEvent(new Event('change', { bubbles: true }));
-};
-
-const collectEquiposFromCreateForm = (container) => {
-  const rows = container.querySelectorAll('.ot-equipo-form-row');
-  const out = [];
-  let idx = 0;
-  for (const row of rows) {
-    const nombre = row.querySelector('[name=nombreEquipo]')?.value?.trim() || `Equipo ${idx + 1}`;
-    const estado = row.querySelector('[name=estadoEquipo]')?.value || 'operativo';
-    const observaciones = row.querySelector('[name=observaciones]')?.value?.trim() || '';
-    const accionesRealizadas = row.querySelector('[name=accionesRealizadas]')?.value?.trim() || '';
-    const recomendaciones = row.querySelector('[name=recomendaciones]')?.value?.trim() || '';
-    const ev = row._evidence || initRowEvidence({});
-    const cl = row._checklist || mergeEquipoChecklist({});
-    out.push({
-      nombreEquipo: nombre,
-      estadoEquipo: estado,
-      observaciones,
-      accionesRealizadas,
-      recomendaciones,
-      checklist: cl.map(({ id, label, realizado }) => ({ id, label, realizado: Boolean(realizado) })),
-      ...collectEquipoEvidencePayload(ev),
-    });
-    idx += 1;
-  }
-  return out;
+  form.elements.origenPedidoWs?.dispatchEvent(new Event('change', { bubbles: true }));
 };
 
 const buildDetailEquipoRow = (equipo, index, readOnly = false) => {
@@ -2261,121 +2241,290 @@ export const climaView = ({
   ew.header.classList.add('hnf-clima__hero');
   ew.body.classList.add('hnf-clima__body');
 
-  const formCard = document.createElement('article');
-  formCard.className = 'ot-form-card ot-flow-app ot-flow-app--create hnf-clima-create-sheet__card';
-
-  const formHeader = document.createElement('div');
-  formHeader.className = 'ot-form-card__header hnf-clima-create-dialog__header';
-  const formHeaderIntro = document.createElement('div');
-  formHeaderIntro.innerHTML = `
-    <p class="muted">Alta rápida · quedó guardado si cerrás</p>
-    <h3>Nueva OT</h3>
-    <p class="muted ot-flow-app__lede">Pocos datos por pantalla. Tocá el paso arriba para volver atrás.</p>
-  `;
-
   const form = document.createElement('form');
-  form.className = 'ot-form ot-flow-app__form';
+  form.className = 'hnf-otcw-form';
   form.setAttribute('novalidate', 'true');
 
   const createStageKey = createFlowStorageKey();
-  let createStageIdx = readStoredStageIndex(createStageKey, CLIMA_OT_FLOW_STAGES.length - 1);
+  let createStageIdx = readStoredStageIndex(createStageKey, OT_CREATE_WORKSPACE_STAGE_COUNT - 1);
   let prevCreateStageForDraft = -1;
   let draftSaveTimer;
 
+  const otcwAppendDef = (grid, names) => {
+    for (const name of names) {
+      const def =
+        otFormDefinition.sections[0].fields.find((f) => f.name === name) ||
+        otFormDefinition.sections[1].fields.find((f) => f.name === name);
+      if (!def) continue;
+      const inner = buildField(def);
+      otcwStripControlHints(inner);
+      grid.append(otcwWrapField(inner));
+    }
+  };
+
+  const otcwMkSelect = (name, labelText, optionList) => {
+    const sel = document.createElement('select');
+    sel.name = name;
+    optionList.forEach(({ value, label }) => {
+      const o = document.createElement('option');
+      o.value = value;
+      o.textContent = label;
+      sel.append(o);
+    });
+    const lb = document.createElement('label');
+    lb.className = 'form-field hnf-otcw-field__inner';
+    const sp = document.createElement('span');
+    sp.className = 'form-field__label';
+    sp.textContent = labelText;
+    lb.append(sp, sel);
+    return otcwWrapField(lb);
+  };
+
   const mkPanel = (idx) => {
     const p = document.createElement('div');
-    p.className = 'ot-flow-stage-panel';
+    p.className = 'hnf-otcw-stage';
     p.dataset.createStage = String(idx);
     p.hidden = idx !== createStageIdx;
     return p;
   };
 
   const panel0 = mkPanel(0);
-  const p0hint = document.createElement('p');
-  p0hint.className = 'muted hnf-clima-create-panel-hint';
-  p0hint.textContent = 'Lo esencial: quién es el cliente y dónde es el trabajo.';
-  const grid0 = document.createElement('div');
-  grid0.className = 'ot-form__grid';
-  ['cliente', 'direccion', 'comuna'].forEach((name) => {
-    const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
-    if (field) grid0.append(buildField(field));
-  });
-  const { details: p0more, body: p0moreBody } = createHnfEwDetails('Más datos', false);
-  const grid0extra = document.createElement('div');
-  grid0extra.className = 'ot-form__grid';
-  ['contactoTerreno', 'telefonoContacto'].forEach((name) => {
-    const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
-    if (field) grid0extra.append(buildField(field));
-  });
-  p0moreBody.append(grid0extra);
-  panel0.append(p0hint, grid0, p0more);
+  const g0 = document.createElement('div');
+  g0.className = 'hnf-otcw-grid';
+  otcwAppendDef(g0, ['cliente', 'direccion', 'comuna', 'contactoTerreno']);
+  const { details: d0, body: b0 } = createHnfEwDetails('Más datos', false);
+  const g0m = document.createElement('div');
+  g0m.className = 'hnf-otcw-grid';
+  otcwAppendDef(g0m, ['telefonoContacto']);
+  const emLb = document.createElement('label');
+  emLb.className = 'form-field hnf-otcw-field__inner';
+  const emSp = document.createElement('span');
+  emSp.className = 'form-field__label';
+  emSp.textContent = 'Email';
+  const emIn = document.createElement('input');
+  emIn.type = 'email';
+  emIn.name = 'clienteEmailCreate';
+  emIn.autocomplete = 'email';
+  emLb.append(emSp, emIn);
+  g0m.append(otcwWrapField(emLb));
+  const suLb = document.createElement('label');
+  suLb.className = 'form-field hnf-otcw-field__inner';
+  const suSp = document.createElement('span');
+  suSp.className = 'form-field__label';
+  suSp.textContent = 'Sucursal';
+  const suIn = document.createElement('input');
+  suIn.type = 'text';
+  suIn.name = 'sucursalCreate';
+  suIn.autocomplete = 'organization';
+  suLb.append(suSp, suIn);
+  g0m.append(otcwWrapField(suLb));
+  b0.append(g0m);
+  panel0.append(g0, d0);
 
   const panel1 = mkPanel(1);
-  const p1hint = document.createElement('p');
-  p1hint.className = 'muted hnf-clima-create-panel-hint';
-  p1hint.textContent = 'La OT queda «nueva» en el servidor hasta que la gestiones en taller.';
-  const grid1 = document.createElement('div');
-  grid1.className = 'ot-form__grid';
-  ['tipoServicio', 'subtipoServicio', 'fecha', 'hora'].forEach((name) => {
-    const field = otFormDefinition.sections[0].fields.find((f) => f.name === name);
-    if (field) grid1.append(buildField(field));
+  const g1 = document.createElement('div');
+  g1.className = 'hnf-otcw-grid';
+  otcwAppendDef(g1, ['fecha', 'hora', 'tipoServicio', 'subtipoServicio']);
+  const { details: d1, body: b1 } = createHnfEwDetails('Más datos', false);
+  const g1m = document.createElement('div');
+  g1m.className = 'hnf-otcw-grid';
+  const prSel = document.createElement('select');
+  prSel.name = 'prioridadOperativaCreate';
+  HNF_OT_PRIORIDAD_OPERATIVA.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    if (o.value === 'media') op.selected = true;
+    prSel.append(op);
   });
-  panel1.append(p1hint, grid1);
+  const prLb = document.createElement('label');
+  prLb.className = 'form-field hnf-otcw-field__inner';
+  const prSp = document.createElement('span');
+  prSp.className = 'form-field__label';
+  prSp.textContent = 'Prioridad operativa';
+  prLb.append(prSp, prSel);
+  g1m.append(otcwWrapField(prLb));
+  const osSel = document.createElement('select');
+  osSel.name = 'origenSolicitudCreate';
+  HNF_OT_ORIGEN_SOLICITUD.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    osSel.append(op);
+  });
+  const osLb = document.createElement('label');
+  osLb.className = 'form-field hnf-otcw-field__inner';
+  const osSp = document.createElement('span');
+  osSp.className = 'form-field__label';
+  osSp.textContent = 'Origen de la solicitud';
+  osLb.append(osSp, osSel);
+  g1m.append(otcwWrapField(osLb));
+  b1.append(g1m);
+  panel1.append(g1, d1);
 
   const panel2 = mkPanel(2);
-  panel2.append(buildOtAltaOperationSection());
+  const g2 = document.createElement('div');
+  g2.className = 'hnf-otcw-grid';
+  const opOpts = HNF_OT_ORIGEN_PEDIDO.filter((o) => o.value);
+  g2.append(otcwMkSelect('origenPedidoWs', 'Origen del pedido', opOpts));
+  g2.append(
+    otcwMkSelect('responsableHnfWs', 'Responsable HNF', [
+      { value: '', label: '—' },
+      { value: 'Romina', label: 'Romina' },
+      { value: 'Gery', label: 'Gery' },
+    ])
+  );
+  const techLb = document.createElement('label');
+  techLb.className = 'form-field hnf-otcw-field__inner';
+  const techSp = document.createElement('span');
+  techSp.className = 'form-field__label';
+  techSp.textContent = 'Técnico asignado';
+  const techWrap = document.createElement('div');
+  techWrap.className = 'ot-tech-pick';
+  const techSel = document.createElement('select');
+  techSel.name = 'tecnicoPreset';
+  HNF_OT_TECNICOS_PRESETS.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    techSel.append(op);
+  });
+  const otroOpt = document.createElement('option');
+  otroOpt.value = '__otro__';
+  otroOpt.textContent = 'Otro (nombre libre)';
+  techSel.append(otroOpt);
+  const techOther = document.createElement('input');
+  techOther.type = 'text';
+  techOther.name = 'tecnicoOtro';
+  techOther.className = 'ot-tech-pick__other';
+  techOther.hidden = true;
+  techSel.addEventListener('change', () => {
+    techOther.hidden = techSel.value !== '__otro__';
+    if (!techOther.hidden) techOther.focus();
+  });
+  techWrap.append(techSel, techOther);
+  techLb.append(techSp, techWrap);
+  g2.append(otcwWrapField(techLb));
+  g2.append(
+    otcwMkSelect('canalWs', 'Canal', [
+      { value: '', label: '—' },
+      { value: 'llamada', label: 'Llamada' },
+      { value: 'whatsapp', label: 'WhatsApp' },
+      { value: 'presencial', label: 'Presencial' },
+      { value: 'correo', label: 'Correo' },
+    ])
+  );
+  const { details: d2, body: b2 } = createHnfEwDetails('Más datos', false);
+  const g2m = document.createElement('div');
+  g2m.className = 'hnf-otcw-grid';
+  const waN = document.createElement('input');
+  waN.type = 'tel';
+  waN.name = 'whatsappNumeroCreate';
+  const waNLb = document.createElement('label');
+  waNLb.className = 'form-field hnf-otcw-field__inner';
+  const waNSp = document.createElement('span');
+  waNSp.className = 'form-field__label';
+  waNSp.textContent = 'WhatsApp · número';
+  waNLb.append(waNSp, waN);
+  const waNm = document.createElement('input');
+  waNm.type = 'text';
+  waNm.name = 'whatsappNombreCreate';
+  const waNmLb = document.createElement('label');
+  waNmLb.className = 'form-field hnf-otcw-field__inner';
+  const waNmSp = document.createElement('span');
+  waNmSp.className = 'form-field__label';
+  waNmSp.textContent = 'WhatsApp · nombre';
+  waNmLb.append(waNmSp, waNm);
+  const coLb = document.createElement('label');
+  coLb.className = 'form-field hnf-otcw-field__inner';
+  const coSp = document.createElement('span');
+  coSp.className = 'form-field__label';
+  coSp.textContent = 'Observación de coordinación';
+  const coTa = document.createElement('textarea');
+  coTa.name = 'coordObsCreate';
+  coTa.rows = 2;
+  coLb.append(coSp, coTa);
+  g2m.append(otcwWrapField(waNLb), otcwWrapField(waNmLb), otcwWrapField(coLb));
+  g2m.append(otcwMkSelect('operationModeWs', 'Modo de asignación', HNF_OT_OPERATION_MODES));
+  const idLb = document.createElement('label');
+  idLb.className = 'form-field hnf-otcw-field__inner';
+  const idSp = document.createElement('span');
+  idSp.className = 'form-field__label';
+  idSp.textContent = 'Nº OT manual (opcional)';
+  const idIn = document.createElement('input');
+  idIn.type = 'text';
+  idIn.name = 'otCustomId';
+  idIn.autocomplete = 'off';
+  idLb.append(idSp, idIn);
+  g2m.append(otcwWrapField(idLb));
+  b2.append(g2m);
+  panel2.append(g2, d2);
 
   const panel3 = mkPanel(3);
-  const p3hint = document.createElement('p');
-  p3hint.className = 'muted hnf-clima-create-panel-hint';
-  p3hint.textContent = 'Podés saltar este paso: las notas técnicas se pueden cargar en la visita.';
-  const { details: p3more, body: p3moreBody } = createHnfEwDetails('Más datos (textos técnicos)', false);
-  const fsDet = document.createElement('fieldset');
-  fsDet.className = 'ot-form__section';
-  const legDet = document.createElement('legend');
-  legDet.textContent = 'Detalle técnico (opcional)';
-  const gridDet = document.createElement('div');
-  gridDet.className = 'ot-form__grid';
-  otFormDefinition.sections[1].fields.forEach((field) => gridDet.append(buildField(field)));
-  fsDet.append(legDet, gridDet);
-  p3moreBody.append(fsDet);
-  panel3.append(p3hint, p3more);
+  const g3 = document.createElement('div');
+  g3.className = 'hnf-otcw-grid';
+  const rtLb = document.createElement('label');
+  rtLb.className = 'form-field hnf-otcw-field__inner';
+  rtLb.append(
+    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Descripción corta' }),
+    Object.assign(document.createElement('textarea'), { name: 'resumenTrabajo', rows: 5, className: 'hnf-otcw-textarea' })
+  );
+  const rqLb = document.createElement('label');
+  rqLb.className = 'form-field hnf-otcw-field__inner';
+  rqLb.append(
+    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Requerimiento del cliente' }),
+    Object.assign(document.createElement('textarea'), { name: 'reqClienteWs', rows: 5, className: 'hnf-otcw-textarea' })
+  );
+  const oiLb = document.createElement('label');
+  oiLb.className = 'form-field hnf-otcw-field__inner';
+  oiLb.append(
+    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Observación interna' }),
+    Object.assign(document.createElement('textarea'), { name: 'observacionesInternaWs', rows: 5, className: 'hnf-otcw-textarea' })
+  );
+  const { details: d3, body: b3 } = createHnfEwDetails('Más datos', false);
+  const g3m = document.createElement('div');
+  g3m.className = 'hnf-otcw-grid';
+  g3m.append(
+    otcwMkSelect('tipoFacturacionWs', 'Facturación', [
+      { value: '', label: '—' },
+      { value: 'inmediata', label: 'Inmediata' },
+      { value: 'mensual', label: 'Mensual' },
+    ])
+  );
+  const refLb = document.createElement('label');
+  refLb.className = 'form-field hnf-otcw-field__inner';
+  refLb.append(
+    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Referencia / tienda' }),
+    Object.assign(document.createElement('input'), { type: 'text', name: 'refFacturacionWs', autocomplete: 'off' })
+  );
+  g3m.append(otcwWrapField(refLb));
+  b3.append(g3m);
+  g3.append(otcwWrapField(rtLb), otcwWrapField(rqLb), otcwWrapField(oiLb));
+  panel3.append(g3, d3);
 
   const panel4 = mkPanel(4);
-  const eqWrap = document.createElement('div');
-  eqWrap.className = 'ot-form__section';
-  eqWrap.innerHTML =
-    '<h4 class="ot-equipos-title">Equipos (opcional)</h4><p class="muted">Nombre y estado alcanzan; el resto va en «Más datos del equipo» o en la OT después.</p>';
-  const eqContainer = document.createElement('div');
-  eqContainer.className = 'ot-equipos-create';
+  const eqHost = document.createElement('div');
+  eqHost.className = 'otcw-equipos';
   const addEqBtn = document.createElement('button');
   addEqBtn.type = 'button';
-  addEqBtn.className = 'secondary-button ot-flow-footer__btn';
-  addEqBtn.textContent = '+ Otro equipo';
-
-  const appendEquipoRow = () => {
-    if (eqContainer.querySelectorAll('.ot-equipo-form-row').length >= MAX_EQUIPOS) return;
-    eqContainer.append(createEquipoFormRow({ compactAlta: true }));
-    renumberEquipoFormRows(eqContainer);
+  addEqBtn.className = 'secondary-button';
+  addEqBtn.textContent = '+ Agregar equipo';
+  const appendEq = () => {
+    if (eqHost.querySelectorAll('.otcw-equipo-row').length >= MAX_EQUIPOS) return;
+    eqHost.append(createOtWorkspaceEquipoRow());
+    renumberOtWorkspaceEquipos(eqHost);
   };
-
-  appendEquipoRow();
-
-  addEqBtn.addEventListener('click', () => {
-    if (eqContainer.querySelectorAll('.ot-equipo-form-row').length >= MAX_EQUIPOS) return;
-    eqContainer.append(createEquipoFormRow({ compactAlta: true }));
-    renumberEquipoFormRows(eqContainer);
-  });
-
-  eqWrap.append(eqContainer, addEqBtn);
-  panel4.append(eqWrap);
+  appendEq();
+  addEqBtn.addEventListener('click', appendEq);
+  panel4.append(eqHost, addEqBtn);
 
   const panel5 = mkPanel(5);
   const review = document.createElement('div');
-  review.className = 'ot-flow-review';
+  review.className = 'hnf-otcw-review';
   review.innerHTML =
-    '<h4 class="ot-section-title">¿Todo bien?</h4><p class="muted">Tocá Crear OT y queda en el servidor. Si falta algo, volvé con Anterior.</p><ul class="ot-flow-review__list muted"></ul>';
-  const reviewList = review.querySelector('.ot-flow-review__list');
+    '<h3 class="hnf-otcw-review__title">Resumen</h3><ul class="hnf-otcw-review__list"></ul><div class="hnf-otcw-review__checks muted" role="status"></div>';
+  const reviewList = review.querySelector('.hnf-otcw-review__list');
+  const reviewChecks = review.querySelector('.hnf-otcw-review__checks');
   const refreshReview = () => {
     if (!reviewList) return;
     reviewList.innerHTML = '';
@@ -2386,209 +2535,195 @@ export const climaView = ({
     };
     add('Cliente', form.elements.cliente?.value);
     add('Ubicación', `${form.elements.direccion?.value || ''}, ${form.elements.comuna?.value || ''}`);
-    add('Contacto', `${form.elements.contactoTerreno?.value || ''} · ${form.elements.telefonoContacto?.value || ''}`);
+    add('Contacto', `${form.elements.contactoTerreno?.value || ''}`);
+    add('Teléfono', form.elements.telefonoContacto?.value);
     add('Servicio', `${form.elements.tipoServicio?.value || ''} / ${form.elements.subtipoServicio?.value || ''}`);
     add('Fecha', `${form.elements.fecha?.value || ''} ${form.elements.hora?.value || ''}`);
+    add('Pedido / técnico', `${form.elements.origenPedidoWs?.value || ''} · ${resolveTecnicoFromAltaForm(form)}`);
+    if (reviewChecks) {
+      const v = validateOtCreateWorkspaceSubmit(form);
+      reviewChecks.textContent = v.ok
+        ? 'Listo para crear: datos mínimos completos.'
+        : `Faltan datos: ${Object.values(v.errors).join(' ')}`;
+    }
   };
   panel5.append(review);
 
   form.append(panel0, panel1, panel2, panel3, panel4, panel5);
 
+  const cwHeader = document.createElement('header');
+  cwHeader.className = 'hnf-otcw__header';
+  const cwTitleRow = document.createElement('div');
+  cwTitleRow.className = 'hnf-otcw__title-row';
+  const cwH1 = document.createElement('h2');
+  cwH1.className = 'hnf-otcw__title';
+  cwH1.textContent = 'Nueva orden de trabajo';
+  const btnCloseCreate = document.createElement('button');
+  btnCloseCreate.type = 'button';
+  btnCloseCreate.className = 'secondary-button hnf-otcw__close';
+  btnCloseCreate.textContent = 'Cerrar';
+  cwTitleRow.append(cwH1, btnCloseCreate);
+
   const createProgress = document.createElement('nav');
-  createProgress.className = 'ot-flow-progress hnf-clima-create-sheet__steps';
-  createProgress.setAttribute('aria-label', 'Etapas de alta');
+  createProgress.className = 'hnf-otcw__steps';
+  createProgress.setAttribute('aria-label', 'Etapas');
+
+  const progBar = document.createElement('div');
+  progBar.className = 'hnf-otcw__progress-track';
+  const progFill = document.createElement('div');
+  progFill.className = 'hnf-otcw__progress-fill';
+  progBar.append(progFill);
 
   const createStepBanner = document.createElement('div');
-  createStepBanner.className = 'hnf-clima-create-step-banner';
+  createStepBanner.className = 'hnf-otcw__banner';
   const createStepTitle = document.createElement('strong');
   const createStepSub = document.createElement('span');
-  createStepSub.className = 'hnf-clima-create-step-banner__sub';
+  createStepSub.className = 'hnf-otcw__banner-sub';
   createStepBanner.append(createStepTitle, document.createTextNode(' '), createStepSub);
 
   const paintCreateStepBanner = () => {
-    const ui = CLIMA_CREATE_STEP_UI[createStageIdx] || {};
-    createStepTitle.textContent = `Paso ${createStageIdx + 1} de ${CLIMA_OT_FLOW_STAGES.length}`;
-    createStepSub.textContent = ui.line ? `· ${ui.short} — ${ui.line}` : '';
+    const st = OT_CREATE_WORKSPACE_STAGES[createStageIdx];
+    createStepTitle.textContent = `Paso ${createStageIdx + 1} de ${OT_CREATE_WORKSPACE_STAGE_COUNT}`;
+    createStepSub.textContent = st ? `· ${st.label}` : '';
+    const pct = ((createStageIdx + 1) / OT_CREATE_WORKSPACE_STAGE_COUNT) * 100;
+    progFill.style.width = `${pct}%`;
   };
 
-  const createJarvis = document.createElement('aside');
-  createJarvis.className = 'ot-flow-jarvis hnf-clima-create-sheet__jarvis';
-  const createJarvisTitle = document.createElement('h4');
-  createJarvisTitle.className = 'ot-flow-jarvis__title';
-  createJarvisTitle.textContent = 'Consejo';
-  const createJarvisUl = document.createElement('ul');
-  createJarvisUl.className = 'ot-flow-jarvis__list';
-  const createJarvisNext = document.createElement('p');
-  createJarvisNext.className = 'ot-flow-jarvis__next';
-  createJarvis.append(createJarvisTitle, createJarvisUl, createJarvisNext);
+  const stageScroll = document.createElement('div');
+  stageScroll.className = 'hnf-otcw__stage-scroll';
+  stageScroll.append(form);
 
-  const createStageBody = document.createElement('div');
-  createStageBody.className = 'ot-flow-stage-body hnf-clima-create-sheet__scroll';
-  createStageBody.append(form);
+  const cwBody = document.createElement('div');
+  cwBody.className = 'hnf-otcw__body';
+  cwBody.append(stageScroll);
 
-  const createFooter = document.createElement('div');
-  createFooter.className = 'ot-flow-footer hnf-clima-create-sheet__footer';
+  const createFooter = document.createElement('footer');
+  createFooter.className = 'hnf-otcw__footer';
   const createBtnPrev = document.createElement('button');
   createBtnPrev.type = 'button';
-  createBtnPrev.className = 'secondary-button ot-flow-footer__btn';
+  createBtnPrev.className = 'secondary-button';
   createBtnPrev.textContent = 'Anterior';
+  const btnDraft = document.createElement('button');
+  btnDraft.type = 'button';
+  btnDraft.className = 'secondary-button';
+  btnDraft.textContent = 'Guardar borrador';
   const createMsg = document.createElement('p');
-  createMsg.className = 'ot-flow-footer__msg muted';
+  createMsg.className = 'hnf-otcw__footer-msg muted';
   const createBtnNext = document.createElement('button');
   createBtnNext.type = 'button';
-  createBtnNext.className = 'primary-button ot-flow-footer__btn';
+  createBtnNext.className = 'primary-button';
   createBtnNext.textContent = 'Siguiente';
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
-  submitButton.className = 'primary-button ot-flow-footer__btn';
+  submitButton.className = 'primary-button';
   submitButton.textContent = isSubmitting ? 'Guardando…' : 'Crear OT';
   submitButton.disabled = Boolean(isSubmitting);
-  submitButton.hidden = true;
-  createFooter.append(createBtnPrev, createMsg, createBtnNext, submitButton);
-
-  const renderCreateJarvis = () => {
-    createJarvisUl.innerHTML = '';
-    jarvisLinesForCreateStage(createStageIdx).forEach((txt) => {
-      const li = document.createElement('li');
-      li.textContent = txt;
-      createJarvisUl.append(li);
-    });
-    const nextUi = CLIMA_CREATE_STEP_UI[createStageIdx + 1];
-    createJarvisNext.textContent =
-      createStageIdx < CLIMA_OT_FLOW_STAGES.length - 1
-        ? nextUi
-          ? `Después: ${nextUi.short} — ${nextUi.line}`
-          : 'Seguí con Siguiente.'
-        : 'Tocá Crear OT para guardar en el servidor.';
-  };
+  const footerRight = document.createElement('div');
+  footerRight.className = 'hnf-otcw__footer-right';
+  footerRight.append(createBtnNext, submitButton);
+  createFooter.append(createBtnPrev, btnDraft, createMsg, footerRight);
 
   const setCreateStage = (idx) => {
-    const n = Math.max(0, Math.min(CLIMA_OT_FLOW_STAGES.length - 1, idx));
-    if (prevCreateStageForDraft >= 0 && n > prevCreateStageForDraft) writeCreateOtDraft(form);
+    const n = Math.max(0, Math.min(OT_CREATE_WORKSPACE_STAGE_COUNT - 1, idx));
+    if (prevCreateStageForDraft >= 0 && n > prevCreateStageForDraft) writeCreateOtDraft(form, eqHost);
     prevCreateStageForDraft = n;
     createStageIdx = n;
     writeStoredStageIndex(createStageKey, n);
-    form.querySelectorAll('.ot-flow-stage-panel').forEach((el) => {
+    otcwClearFieldErrors(form);
+    form.querySelectorAll('.hnf-otcw-stage').forEach((el) => {
       el.hidden = Number(el.dataset.createStage) !== n;
     });
     createBtnPrev.disabled = n === 0;
-    createBtnNext.hidden = n === CLIMA_OT_FLOW_STAGES.length - 1;
-    submitButton.hidden = n !== CLIMA_OT_FLOW_STAGES.length - 1;
+    createBtnNext.hidden = n === OT_CREATE_WORKSPACE_STAGE_COUNT - 1;
+    submitButton.hidden = n !== OT_CREATE_WORKSPACE_STAGE_COUNT - 1;
     createMsg.textContent = '';
-    createProgress.querySelectorAll('.ot-flow-progress__step').forEach((btn, i) => {
+    createProgress.querySelectorAll('.hnf-otcw__step').forEach((btn, i) => {
       btn.classList.toggle('is-active', i === n);
       btn.classList.toggle('is-done', i < n);
       btn.disabled = i > n;
     });
-    if (n === CLIMA_OT_FLOW_STAGES.length - 1) refreshReview();
+    if (n === OT_CREATE_WORKSPACE_STAGE_COUNT - 1) refreshReview();
     paintCreateStepBanner();
-    renderCreateJarvis();
   };
 
-  CLIMA_OT_FLOW_STAGES.forEach((st, i) => {
-    if (i > 0) {
-      const ar = document.createElement('span');
-      ar.className = 'ot-flow-progress__arrow';
-      ar.setAttribute('aria-hidden', 'true');
-      ar.textContent = '→';
-      createProgress.append(ar);
-    }
+  OT_CREATE_WORKSPACE_STAGES.forEach((st, i) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'ot-flow-progress__step';
+    btn.className = 'hnf-otcw__step';
     btn.dataset.stageIndex = String(i);
-    const shortLab = CLIMA_CREATE_STEP_UI[i]?.short || st.label;
-    btn.innerHTML = `<span class="ot-flow-progress__dot">${i + 1}</span><span class="ot-flow-progress__label">${shortLab}</span>`;
+    btn.innerHTML = `<span class="hnf-otcw__step-num">${i + 1}</span><span class="hnf-otcw__step-label">${st.label}</span>`;
     btn.addEventListener('click', () => {
       if (i <= createStageIdx) setCreateStage(i);
     });
     createProgress.append(btn);
   });
 
+  cwHeader.append(cwTitleRow, createProgress, progBar, createStepBanner);
+
+  const createDialog = document.createElement('dialog');
+  createDialog.className = 'hnf-otcw-dialog';
+  createDialog.setAttribute('aria-label', 'Crear orden de trabajo');
+  const cwShell = document.createElement('div');
+  cwShell.className = 'hnf-otcw';
+  cwShell.append(cwHeader, cwBody, createFooter);
+  createDialog.append(cwShell);
+  createDialog.addEventListener('close', () => {
+    window.clearTimeout(draftSaveTimer);
+    writeCreateOtDraft(form, eqHost);
+  });
+
+  btnCloseCreate.addEventListener('click', () => createDialog.close());
   createBtnPrev.addEventListener('click', () => setCreateStage(createStageIdx - 1));
+  btnDraft.addEventListener('click', () => {
+    writeCreateOtDraft(form, eqHost);
+    createMsg.textContent = 'Borrador guardado en este equipo.';
+    actions?.showFeedback?.({ type: 'success', message: 'Borrador guardado.' });
+  });
   createBtnNext.addEventListener('click', () => {
-    const v = validateCreateStageAdvance(form, eqContainer, createStageIdx);
+    const v = validateOtCreateWorkspaceStage(form, createStageIdx);
     if (!v.ok) {
-      createMsg.textContent = v.message;
-      actions?.showFeedback?.({ type: 'error', message: v.message });
+      otcwApplyFieldErrors(form, v.errors);
+      const first = Object.values(v.errors)[0];
+      createMsg.textContent = first || 'Revisá los campos marcados.';
+      actions?.showFeedback?.({ type: 'error', message: first || 'Hay campos obligatorios.' });
       return;
     }
     setCreateStage(createStageIdx + 1);
   });
 
   attachCreateOtAutocomplete(form, ots);
-  applyCreateOtDraft(form, readCreateOtDraft());
+  applyCreateOtDraft(form, readCreateOtDraft(), eqHost);
   form.addEventListener('input', () => {
     window.clearTimeout(draftSaveTimer);
-    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form), 450);
+    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form, eqHost), 450);
   });
   form.addEventListener('change', () => {
     window.clearTimeout(draftSaveTimer);
-    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form), 450);
+    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form, eqHost), 450);
   });
 
   setCreateStage(createStageIdx);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const origenSolicitud = form.elements.origenSolicitudCreate?.value || '';
-    const waNum = form.elements.whatsappNumeroCreate?.value?.trim() || '';
-    const waNom = form.elements.whatsappNombreCreate?.value?.trim() || '';
-    if (origenSolicitud === 'whatsapp' && (!waNum || !waNom)) {
-      actions?.showFeedback?.({
-        type: 'error',
-        message: 'Con origen WhatsApp el número y el nombre de contacto son obligatorios.',
-      });
+    const v = validateOtCreateWorkspaceSubmit(form);
+    if (!v.ok) {
+      const target = getOtCreateWorkspaceStageForSubmitErrors(v.errors);
+      setCreateStage(target);
+      otcwApplyFieldErrors(form, v.errors);
+      const first = Object.values(v.errors)[0];
+      createMsg.textContent = first || 'Revisá los campos marcados.';
+      actions?.showFeedback?.({ type: 'error', message: first || 'Completá los datos obligatorios.' });
       return;
     }
-    const equipos = collectEquiposFromCreateForm(eqContainer);
-    const customId = form.elements.otCustomId?.value?.trim() || '';
-    const prioridadOperativa = form.elements.prioridadOperativaCreate?.value || 'media';
-    const payload = {
-      ...(customId ? { id: customId } : {}),
-      cliente: form.elements.cliente.value.trim(),
-      direccion: form.elements.direccion.value.trim(),
-      comuna: form.elements.comuna.value.trim(),
-      contactoTerreno: form.elements.contactoTerreno.value.trim(),
-      telefonoContacto: form.elements.telefonoContacto.value.trim(),
-      tipoServicio: form.elements.tipoServicio.value,
-      subtipoServicio: form.elements.subtipoServicio.value.trim(),
-      tecnicoAsignado: resolveTecnicoFromAltaForm(form),
-      operationMode: form.elements.operationModeCreate?.value || 'manual',
-      origenSolicitud,
-      origenPedido: origenSolicitud,
-      prioridadOperativa,
-      whatsappContactoNumero: waNum,
-      whatsappContactoNombre: waNom,
-      fecha: form.elements.fecha.value,
-      hora: form.elements.hora.value,
-      observaciones: form.elements.observaciones.value.trim(),
-      resumenTrabajo: form.elements.resumenTrabajo.value.trim(),
-      recomendaciones: form.elements.recomendaciones.value.trim(),
-      equipos,
-    };
+    const equipos = collectEquiposFromWorkspace(eqHost);
+    const payload = buildOtCreateWorkspacePayload(form, equipos, resolveTecnicoFromAltaForm);
     const created = await actions.createOT(payload);
     if (created) {
       clearCreateOtDraft();
       writeStoredStageIndex(createStageKey, 0);
+      createDialog.close();
     }
-  });
-
-  const createDialog = document.createElement('dialog');
-  createDialog.className = 'hnf-clima-create-dialog hnf-clima-create-sheet';
-  createDialog.setAttribute('aria-label', 'Crear nueva orden de trabajo');
-  const btnCloseCreate = document.createElement('button');
-  btnCloseCreate.type = 'button';
-  btnCloseCreate.className = 'secondary-button hnf-clima-create-dialog__close';
-  btnCloseCreate.textContent = 'Cerrar';
-  btnCloseCreate.addEventListener('click', () => createDialog.close());
-  formHeader.append(formHeaderIntro, btnCloseCreate);
-
-  formCard.append(formHeader, createProgress, createStepBanner, createJarvis, createStageBody, createFooter);
-  createDialog.append(formCard);
-  createDialog.addEventListener('close', () => {
-    window.clearTimeout(draftSaveTimer);
-    writeCreateOtDraft(form);
   });
 
   const createActionBar = document.createElement('div');
