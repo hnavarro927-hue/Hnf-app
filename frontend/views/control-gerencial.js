@@ -1,4 +1,3 @@
-import '../styles/hnf-control-center-layout.css';
 import { aggregateMandoFromEventos, buildFlujoOperativoUnificado } from '../domain/evento-operativo.js';
 import { listIngresosOperativosDelDia } from '../domain/ingreso-operativo-storage.js';
 import { otCanClose } from '../utils/ot-evidence.js';

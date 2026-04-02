@@ -1,4 +1,4 @@
-import '../styles/jarvis-executive-copilot-strip.css';
+/* Jarvis strip: hnf-ds-jarvis.css vía app.css */
 import { runJarvisOperationalDecisionEngine } from '../domain/jarvis-operational-decision-engine.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
 import { countPendingJarvisDocumentReview } from '../domain/jarvis-universal-intake-storage.js';

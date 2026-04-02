@@ -1,4 +1,4 @@
-import '../styles/jarvis-presence-copilot.css';
+/* Jarvis presencia: hnf-ds-jarvis.css vía app.css */
 
 /**
  * @param {{ label: string, ok: boolean, pulse: boolean }} linea

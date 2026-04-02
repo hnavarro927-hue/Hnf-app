@@ -1,4 +1,4 @@
-import '../styles/jarvis-universal-intake.css';
+/* Jarvis universal intake: hnf-ds-jarvis.css vía app.css */
 import {
   JARVIS_DOCUMENT_ENTRY_TYPES,
   buildFileDescriptorStub,

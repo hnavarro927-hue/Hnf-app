@@ -1,0 +1,146 @@
+/**
+ * HNF Design System v2 — tokens (fuente única de verdad visual).
+ * Identidad: oscuro premium, acento cian eléctrico, alto contraste.
+ */
+
+:root {
+  /* —— Marca / superficies —— */
+  --hnf-color-canvas: #050608;
+  --hnf-color-canvas-mid: #080b10;
+  --hnf-color-elevated: #0d1118;
+  --hnf-color-elevated-2: #121820;
+  --hnf-color-inset: #06080c;
+  --hnf-color-overlay: rgba(5, 8, 12, 0.92);
+
+  /* —— Acento HNF (eléctrico, no neón) —— */
+  --hnf-color-primary: #2ec0e8;
+  --hnf-color-primary-hover: #4ad0f5;
+  --hnf-color-primary-muted: rgba(46, 192, 232, 0.14);
+  --hnf-color-primary-border: rgba(46, 192, 232, 0.35);
+  --hnf-color-primary-glow: rgba(46, 192, 232, 0.22);
+
+  /* —— Texto —— */
+  --hnf-color-text-primary: #f0f3f8;
+  --hnf-color-text-secondary: #94a3b8;
+  --hnf-color-text-tertiary: #64748b;
+  --hnf-color-text-inverse: #030508;
+
+  /* —— Bordes —— */
+  --hnf-color-border-subtle: rgba(148, 163, 184, 0.1);
+  --hnf-color-border-default: rgba(148, 163, 184, 0.14);
+  --hnf-color-border-strong: rgba(46, 192, 232, 0.28);
+
+  /* —— Semánticos —— */
+  --hnf-color-success: #3ecf8e;
+  --hnf-color-success-bg: rgba(62, 207, 142, 0.12);
+  --hnf-color-warning: #f0b429;
+  --hnf-color-warning-bg: rgba(240, 180, 41, 0.12);
+  --hnf-color-danger: #f4717a;
+  --hnf-color-danger-bg: rgba(244, 113, 122, 0.12);
+  --hnf-color-info: #5eb8e8;
+  --hnf-color-info-bg: rgba(94, 184, 232, 0.1);
+
+  /* —— Módulos (derivados; sin arcoíris) —— */
+  --hnf-color-accent-clima: var(--hnf-color-primary);
+  --hnf-color-accent-flota: #5b9cf5;
+  --hnf-color-accent-matrix: var(--hnf-color-success);
+  --hnf-color-accent-jarvis: var(--hnf-color-primary);
+
+  /* —— OT / ops neón → semántica —— */
+  --hnf-neon-abierto: var(--hnf-color-danger);
+  --hnf-neon-proceso: var(--hnf-color-warning);
+  --hnf-neon-cerrado: var(--hnf-color-success);
+  --hnf-neon-sla-breach: #ff5c6c;
+
+  /* —— Espaciado —— */
+  --hnf-space-1: 4px;
+  --hnf-space-2: 8px;
+  --hnf-space-3: 12px;
+  --hnf-space-4: 16px;
+  --hnf-space-5: 24px;
+  --hnf-space-6: 32px;
+  --hnf-space-7: 40px;
+
+  /* —— Radio —— */
+  --hnf-radius-sm: 8px;
+  --hnf-radius-md: 12px;
+  --hnf-radius-lg: 16px;
+  --hnf-radius-pill: 999px;
+
+  /* —— Tipografía —— */
+  --hnf-font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --hnf-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --hnf-text-display: 1.75rem;
+  --hnf-text-h1: 1.375rem;
+  --hnf-text-h2: 1rem;
+  --hnf-text-h3: 0.875rem;
+  --hnf-text-body: 0.875rem;
+  --hnf-text-body-dense: 0.8125rem;
+  --hnf-text-caption: 0.6875rem;
+
+  /* —— Sombras mínimas (preferir borde) —— */
+  --hnf-shadow-ring: 0 0 0 1px var(--hnf-color-border-default);
+  --hnf-shadow-elevated: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+
+  --hnf-motion-fast: 0.12s ease-out;
+  --hnf-motion: 0.18s ease-out;
+
+  /* —— Puente legacy: vistas existentes resuelven contra DS —— */
+  --bg-global: var(--hnf-color-canvas);
+  --bg: var(--hnf-color-canvas);
+  --bg-mid: var(--hnf-color-canvas-mid);
+  --bg-card: color-mix(in srgb, var(--hnf-color-elevated) 92%, transparent);
+  --surface: var(--hnf-color-elevated);
+  --surface-soft: var(--hnf-color-inset);
+  --surface-raised: var(--hnf-color-elevated-2);
+  --surface-elevated: var(--hnf-color-elevated-2);
+  --border: var(--hnf-color-border-subtle);
+  --border-strong: var(--hnf-color-border-strong);
+  --text: var(--hnf-color-text-primary);
+  --muted: var(--hnf-color-text-secondary);
+  --label-faint: color-mix(in srgb, var(--hnf-color-text-primary) 55%, transparent);
+  --primary: var(--hnf-color-primary);
+  --primary-hover: var(--hnf-color-primary-hover);
+  --primary-muted: var(--hnf-color-primary-muted);
+  --on-primary: var(--hnf-color-text-inverse);
+  --accent-clima: var(--hnf-color-accent-clima);
+  --accent-clima-muted: var(--hnf-color-primary-muted);
+  --accent-flota: var(--hnf-color-accent-flota);
+  --accent-flota-muted: rgba(91, 156, 245, 0.18);
+  --accent-matrix: var(--hnf-color-accent-matrix);
+  --accent-matrix-muted: var(--hnf-color-success-bg);
+  --accent-jarvis: var(--hnf-color-accent-jarvis);
+  --accent-jarvis-muted: var(--hnf-color-primary-muted);
+  --accent-plan: var(--hnf-color-primary);
+  --accent-plan-muted: var(--hnf-color-primary-muted);
+  --accent-admin: var(--hnf-color-text-secondary);
+  --accent-ia: var(--hnf-color-primary);
+  --accent-ia-muted: var(--hnf-color-primary-muted);
+  --hnf-forest: var(--hnf-color-elevated);
+  --hnf-forest-muted: var(--hnf-color-border-subtle);
+  --hnf-gold: var(--hnf-color-primary);
+  --hnf-gold-muted: var(--hnf-color-primary-muted);
+  --hnf-cobalt: var(--hnf-color-primary);
+  --hnf-cobalt-muted: var(--hnf-color-primary-muted);
+  --hnf-grid-line: rgba(148, 163, 184, 0.04);
+  --hnf-glass-blur: 12px;
+  --hnf-nav-accent: rgba(255, 255, 255, 0.28);
+  --hnf-nav-accent-glow: var(--hnf-color-primary-muted);
+  --hnf-rebirth-shadow-card: var(--hnf-shadow-elevated);
+  --hnf-shell-depth: var(--hnf-shadow-elevated);
+  --success: var(--hnf-color-success);
+  --success-bg: var(--hnf-color-success-bg);
+  --danger: var(--hnf-color-danger);
+  --danger-bg: var(--hnf-color-danger-bg);
+  --warning: var(--hnf-color-warning);
+  --warning-bg: var(--hnf-color-warning-bg);
+  --warning-border: color-mix(in srgb, var(--hnf-color-warning) 45%, transparent);
+  --input-bg: var(--hnf-color-inset);
+  --radius-sm: var(--hnf-radius-sm);
+  --radius-md: var(--hnf-radius-md);
+  --radius-lg: var(--hnf-radius-lg);
+  --shadow-sm: var(--hnf-shadow-ring);
+  --shadow-md: var(--hnf-shadow-ring);
+  --font: var(--hnf-font-sans);
+}

@@ -1,4 +1,4 @@
-import '../styles/hnf-operational-kanban.css';
+/* Kanban + panel: hnf-ds-kanban.css vía app.css */
 import { buildJarvisOperationalRecommendations } from '../domain/jarvis-operational-recommendations.js';
 import { buildJarvisDecisionCard } from './jarvis-decision-card.js';
 

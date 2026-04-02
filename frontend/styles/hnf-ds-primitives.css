@@ -1,0 +1,129 @@
+/**
+ * HNF DS v2 — primitivos: Card, Button, Input (+ alias legacy .tarjeta / botones).
+ */
+
+.hnf-ds-card {
+  background: var(--hnf-color-elevated);
+  border: 1px solid var(--hnf-color-border-default);
+  border-radius: var(--hnf-radius-sm);
+  padding: var(--hnf-space-4);
+  box-shadow: var(--hnf-shadow-elevated);
+}
+
+.hnf-ds-card--inset {
+  background: var(--hnf-color-inset);
+}
+
+.hnf-ds-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--hnf-text-body);
+  padding: 0.5rem 1rem;
+  border-radius: var(--hnf-radius-sm);
+  border: 1px solid var(--hnf-color-border-default);
+  cursor: pointer;
+  transition:
+    background var(--hnf-motion),
+    border-color var(--hnf-motion),
+    color var(--hnf-motion);
+}
+
+.hnf-ds-btn--primary {
+  background: var(--hnf-color-primary);
+  border-color: var(--hnf-color-primary);
+  color: var(--hnf-color-text-inverse);
+}
+
+.hnf-ds-btn--primary:hover:not(:disabled) {
+  background: var(--hnf-color-primary-hover);
+  border-color: var(--hnf-color-primary-hover);
+}
+
+.hnf-ds-btn--secondary {
+  background: var(--hnf-color-elevated);
+  color: var(--hnf-color-text-primary);
+}
+
+.hnf-ds-btn--secondary:hover:not(:disabled) {
+  border-color: var(--hnf-color-primary-border);
+}
+
+.hnf-ds-btn--ghost {
+  background: transparent;
+  color: var(--hnf-color-text-secondary);
+}
+
+.hnf-ds-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hnf-ds-input,
+.hnf-ds-select,
+.hnf-ds-textarea {
+  width: 100%;
+  font: inherit;
+  font-size: var(--hnf-text-body);
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--hnf-radius-sm);
+  border: 1px solid var(--hnf-color-border-default);
+  background: var(--hnf-color-inset);
+  color: var(--hnf-color-text-primary);
+}
+
+.hnf-ds-input:focus,
+.hnf-ds-select:focus,
+.hnf-ds-textarea:focus {
+  border-color: var(--hnf-color-primary-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--hnf-color-primary-muted);
+}
+
+/* Alias usados en main.js y vistas */
+.tarjeta {
+  background: var(--hnf-color-elevated);
+  border: 1px solid var(--hnf-color-border-default);
+  border-radius: var(--hnf-radius-sm);
+  padding: var(--hnf-space-5);
+  box-shadow: var(--hnf-shadow-elevated);
+}
+
+.primary-button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--hnf-radius-sm);
+  border: 1px solid var(--hnf-color-primary);
+  background: var(--hnf-color-primary);
+  color: var(--hnf-color-text-inverse);
+  cursor: pointer;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--hnf-color-primary-hover);
+  border-color: var(--hnf-color-primary-hover);
+}
+
+.secondary-button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--hnf-radius-sm);
+  border: 1px solid var(--hnf-color-border-default);
+  background: var(--hnf-color-elevated);
+  color: var(--hnf-color-text-primary);
+  cursor: pointer;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--hnf-color-primary-border);
+  color: var(--hnf-color-primary-hover);
+}
+
+.muted {
+  color: var(--hnf-color-text-secondary);
+}
+
+.small {
+  font-size: var(--hnf-text-caption);
+}

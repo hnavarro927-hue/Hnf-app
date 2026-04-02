@@ -1,0 +1,81 @@
+/**
+ * HNF DS v2 — reset mínimo, body, tipografía global, #app.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--hnf-font-sans);
+  font-size: var(--hnf-text-body);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  background: var(--hnf-color-canvas);
+  color: var(--hnf-color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+  position: relative;
+}
+
+body.hnf-cc-shell-active #app {
+  padding: 12px 16px 20px;
+  max-width: none;
+}
+
+.hnf-display {
+  font-size: var(--hnf-text-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.hnf-h1 {
+  font-size: var(--hnf-text-h1);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.hnf-h2 {
+  font-size: var(--hnf-text-h2);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.hnf-caption {
+  font-size: var(--hnf-text-caption);
+  color: var(--hnf-color-text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hnf-mono {
+  font-family: var(--hnf-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: var(--hnf-color-primary-hover);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--hnf-color-primary);
+  outline-offset: 2px;
+}

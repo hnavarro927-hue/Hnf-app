@@ -1,5 +1,4 @@
-import '../styles/centro-control-alien.css';
-import '../styles/mando-centro-v2.css';
+/* Mando + centro: hnf-ds-mando.css vía app.css */
 import { applyJarvisRulesToNewOt } from '../domain/hnf-ot-jarvis-rules.js';
 import { createSimpleKanbanBoard } from '../components/mando/simple-kanban.js';
 import {

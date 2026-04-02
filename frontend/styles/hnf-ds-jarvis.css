@@ -1,0 +1,966 @@
+/**
+ * HNF DS v2 — superficies Jarvis (feed, decisiones, presencia, strip).
+ */
+
+/**
+ * Panel vivo Jarvis operador (control gerencial).
+ */
+
+.hnf-jarvis-live-ops {
+  --jlo-cyan: var(--hnf-color-primary);
+  --jlo-glow: rgba(46, 192, 232, 0.15);
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(46, 192, 232, 0.2);
+  border-radius: 0.55rem;
+  background: linear-gradient(165deg, rgba(8, 40, 52, 0.4), rgba(9, 9, 11, 0.94));
+  box-shadow: 0 0 22px var(--jlo-glow);
+}
+
+.hnf-jarvis-nucleus .hnf-jarvis-live-ops {
+  margin-top: 0.5rem;
+}
+
+.hnf-jarvis-live-ops__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.hnf-jarvis-live-ops__title {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--jlo-cyan);
+  text-shadow: 0 0 12px var(--jlo-glow);
+}
+
+.hnf-jarvis-live-ops__pill {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hnf-jarvis-live-ops__pill--ok {
+  color: #a5f3fc;
+  border-color: rgba(46, 192, 232, 0.35);
+}
+
+.hnf-jarvis-live-ops__pill--warn {
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.hnf-jarvis-live-ops__pill--bad {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.hnf-jarvis-live-ops__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.45rem 0.65rem;
+}
+
+.hnf-jarvis-live-ops__cell {
+  min-width: 0;
+}
+
+.hnf-jarvis-live-ops__k {
+  display: block;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #71717a;
+  margin-bottom: 0.2rem;
+}
+
+.hnf-jarvis-live-ops__v {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #e4e4e7;
+  word-break: break-word;
+}
+
+.hnf-jarvis-live-ops__v--accent {
+  color: var(--jlo-cyan);
+  font-weight: 600;
+}
+
+.hnf-jarvis-live-ops__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.55rem;
+  line-height: 1.35;
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-live-ops__details {
+  margin-top: 0.45rem;
+  font-size: 0.55rem;
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-live-ops__details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #d4d4d8;
+}
+
+.hnf-jarvis-live-ops__checks {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  list-style: disc;
+}
+
+.hnf-jarvis-live-ops__check {
+  margin-bottom: 0.25rem;
+}
+
+.hnf-jarvis-live-ops__check strong {
+  color: #e4e4e7;
+}
+
+.hnf-jarvis-live-ops__check--ok strong {
+  color: #a5f3fc;
+}
+
+.hnf-jarvis-live-ops__check--warning strong {
+  color: #fde68a;
+}
+
+.hnf-jarvis-live-ops__check--error strong {
+  color: #fecaca;
+}
+
+.hnf-jarvis-live-ops__check-detail {
+  display: block;
+  font-size: 0.5rem;
+  color: #71717a;
+  margin-top: 0.08rem;
+}
+
+/**
+ * JarvisDecisionCard â€” dark / cyan alien, glow suave
+ */
+.hnf-jarvis-decision {
+  --jd-accent: var(--hnf-color-primary);
+  --jd-glow: rgba(46, 192, 232, 0.22);
+  --jd-risk: #f87171;
+  --jd-surface: rgba(12, 18, 28, 0.92);
+  border: 1px solid rgba(46, 192, 232, 0.18);
+  border-radius: 0.4rem;
+  background: var(--jd-surface);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 14px var(--jd-glow);
+  padding: 0.28rem 0.35rem;
+}
+
+.hnf-jarvis-decision--compact {
+  margin-top: 0.08rem;
+}
+
+.hnf-jarvis-decision--full {
+  padding: 0.45rem 0.5rem;
+}
+
+.hnf-jarvis-decision__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+
+.hnf-jarvis-decision__title {
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--jd-accent);
+  text-shadow: 0 0 8px var(--jd-glow);
+}
+
+.hnf-jarvis-decision__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.18rem 0.35rem;
+}
+
+.hnf-jarvis-decision--full .hnf-jarvis-decision__grid {
+  gap: 0.28rem 0.5rem;
+}
+
+.hnf-jarvis-decision__cell {
+  min-width: 0;
+}
+
+.hnf-jarvis-decision__k {
+  font-size: 0.42rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #71717a;
+  line-height: 1.2;
+}
+
+.hnf-jarvis-decision__v {
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.hnf-jarvis-decision--full .hnf-jarvis-decision__v {
+  font-size: 0.62rem;
+}
+
+.hnf-jarvis-decision__v--area-clima {
+  color: #67e8f9;
+}
+
+.hnf-jarvis-decision__v--area-flota {
+  color: #6ee7b7;
+}
+
+.hnf-jarvis-decision__risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.48rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.08rem 0.28rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(113, 113, 122, 0.35);
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-decision__risk--on {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.35);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.15);
+}
+
+/**
+ * Jarvis presencia + copiloto gerencial â€” nÃºcleo activo, cyan, glow suave.
+ */
+
+.hnf-jarvis-nucleus {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0;
+}
+
+.hnf-jarvis-nucleus__main-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .hnf-jarvis-nucleus__main-row {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .hnf-jarvis-nucleus__main-row > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* â€”â€”â€” Presence (fija / siempre visible en bloque) â€”â€”â€” */
+.hnf-jarvis-presence {
+  --jp-cyan: var(--hnf-color-primary);
+  --jp-glow: rgba(46, 192, 232, 0.2);
+  border: 1px solid rgba(46, 192, 232, 0.22);
+  border-radius: 0.55rem;
+  background: linear-gradient(145deg, rgba(8, 51, 68, 0.45), rgba(9, 9, 11, 0.92));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 20px var(--jp-glow);
+  padding: 0.55rem 0.65rem;
+}
+
+.hnf-jarvis-presence__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.hnf-jarvis-presence__pulse {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--jp-cyan);
+  box-shadow: 0 0 10px var(--jp-glow);
+  flex-shrink: 0;
+}
+
+.hnf-jarvis-presence__pulse--off {
+  background: #52525b;
+  box-shadow: none;
+}
+
+.hnf-jarvis-presence__name {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--jp-cyan);
+  text-shadow: 0 0 12px var(--jp-glow);
+}
+
+.hnf-jarvis-presence__brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hnf-jarvis-presence__brand-sub {
+  flex: 1 0 100%;
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
+  text-transform: none;
+  line-height: 1.25;
+}
+
+/* Control gerencial: bloque Jarvis mÃ¡s visible */
+.hnf-cap-control .hnf-jarvis-nucleus {
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(46, 192, 232, 0.14);
+  background: rgba(9, 9, 11, 0.65);
+}
+
+.hnf-cap-control .hnf-jarvis-nucleus__section-head {
+  margin: 0 0 0.45rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hnf-cap-control .hnf-jarvis-nucleus__section-title {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hnf-color-primary);
+}
+
+.hnf-cap-control .hnf-jarvis-nucleus__section-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.52rem;
+  color: #71717a;
+  line-height: 1.35;
+}
+
+.hnf-cap-control .hnf-jarvis-presence,
+.hnf-cap-control .hnf-jarvis-copilot {
+  min-height: 7.5rem;
+  border-width: 1px;
+  border-color: rgba(46, 192, 232, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(46, 192, 232, 0.12);
+}
+
+.hnf-jarvis-presence__state {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e4e4e7;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.hnf-jarvis-presence__state--ok {
+  border-color: rgba(46, 192, 232, 0.35);
+  color: #a5f3fc;
+}
+
+.hnf-jarvis-presence__state--bad {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.hnf-jarvis-presence__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.55rem;
+}
+
+@media (min-width: 640px) {
+  .hnf-jarvis-presence__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.hnf-jarvis-presence__metric-k {
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.hnf-jarvis-presence__metric-v {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fafafa;
+  line-height: 1.2;
+}
+
+.hnf-jarvis-presence__hint {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: #d4d4d8;
+}
+
+.hnf-jarvis-presence__hint-k {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--jp-cyan);
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+/* Barra superior Modo Alien (Centro de control) */
+.hnf-cc .hnf-jarvis-presence--alien-bar {
+  flex-shrink: 0;
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  padding: 0.4rem 0.55rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__head {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__grid {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__hint {
+  margin-top: 0;
+  padding-top: 0;
+  padding-left: 0.65rem;
+  border-top: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: min(100%, 12rem);
+  flex: 1 1 26%;
+}
+
+@media (max-width: 719px) {
+  .hnf-jarvis-presence--alien-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__hint {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-left: 0;
+    padding-top: 0.35rem;
+  }
+}
+
+.hnf-jarvis-presence--alien-bar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.hnf-jarvis-presence--alien-bar > .hnf-jarvis-presence__head {
+  width: auto;
+}
+
+.hnf-jarvis-presence--alien-bar > .hnf-jarvis-presence__grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__metric-k {
+  font-size: 0.45rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__metric-v {
+  font-size: 0.78rem;
+}
+
+.hnf-jarvis-presence--alien-bar .hnf-jarvis-presence__hint {
+  font-size: 0.55rem;
+}
+
+/* â€”â€”â€” Copilot â€”â€”â€” */
+.hnf-jarvis-copilot {
+  --jc-cyan: var(--hnf-color-primary);
+  --jc-glow: rgba(46, 192, 232, 0.18);
+  border: 1px solid rgba(46, 192, 232, 0.18);
+  border-radius: 0.55rem;
+  background: rgba(9, 9, 11, 0.88);
+  box-shadow: 0 0 18px var(--jc-glow);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hnf-jarvis-copilot__title {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--jc-cyan);
+  margin: 0 0 0.15rem;
+}
+
+.hnf-jarvis-copilot__sub {
+  font-size: 0.52rem;
+  color: #71717a;
+  margin: 0 0 0.35rem;
+}
+
+.hnf-jarvis-copilot__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.hnf-jarvis-copilot__row {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-copilot__k {
+  color: #71717a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.48rem;
+}
+
+.hnf-jarvis-copilot__v {
+  color: #e4e4e7;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.hnf-jarvis-exec-strip {
+  --strip-cyan: var(--hnf-color-primary);
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(46, 192, 232, 0.18);
+  background: linear-gradient(100deg, rgba(8, 40, 55, 0.35), rgba(9, 9, 11, 0.88));
+  box-shadow: 0 0 18px rgba(46, 192, 232, 0.08);
+}
+
+.hnf-jarvis-exec-strip__brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(46, 192, 232, 0.95);
+}
+
+.hnf-cap-control .hnf-jarvis-exec-strip {
+  margin-top: 0.35rem;
+}
+
+.hnf-jarvis-exec-strip__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.hnf-jarvis-exec-strip__greet {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  line-height: 1.35;
+  flex: 1 1 12rem;
+}
+
+.hnf-jarvis-exec-strip__badge {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(46, 192, 232, 0.35);
+  color: #a5f3fc;
+  flex-shrink: 0;
+}
+
+.hnf-jarvis-exec-strip__line {
+  margin: 0.12rem 0 0;
+  font-size: 0.58rem;
+  line-height: 1.4;
+  color: #a1a1aa;
+}
+
+.hnf-jarvis-exec-strip__line--action {
+  color: #d4d4d8;
+  margin-top: 0.28rem;
+  padding-top: 0.28rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hnf-jarvis-exec-strip__k {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.48rem;
+  color: var(--strip-cyan);
+  margin-right: 0.35rem;
+}
+
+.hnf-cc .hnf-jarvis-exec-strip {
+  margin: 0 0.55rem 0.45rem;
+}
+
+.hnf-jarvis-exec-strip__stark-oc {
+  color: #e0f2fe;
+  border-left: 2px solid rgba(46, 192, 232, 0.55);
+  padding-left: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.jarvis-hq .hnf-jarvis-exec-strip {
+  margin: 0 0 0.55rem;
+  max-width: 56rem;
+}
+
+.hnf-jarvis-intake {
+  padding: 0.75rem 1rem 1.25rem;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.hnf-jarvis-intake__shell {
+  border: 1px solid rgba(46, 192, 232, 0.2);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: rgba(2, 6, 23, 0.5);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-jarvis-intake__chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, rgba(8, 51, 68, 0.55), rgba(15, 23, 42, 0.95));
+}
+
+.hnf-jarvis-intake__chrome-brand {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hnf-color-primary);
+}
+
+.hnf-jarvis-intake__chrome-meta {
+  margin: 0;
+  font-size: 0.55rem;
+  line-height: 1.4;
+  color: #94a3b8;
+  max-width: 48rem;
+}
+
+.hnf-jarvis-intake__body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  min-height: 0;
+}
+
+@media (min-width: 800px) {
+  .hnf-jarvis-intake__body {
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+  }
+}
+
+.hnf-jarvis-intake__rail {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+@media (min-width: 800px) {
+  .hnf-jarvis-intake__rail {
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}
+
+.hnf-jarvis-intake__rail-h {
+  margin: 0 0 0.35rem;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hnf-jarvis-intake__chip {
+  display: block;
+  font-size: 0.52rem;
+  color: #cbd5e1;
+  padding: 0.22rem 0.28rem;
+  margin-bottom: 0.2rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hnf-jarvis-intake__main {
+  padding: 0.55rem 0.65rem 0.75rem;
+  min-width: 0;
+}
+
+.hnf-jarvis-intake__head {
+  margin-bottom: 0.65rem;
+}
+
+.hnf-jarvis-intake__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.hnf-jarvis-intake__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #94a3b8;
+  max-width: 52rem;
+}
+
+.hnf-jarvis-intake__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .hnf-jarvis-intake__grid {
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: start;
+  }
+}
+
+.hnf-jarvis-intake__card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.hnf-jarvis-intake__card-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hnf-color-primary);
+}
+
+.hnf-jarvis-intake__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.45rem;
+}
+
+.hnf-jarvis-intake__label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.hnf-jarvis-intake__select,
+.hnf-jarvis-intake__textarea,
+.hnf-jarvis-intake__input {
+  font: inherit;
+  font-size: 0.75rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(2, 6, 23, 0.65);
+  color: #e2e8f0;
+  padding: 0.4rem 0.5rem;
+}
+
+.hnf-jarvis-intake__list-sub {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.hnf-jarvis-intake__btn--stark.primary-button {
+  border: 1px solid rgba(46, 192, 232, 0.55);
+  background: linear-gradient(160deg, rgba(8, 51, 68, 0.75), rgba(15, 23, 42, 0.95));
+  color: #ecfeff;
+  box-shadow: 0 0 20px rgba(46, 192, 232, 0.15);
+}
+
+.hnf-jarvis-intake__btn--stark.primary-button:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.hnf-jarvis-intake__btn--route.secondary-button {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.hnf-jarvis-intake__err {
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  color: #fecaca;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-intake__textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.hnf-jarvis-intake__file {
+  font-size: 0.7rem;
+  color: #cbd5e1;
+}
+
+.hnf-jarvis-intake__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.55rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-intake__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.35rem;
+}
+
+.hnf-jarvis-intake__btn--secondary {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.hnf-jarvis-intake__btn--secondary:hover {
+  border-color: rgba(46, 192, 232, 0.45);
+  color: #fff;
+}
+
+.hnf-jarvis-intake__route-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(46, 192, 232, 0.22);
+  background: rgba(8, 51, 68, 0.25);
+}
+
+.hnf-jarvis-intake__route-line {
+  margin: 0.15rem 0;
+  font-size: 0.68rem;
+  color: #e2e8f0;
+  line-height: 1.35;
+}
+
+.hnf-jarvis-intake__route-rationale {
+  margin: 0.4rem 0 0;
+  font-size: 0.6rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.hnf-jarvis-intake__list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.62rem;
+  color: #cbd5e1;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.hnf-jarvis-intake__li {
+  margin-bottom: 0.28rem;
+}
+
+.hnf-jarvis-intake__empty {
+  list-style: none;
+  margin-left: -1rem;
+  color: #64748b;
+}
+
+.hnf-jarvis-intake__foot {
+  margin-top: 0.75rem;
+}
+

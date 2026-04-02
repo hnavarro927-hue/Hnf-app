@@ -1,4 +1,4 @@
-import '../styles/hnf-operational-kanban.css';
+/* Kanban: hnf-ds-kanban.css vía app.css */
 import { KANBAN_LANE_IDS, getEffectiveEstadoOperativo, mapOtToLane } from '../domain/ot-kanban-lanes.js';
 
 export const DEFAULT_KANBAN_LANE_LABELS = {

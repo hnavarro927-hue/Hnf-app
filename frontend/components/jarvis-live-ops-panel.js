@@ -1,4 +1,4 @@
-import '../styles/jarvis-live-ops-panel.css';
+/* Jarvis live ops: hnf-ds-jarvis.css vía app.css */
 import { runJarvisOperationalDecisionEngine } from '../domain/jarvis-operational-decision-engine.js';
 
 function esc(s) {

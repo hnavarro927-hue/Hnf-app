@@ -1,0 +1,470 @@
+/**
+ * HNF DS v2 — Kanban operativo + shell (.hnf-op-shell) + panel Jarvis embebido.
+ */
+
+.hnf-op-shell {
+  --op-bg: var(--hnf-color-canvas);
+  --op-surface: var(--hnf-color-elevated);
+  --op-border: var(--hnf-color-border-default);
+  --op-muted: var(--hnf-color-text-secondary);
+  --op-text: var(--hnf-color-text-primary);
+  --op-accent: var(--hnf-color-primary);
+  --op-accent-dim: var(--hnf-color-primary-muted);
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--op-bg);
+  color: var(--op-text);
+  font-family: var(--hnf-font-sans);
+}
+
+.hnf-op-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--op-border);
+  background: var(--op-surface);
+}
+
+.hnf-op-header__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.hnf-op-header__sub {
+  margin: 0.1rem 0 0;
+  font-size: 0.58rem;
+  color: var(--op-muted);
+  font-weight: 500;
+}
+
+.hnf-op-header__actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.hnf-op-btn {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(24, 24, 27, 0.92);
+  color: #f4f4f5;
+  cursor: pointer;
+}
+
+.hnf-op-btn:hover {
+  border-color: rgba(46, 192, 232, 0.4);
+  color: #fff;
+}
+
+.hnf-op-btn--primary {
+  border-color: rgba(46, 192, 232, 0.45);
+  background: var(--op-accent-dim);
+  color: #ecfeff;
+}
+
+.hnf-op-alerts {
+  flex-shrink: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.58rem;
+  color: #a1a1aa;
+  border-bottom: 1px solid var(--op-border);
+  background: rgba(24, 24, 27, 0.6);
+}
+
+.hnf-op-alerts--warn {
+  color: #fde68a;
+}
+
+.hnf-op-kpis {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--op-border);
+}
+
+.hnf-op-kpi {
+  flex: 1 1 auto;
+  min-width: 4.5rem;
+  padding: 0.28rem 0.4rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--op-border);
+  background: rgba(24, 24, 27, 0.5);
+}
+
+.hnf-op-kpi__k {
+  font-size: 0.45rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+
+.hnf-op-kpi__v {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 0.08rem;
+}
+
+.hnf-op-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hnf-cc.hnf-op-shell .hnf-cc__body {
+  flex-direction: column;
+}
+
+@media (min-width: 960px) {
+  .hnf-op-workspace {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .hnf-op-workspace__main {
+    flex: 1 1 65%;
+    min-width: 0;
+  }
+
+  .hnf-op-workspace__aside {
+    flex: 0 0 280px;
+    max-width: 320px;
+    border-left: 1px solid var(--op-border);
+  }
+}
+
+.hnf-op-workspace__main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hnf-op-workspace__aside {
+  flex-shrink: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(9, 9, 11, 0.5);
+}
+
+/* ——— Kanban board ——— */
+.hnf-kb {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hnf-kb__mobile-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--op-border);
+}
+
+@media (min-width: 900px) {
+  .hnf-kb__mobile-nav {
+    display: none;
+  }
+}
+
+.hnf-kb__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 900px) {
+  .hnf-kb__dots {
+    display: none;
+  }
+}
+
+.hnf-kb__dot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+}
+
+.hnf-kb__dot--on {
+  background: var(--op-accent);
+  box-shadow: 0 0 8px var(--op-accent-dim);
+}
+
+.hnf-kb__lanes {
+  display: flex;
+  gap: 0.45rem;
+  padding: 0.45rem;
+  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.hnf-kb__lane {
+  flex: 0 0 min(88vw, 17rem);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}
+
+@media (min-width: 900px) {
+  .hnf-kb__lane {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+.hnf-kb__lane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0.35rem;
+  flex-shrink: 0;
+}
+
+.hnf-kb__lane-title {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+
+.hnf-kb__lane-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--op-accent);
+}
+
+.hnf-kb__lane-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 0.1rem;
+}
+
+.hnf-kb__lane-empty {
+  font-size: 0.55rem;
+  color: var(--op-muted);
+  margin: 0.5rem 0;
+  text-align: center;
+}
+
+.hnf-kb__card {
+  border: 1px solid var(--op-border);
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.45rem;
+  background: rgba(24, 24, 27, 0.75);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hnf-kb__card--active {
+  border-color: rgba(46, 192, 232, 0.4);
+  box-shadow: 0 0 0 1px rgba(46, 192, 232, 0.12);
+}
+
+.hnf-kb__card--clima {
+  border-left: 2px solid rgba(46, 192, 232, 0.45);
+}
+
+.hnf-kb__card--flota {
+  border-left: 2px solid rgba(52, 211, 153, 0.45);
+}
+
+.hnf-kb__card-tap {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hnf-kb__card-id {
+  font-family: ui-monospace, monospace;
+  font-size: 0.5rem;
+  color: var(--op-muted);
+  margin-bottom: 0.15rem;
+}
+
+.hnf-kb__card-cliente {
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 0.25rem;
+}
+
+.hnf-kb__card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem 0.45rem;
+  font-size: 0.52rem;
+}
+
+.hnf-kb__card-grid-k {
+  color: var(--op-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.42rem;
+}
+
+.hnf-kb__card-grid-v {
+  color: var(--op-text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.hnf-kb__card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.1rem;
+}
+
+.hnf-kb__chip {
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.32rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--op-border);
+  color: #d4d4d8;
+}
+
+.hnf-kb__chip--pri-alta {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.hnf-kb__chip--pri-media {
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fde68a;
+}
+
+.hnf-kb__chip--pri-baja {
+  border-color: rgba(113, 113, 122, 0.4);
+  color: #a1a1aa;
+}
+
+.hnf-kb__chip--riesgo {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.25);
+  color: #fecaca;
+}
+
+.hnf-kb__card-estado {
+  font-size: 0.48rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--op-muted);
+}
+
+.hnf-kb__card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hnf-kb__card-act {
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.4rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--op-text);
+  cursor: pointer;
+}
+
+.hnf-kb__card-act:hover {
+  border-color: rgba(46, 192, 232, 0.35);
+  background: var(--op-accent-dim);
+}
+
+.hnf-kb__card-act--ghost {
+  opacity: 0.85;
+}
+
+/* ——— Jarvis panel ——— */
+.hnf-jarvis-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.hnf-jarvis-panel__head {
+  flex-shrink: 0;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--op-border);
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--op-accent);
+}
+
+.hnf-jarvis-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.45rem 0.55rem;
+}
+
+.hnf-jarvis-panel__empty {
+  font-size: 0.58rem;
+  color: var(--op-muted);
+  line-height: 1.45;
+  margin: 0;
+}

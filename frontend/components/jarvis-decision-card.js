@@ -1,4 +1,4 @@
-import '../styles/jarvis-decision-card.css';
+/* Jarvis decision: hnf-ds-jarvis.css vía app.css */
 
 /**
  * Área operativa mostrada (alineado a tipoServicio / clasificación Jarvis).

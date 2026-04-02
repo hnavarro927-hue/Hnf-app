@@ -1,7 +1,6 @@
 import { isTabletMode } from '../../domain/jarvis-ui.js';
 import { buildOperationalJarvisLine } from '../../domain/hnf-operational-context.js';
-import '../../styles/hnf-control-center-layout.css';
-import '../../styles/hnf-cockpit-unified.css';
+/* Shell cockpit: hnf-ds-shell.css vía app.css */
 import { createOperationalContextStrip } from './control-operational-context-strip.js';
 import { createControlSidebar } from './ControlSidebar.js';
 import { createControlTopbar } from './ControlTopbar.js';

@@ -2,7 +2,7 @@
  * Bandeja UI Jarvis Intake (DOM): analiza texto con parsearEntradaOperativa y delega el volcado al formulario de ingreso.
  * No crea OT ni llama al servidor.
  */
-import '../styles/jarvis-intake-view.css';
+/* jarvis-intake-view.css vía app.css */
 import { parsearEntradaOperativa } from '../domain/jarvis-intake.js';
 
 const ORIGEN_LABEL = {
