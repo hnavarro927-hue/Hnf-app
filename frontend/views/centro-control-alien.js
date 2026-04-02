@@ -1,85 +1,26 @@
 import '../styles/centro-control-alien.css';
 import '../styles/mando-centro-v2.css';
 import { applyJarvisRulesToNewOt } from '../domain/hnf-ot-jarvis-rules.js';
-import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
-import { DEFAULT_KANBAN_LANE_LABELS } from '../components/kanban-board.js';
 import { createSimpleKanbanBoard } from '../components/mando/simple-kanban.js';
 import {
-  createJarvisFloatingAssistant,
   createMandoHeaderV2,
-  createMandoJarvisHero,
+  createMandoJarvisPrime,
   createMandoKpisV2,
   createMandoQuickBar,
 } from '../components/mando/mando-centro-v2.js';
+import { computePrimaryMandoAlert } from '../domain/mando-primary-alert.js';
 import { simpleLaneToCommitLane, mapOtToSimpleLane } from '../domain/ot-simple-kanban-lanes.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import {
-  alertaOperativaVisual,
-  etiquetaOrigenSolicitudOperativa,
   filtrarOtsPorRolBackend,
-  HEURISTICA_OPERATIVA_V1,
   jarvisCopilotFrasesOperativas,
   jarvisHeuristicaPrioridadOperativa,
-  textoResponsableOperativoMostrado,
 } from '../domain/hnf-operativa-reglas.js';
 import { buildJarvisGerencialSignals } from '../domain/jarvis-gerencial-signals.js';
-import { getEffectiveEstadoOperativo, validTargetEstados } from '../domain/hnf-ot-state-engine.js';
+import { getEffectiveEstadoOperativo } from '../domain/hnf-ot-state-engine.js';
 import { getAllOTs, persistEstadoOperativo } from '../domain/repositories/operations-repository.js';
 import { buildOperationalKpisFromMergedList } from '../domain/repositories/analytics-builder.js';
 import { getEvidenceGaps } from '../utils/ot-evidence.js';
-
-const ALERTA_OPTS_CENTRO = HEURISTICA_OPERATIVA_V1;
-
-function mountFlowEstadoPicker(ot, laneLabels, reloadApp) {
-  const cur = getEffectiveEstadoOperativo(ot);
-  const choices = validTargetEstados(cur).filter((x) => x !== cur);
-  if (!choices.length) {
-    window.alert(`Estado flujo: ${cur}. No hay paso adyacente disponible.`);
-    return;
-  }
-  const backdrop = document.createElement('div');
-  backdrop.style.cssText =
-    'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:120;display:flex;align-items:center;justify-content:center;padding:16px;';
-  const card = document.createElement('div');
-  card.style.cssText =
-    'background:#0f172a;border:1px solid rgba(34,211,238,.35);border-radius:14px;padding:18px;max-width:360px;width:100%;';
-  const t = document.createElement('p');
-  t.style.cssText = 'margin:0 0 12px;font-size:14px;color:#e2e8f0;';
-  t.textContent = `Cambiar estado del flujo OT (actual: ${cur})`;
-  const sel = document.createElement('select');
-  sel.style.cssText =
-    'width:100%;padding:10px;margin-bottom:14px;border-radius:8px;background:#020617;color:#e2e8f0;border:1px solid #334155;';
-  for (const c of choices) {
-    const o = document.createElement('option');
-    o.value = c;
-    o.textContent = laneLabels[c] || c;
-    sel.append(o);
-  }
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
-  const cancel = document.createElement('button');
-  cancel.type = 'button';
-  cancel.className = 'secondary-button';
-  cancel.textContent = 'Cancelar';
-  const ok = document.createElement('button');
-  ok.type = 'button';
-  ok.className = 'primary-button';
-  ok.textContent = 'Aplicar';
-  cancel.addEventListener('click', () => backdrop.remove());
-  ok.addEventListener('click', () => {
-    const r = persistEstadoOperativo(ot, sel.value);
-    backdrop.remove();
-    if (!r.ok) window.alert(r.error || 'No se pudo aplicar');
-    else if (typeof reloadApp === 'function') void reloadApp();
-  });
-  row.append(cancel, ok);
-  card.append(t, sel, row);
-  backdrop.append(card);
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) backdrop.remove();
-  });
-  document.body.append(backdrop);
-}
 
 function el(className, tag = 'div') {
   const n = document.createElement(tag);
@@ -100,22 +41,6 @@ function historialAccionGlyph(accion) {
   if (a === 'operacion') return '⚙';
   if (a === 'envio_cliente') return '✉';
   return '·';
-}
-
-function jarvisStripLineasCompactas(ot) {
-  const origen = etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido);
-  const resp = textoResponsableOperativoMostrado(ot);
-  const h = jarvisHeuristicaPrioridadOperativa(ot);
-  const av = alertaOperativaVisual(ot, ALERTA_OPTS_CENTRO);
-  const out = [
-    `${origen} · ${resp} · Sugerida: ${h.nivel}`,
-    av
-      ? av.tipo === 'riesgo'
-        ? `Riesgo: ${av.texto}`
-        : `Atraso: ${av.texto}`
-      : 'Sin alerta operativa activa',
-  ];
-  return out;
 }
 
 function renderHistorial(ot) {
@@ -224,8 +149,8 @@ function renderTabBody(ot, tabId) {
 }
 
 /**
- * Centro de control HNF (Mando): Kanban 4 columnas, KPIs, Jarvis destacado, drawer detalle.
- * Datos: GET /ots (vía props.data).
+ * HNF CONTROL (Mando): shell operativo — KPIs, una alerta Jarvis, Kanban 4 columnas, dock fijo.
+ * Datos reales vía GET /ots; drag → mismos endpoints que `commitKanbanLane`.
  */
 export function centroControlAlienView(props) {
   const { data, reloadApp, navigateToView, actions, integrationStatus, mandoFeedback } = props || {};
@@ -238,8 +163,8 @@ export function centroControlAlienView(props) {
   const br = getSessionBackendRole() || 'admin';
   const ots = getAllOTs(filtrarOtsPorRolBackend(otsRaw, br));
 
-  const section = el('hnf-cc hnf-cc-mando-v2', 'section');
-  section.setAttribute('aria-label', 'Centro de Control HNF');
+  const section = el('hnf-cc hnf-ctl-mando', 'section');
+  section.setAttribute('aria-label', 'HNF Control');
 
   if (mandoFeedback?.message) {
     const ban = el(
@@ -269,15 +194,7 @@ export function centroControlAlienView(props) {
   const ingresoLabel =
     ingresoPipeline > 0 ? `$${Math.round(ingresoPipeline).toLocaleString('es-CL')}` : '$0';
 
-  let nSinEvidencia = 0;
-  let firstOtSinEv = null;
-  for (const o of ots) {
-    if (mapOtToSimpleLane(o) === 'simp_finalizadas') continue;
-    if (getEvidenceGaps(o).length > 0) {
-      nSinEvidencia += 1;
-      firstOtSinEv = firstOtSinEv || o;
-    }
-  }
+  const primaryAlert = computePrimaryMandoAlert(ots, jSig);
 
   const quickSheet = el('hnf-mp-quick');
   quickSheet.hidden = true;
@@ -468,7 +385,7 @@ export function centroControlAlienView(props) {
 
   const { element: boardEl, setActiveShell } = createSimpleKanbanBoard({
     ots,
-    onSelectOt: (ot, shell) => {
+    onOpenOt: (ot, shell) => {
       openDrawer(ot, shell);
     },
     onDropOnLane: (ot, simpleLaneId) => {
@@ -483,9 +400,6 @@ export function centroControlAlienView(props) {
         if (!r.ok) window.alert(r.error || 'No se pudo mover de columna');
         else if (typeof reloadApp === 'function') void reloadApp();
       })();
-    },
-    onDetail: (ot, shell) => {
-      openDrawer(ot, shell);
     },
   });
   kanbanSetActive = setActiveShell;
@@ -503,36 +417,23 @@ export function centroControlAlienView(props) {
     activas: opKpi.activas ?? 0,
     riesgo: nRiesgoKpi,
     pendLyn: nPendLyn,
-    ingresoProcesoLabel: ingresoLabel,
+    enProcesoLabel: ingresoLabel,
   });
 
-  const jarvisHeadline =
-    nSinEvidencia > 0
-      ? `ATENCIÓN: ${nSinEvidencia} OT sin evidencia`
-      : jSig.nRiesgo > 0
-        ? `${jSig.nRiesgo} OT con riesgo detectado`
-        : 'Operación estable';
-  const jarvisSub =
-    nSinEvidencia > 0
-      ? 'Acción: Revisar ahora (pestaña Evidencia en el detalle).'
-      : String(jSig.suggestion || 'Sin alertas críticas en este momento.');
-
-  const jarvisHero = createMandoJarvisHero({
-    headline: jarvisHeadline,
-    subline: jarvisSub,
-    cta: 'Ver detalle',
+  const jarvisPrime = createMandoJarvisPrime({
+    message: primaryAlert.message,
+    severity: primaryAlert.severity,
+    ctaLabel: 'Ir a resolver',
+    ctaDisabled: false,
     onCta: () => {
-      const target = firstOtSinEv || jSig.focoOt;
-      if (target) {
-        openDrawer(target, null);
-        if (nSinEvidencia > 0 && getEvidenceGaps(target).length > 0) {
-          activeTab = 'evidencia';
-          renderTabs();
-          tabBodies.replaceChildren(renderTabBody(target, activeTab));
-        }
-      } else {
-        document.querySelector('.hnf-mv2-jarvis-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (primaryAlert.targetOt) {
+        openDrawer(primaryAlert.targetOt, null);
+        activeTab = primaryAlert.tab || 'detalle';
+        renderTabs();
+        tabBodies.replaceChildren(renderTabBody(primaryAlert.targetOt, activeTab));
+        return;
       }
+      document.querySelector('.hnf-ctl-kb')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
   });
 
@@ -550,33 +451,22 @@ export function centroControlAlienView(props) {
     onNuevaOt: toggleQuick,
     onDocumento: () => navigateToView?.('ingreso-operativo'),
     onMapa: () => navigateToView?.('gestion-ot'),
-    onAprobarPend: () => {
+    onAprobar: () => {
       if (firstPendLyn) openDrawer(firstPendLyn, null);
       else {
-        document.querySelector('.hnf-skb__lane:nth-child(3)')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        document.querySelector('.hnf-ctl-kb__lane:nth-child(3)')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        });
       }
     },
   });
 
-  const fabLine =
-    nSinEvidencia > 0
-      ? `${nSinEvidencia} sin evidencia`
-      : jSig.nPendAprobacion > 0
-        ? `${jSig.nPendAprobacion} pend. Lyn`
-        : 'Jarvis';
-
-  const jarvisFab = createJarvisFloatingAssistant({
-    line: fabLine,
-    onOpen: () => {
-      const target = firstOtSinEv || jSig.focoOt || firstPendLyn;
-      if (target) openDrawer(target, null);
-      else document.querySelector('.hnf-mv2-jarvis-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    },
-  });
-
-  const mainFlow = el('hnf-mv2-flow');
-  mainFlow.append(headerV2, kpisV2, jarvisHero, quickSheet, boardEl);
-  body.append(mainFlow);
+  const shell = el('hnf-ctl-shell');
+  const mainFlow = el('hnf-ctl-flow');
+  mainFlow.append(headerV2, kpisV2, jarvisPrime, quickSheet, boardEl);
+  shell.append(mainFlow);
+  body.append(shell);
 
   const backdrop = el('hnf-cc__drawer-backdrop', 'button');
   backdrop.type = 'button';
@@ -599,9 +489,6 @@ export function centroControlAlienView(props) {
 
   const drawerSummary = el('hnf-cc__drawer-summary');
 
-  const jarvisStrip = el('hnf-cc__jarvis-strip');
-  jarvisStrip.setAttribute('aria-label', 'Jarvis operativo');
-
   const tabsRow = el('hnf-cc__drawer-tabs');
   const tabIds = [
     ['detalle', 'Detalle', 'Info'],
@@ -614,8 +501,6 @@ export function centroControlAlienView(props) {
 
   const primaryActRow = el('hnf-mp-drawer-actions-primary');
   const actRow = el('hnf-cc__act-row');
-  const foot = el('hnf-cc__drawer-foot');
-  foot.textContent = '';
 
   let selectedShell = null;
   let currentOt = null;
@@ -667,39 +552,18 @@ export function centroControlAlienView(props) {
     primaryActRow.append(
       mkPri('Aprobar', () => void actions?.applyLynAccionOnOt?.(ot.id, 'aprobar'), 'ok'),
       mkPri('Rechazar', () => void actions?.applyLynAccionOnOt?.(ot.id, 'rechazar'), 'danger'),
-      mkPri('Ver mapa', () => {
+      mkPri('Mapa', () => {
         window.open(
           `https://www.google.com/maps/search/?api=1&query=${mapQuery}`,
           '_blank',
           'noopener,noreferrer'
         );
-      }),
-      mkPri('Añadir nota', () => {
-        const note = window.prompt('Nota (se agrega a observaciones de la OT):');
-        if (note && String(note).trim()) {
-          void actions?.mandoAppendObservacion?.(ot.id, String(note).trim(), ot.observaciones);
-        }
       })
     );
     if (t === 'clima') {
-      actRow.append(
-        mk('Ir a Clima', () => navigateToView?.('clima', { otId: ot.id })),
-        mk('Bandeja Romina', () => navigateToView?.('bandeja-romina'))
-      );
+      actRow.append(mk('Clima', () => navigateToView?.('clima', { otId: ot.id })));
     } else if (t === 'flota') {
-      actRow.append(
-        mk('Ir a Flota', () => navigateToView?.('flota')),
-        mk('Bandeja Gery', () => navigateToView?.('bandeja-gery'))
-      );
-    } else {
-      actRow.append(mk('Ingreso operativo', () => navigateToView?.('ingreso-operativo')));
-    }
-    if (typeof actions?.selectOT === 'function') {
-      actRow.append(
-        mk('Fijar OT en shell', () => {
-          actions.selectOT(ot.id);
-        })
-      );
+      actRow.append(mk('Flota', () => navigateToView?.('flota')));
     }
   }
 
@@ -724,27 +588,9 @@ export function centroControlAlienView(props) {
     };
     drawerSummary.append(
       mk('hnf-cc__sum-chip--estado', String(ot.estado || '—')),
-      mk('hnf-cc__sum-chip--origen', etiquetaOrigenSolicitudOperativa(ot.origenSolicitud, ot.origenPedido)),
-      mk('hnf-cc__sum-chip--resp', textoResponsableOperativoMostrado(ot)),
-      mk(
-        'hnf-cc__sum-chip--pri',
-        `P ${String(ot.prioridadOperativa || '—').toUpperCase()}`
-      )
+      mk('hnf-cc__sum-chip--tipo', String(ot.tipoServicio || '—')),
+      mk('hnf-cc__sum-chip--pri', `P ${String(ot.prioridadOperativa || '—').toUpperCase()}`)
     );
-  }
-
-  function fillJarvisStrip(ot) {
-    jarvisStrip.replaceChildren();
-    jarvisStrip.append(buildJarvisDecisionCard(ot, { variant: 'full' }));
-    const t0 = el('hnf-cc__jarvis-strip-title', 'span');
-    t0.textContent = 'Copiloto';
-    t0.style.marginTop = '0.35rem';
-    jarvisStrip.append(t0);
-    for (const line of jarvisStripLineasCompactas(ot)) {
-      const p = el('hnf-cc__jarvis-strip-line', 'p');
-      p.textContent = line;
-      jarvisStrip.append(p);
-    }
   }
 
   function openDrawer(ot, shell) {
@@ -754,7 +600,6 @@ export function centroControlAlienView(props) {
     sub.textContent = String(ot.cliente || '').trim() || '—';
     kanbanSetActive(shell);
     fillDrawerSummary(ot);
-    fillJarvisStrip(ot);
     activeTab = 'detalle';
     renderTabs();
     tabBodies.replaceChildren(renderTabBody(ot, activeTab));
@@ -771,11 +616,11 @@ export function centroControlAlienView(props) {
   closeBtn.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
 
-  drawer.append(drawerHandle, dHead, drawerSummary, primaryActRow, actRow, jarvisStrip, tabsRow, tabBodies, foot);
+  drawer.append(drawerHandle, dHead, drawerSummary, primaryActRow, actRow, tabsRow, tabBodies);
 
   body.append(backdrop, drawer);
 
-  section.append(body, quickBar, jarvisFab);
+  section.append(body, quickBar);
 
   return section;
 }

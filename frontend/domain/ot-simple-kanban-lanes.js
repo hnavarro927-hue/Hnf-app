@@ -10,7 +10,7 @@ export const SIMPLE_LANE_LABELS = {
   simp_ingreso: 'Ingreso',
   simp_proceso: 'En proceso',
   simp_pendiente_lyn: 'Pendiente aprobación',
-  simp_finalizadas: 'Finalizadas',
+  simp_finalizadas: 'Finalizado',
 };
 
 /** @param {Record<string, unknown>} ot */

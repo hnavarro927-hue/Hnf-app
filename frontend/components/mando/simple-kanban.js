@@ -12,35 +12,28 @@ function el(className, tag = 'div') {
 
 function priClass(p) {
   const x = String(p || '').toLowerCase();
-  if (x === 'alta') return 'hnf-skb__pri hnf-skb__pri--alta';
-  if (x === 'baja') return 'hnf-skb__pri hnf-skb__pri--baja';
-  return 'hnf-skb__pri hnf-skb__pri--media';
-}
-
-function estadoLabel(ot) {
-  return String(ot?.estado || '—')
-    .replace(/_/g, ' ')
-    .trim();
+  if (x === 'alta') return 'hnf-ctl-kb__pri hnf-ctl-kb__pri--alta';
+  if (x === 'baja') return 'hnf-ctl-kb__pri hnf-ctl-kb__pri--baja';
+  return 'hnf-ctl-kb__pri hnf-ctl-kb__pri--media';
 }
 
 /**
- * Kanban 4 columnas — cards mínimas, drag & drop.
+ * Kanban operativo 4 columnas — tarjeta: cliente, tipo, prioridad, acción.
  * @param {object} options
  * @param {object[]} options.ots
- * @param {(ot: object, shell: HTMLElement) => void} [options.onSelectOt]
- * @param {(ot: object, shell: HTMLElement) => void} [options.onDetail]
+ * @param {(ot: object, shell: HTMLElement) => void} [options.onOpenOt]
  * @param {(ot: object, targetLaneId: string) => void} [options.onDropOnLane]
  */
 export function createSimpleKanbanBoard(options) {
-  const { ots = [], onSelectOt, onDetail, onDropOnLane } = options;
+  const { ots = [], onOpenOt, onDropOnLane } = options;
 
-  const root = el('hnf-skb');
+  const root = el('hnf-ctl-kb');
   let selectedShell = null;
 
   const setActiveShell = (shell) => {
-    if (selectedShell) selectedShell.classList.remove('hnf-skb__card--active');
+    if (selectedShell) selectedShell.classList.remove('hnf-ctl-kb__card--active');
     selectedShell = shell;
-    if (selectedShell) selectedShell.classList.add('hnf-skb__card--active');
+    if (selectedShell) selectedShell.classList.add('hnf-ctl-kb__card--active');
   };
 
   const byLane = Object.fromEntries(SIMPLE_LANE_IDS.map((k) => [k, []]));
@@ -49,18 +42,18 @@ export function createSimpleKanbanBoard(options) {
     (byLane[lane] || byLane.simp_ingreso).push(ot);
   }
 
-  const lanesEl = el('hnf-skb__lanes');
+  const lanesEl = el('hnf-ctl-kb__lanes');
 
   SIMPLE_LANE_IDS.forEach((laneId) => {
-    const lane = el('hnf-skb__lane');
-    const head = el('hnf-skb__lane-head');
-    const title = el('hnf-skb__lane-title');
+    const lane = el('hnf-ctl-kb__lane');
+    const head = el('hnf-ctl-kb__lane-head');
+    const title = el('hnf-ctl-kb__lane-title');
     title.textContent = SIMPLE_LANE_LABELS[laneId] || laneId;
-    const count = el('hnf-skb__lane-count');
+    const count = el('hnf-ctl-kb__lane-count');
     count.textContent = String((byLane[laneId] || []).length);
     head.append(title, count);
 
-    const cards = el('hnf-skb__cards');
+    const cards = el('hnf-ctl-kb__cards');
     if (typeof onDropOnLane === 'function') {
       cards.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -82,7 +75,7 @@ export function createSimpleKanbanBoard(options) {
     }
 
     for (const ot of byLane[laneId] || []) {
-      const shell = el('hnf-skb__card');
+      const shell = el('hnf-ctl-kb__card');
       if (typeof onDropOnLane === 'function') {
         shell.setAttribute('draggable', 'true');
         shell.addEventListener('dragstart', (e) => {
@@ -91,42 +84,31 @@ export function createSimpleKanbanBoard(options) {
         });
       }
 
-      const main = el('hnf-skb__card-main', 'button');
-      main.type = 'button';
-
-      const cliente = el('hnf-skb__card-cliente');
+      const cliente = el('hnf-ctl-kb__cliente');
       cliente.textContent = String(ot.cliente || '').trim() || 'Sin cliente';
 
-      const meta = el('hnf-skb__card-meta');
-      const tipo = el('hnf-skb__card-tipo');
+      const tipo = el('hnf-ctl-kb__tipo');
       tipo.textContent = String(ot.tipoServicio || '—');
-      const st = el('hnf-skb__card-estado');
-      st.textContent = estadoLabel(ot);
-      meta.append(tipo, st);
 
       const pri = el(priClass(ot.prioridadOperativa || ot.prioridadSugerida));
       pri.textContent = String(ot.prioridadOperativa || ot.prioridadSugerida || 'media').toUpperCase();
 
-      const idRow = el('hnf-skb__card-id');
-      idRow.textContent = String(ot.id || '');
-
-      main.append(cliente, meta, pri, idRow);
-      main.addEventListener('click', () => {
-        setActiveShell(shell);
-        onSelectOt?.(ot, shell);
-      });
-
-      const open = el('hnf-skb__card-open', 'button');
-      open.type = 'button';
-      open.textContent = 'Abrir';
-      open.addEventListener('click', (e) => {
+      const act = el('hnf-ctl-kb__action', 'button');
+      act.type = 'button';
+      act.textContent = 'Abrir';
+      act.addEventListener('click', (e) => {
         e.stopPropagation();
         setActiveShell(shell);
-        onSelectOt?.(ot, shell);
-        onDetail?.(ot, shell);
+        onOpenOt?.(ot, shell);
       });
 
-      shell.append(main, open);
+      shell.addEventListener('click', (e) => {
+        if (e.target === act) return;
+        setActiveShell(shell);
+        onOpenOt?.(ot, shell);
+      });
+
+      shell.append(cliente, tipo, pri, act);
       cards.append(shell);
     }
 
