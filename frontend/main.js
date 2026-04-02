@@ -1245,13 +1245,12 @@ const createActions = () => ({
   },
 
   /**
+   * POST crear OT (una sola llamada). No hace `render()` ni `loadViewData()`:
+   * el modal Clima debe cerrarse y recargar **después** en la vista para no destruir el DOM del wizard a mitad del async.
    * @returns {Promise<{ ok: true, id: string } | { ok: false, message: string }>}
    */
   createOT: async (payload) => {
     state.isSubmittingOT = true;
-    state.otFeedback = null;
-    render();
-
     try {
       const response = await otService.create(payload);
       const id = String(response?.data?.id ?? '').trim();
@@ -1260,41 +1259,34 @@ const createActions = () => ({
         const message =
           response?.error?.message ||
           (!id && serverOk
-            ? 'El servidor respondió sin ID de OT. Revisá la lista o tocá «Actualizar datos».'
+            ? 'El servidor respondió sin ID de OT.'
             : 'No se pudo crear la orden de trabajo.');
-        state.otFeedback = { type: 'error', message };
-        render();
         return { ok: false, message };
       }
-
       preserveClimaSelectionForReload(id);
       state.selectedOTId = id;
       state.climaTrayNotice = null;
-      state.otFeedback = {
-        type: 'success',
-        message: `OT ${id} creada. Sincronizando…`,
-      };
-      await loadViewData();
-      state.otFeedback = {
-        type: 'success',
-        message: state.climaTrayNotice
-          ? `OT ${id} lista. Si no ves la fila: aviso de filtro arriba.`
-          : `OT ${id} creada. Bandeja actualizada.`,
-      };
       return { ok: true, id };
     } catch (error) {
       const message =
         error.message || 'No se pudo crear la orden de trabajo. Revisá los datos o la conexión.';
-      state.otFeedback = {
-        type: 'error',
-        message,
-      };
-      render();
       return { ok: false, message };
     } finally {
       state.isSubmittingOT = false;
-      render();
     }
+  },
+
+  /** Tras cerrar el wizard y `reloadApp`: mensaje de éxito en Clima (lee `climaTrayNotice` ya aplicado en sync). */
+  finalizeClimaOtCreateUi: () => {
+    const id = state.selectedOTId;
+    if (!id) return;
+    state.otFeedback = {
+      type: 'success',
+      message: state.climaTrayNotice
+        ? `OT ${id} creada. ¿No ves la fila? Usá «Ver todas» o el aviso amarillo (filtro activo).`
+        : `OT ${id} creada. Bandeja actualizada desde el servidor.`,
+    };
+    render();
   },
 
   /**

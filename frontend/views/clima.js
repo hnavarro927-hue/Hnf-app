@@ -2713,6 +2713,34 @@ export const climaView = ({
     }
   };
 
+  const setOtcwFinalBusy = (on) => {
+    if (on) {
+      submitButton.disabled = true;
+      submitButton.setAttribute('aria-busy', 'true');
+      submitButton.textContent = 'Creando…';
+      createBtnNext.disabled = true;
+      createBtnPrev.disabled = true;
+      btnDraft.disabled = true;
+      btnCloseCreate.disabled = true;
+      createProgress.querySelectorAll('.hnf-otcw__step').forEach((b) => {
+        b.disabled = true;
+      });
+      setWizardFooter({ error: '', draftLine: 'Creando OT en servidor…' });
+    } else {
+      submitButton.setAttribute('aria-busy', 'false');
+      submitButton.textContent = 'Crear OT';
+      btnCloseCreate.disabled = false;
+      btnDraft.disabled = false;
+      createProgress.querySelectorAll('.hnf-otcw__step').forEach((btn, i) => {
+        btn.disabled = i > createStageIdx;
+      });
+      setWizardFooter({ draftLine: '' });
+      refreshOtcwActionState();
+    }
+  };
+
+  let otcwFinalSubmitBusy = false;
+
   const setCreateStage = (idx) => {
     const n = Math.max(0, Math.min(OT_CREATE_WORKSPACE_STAGE_COUNT - 1, idx));
     if (prevCreateStageForDraft >= 0 && n > prevCreateStageForDraft) writeCreateOtDraft(form, eqHost);
@@ -2805,6 +2833,8 @@ export const climaView = ({
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (otcwFinalSubmitBusy) return;
+
     const v = validateOtCreateWorkspaceSubmit(form);
     if (!v.ok) {
       const target = getOtCreateWorkspaceStageForSubmitErrors(v.errors);
@@ -2812,49 +2842,76 @@ export const climaView = ({
       otcwApplyFieldErrors(form, v.errors);
       otcwFocusFirstErrorField(form, v.errors);
       otcwDevLog('validation_fail', { submit: true, errors: v.errors });
-      setWizardFooter({ error: 'Falta completar datos obligatorios (revisá los campos marcados).' });
+      setWizardFooter({
+        draftLine: '',
+        error: 'Completá lo obligatorio en los pasos anteriores (campos marcados).',
+      });
       return;
     }
+
     const equipos = collectEquiposFromWorkspace(eqHost);
     const payload = buildOtCreateWorkspacePayload(form, equipos, resolveTecnicoFromAltaForm);
-    const result = await actions.createOT(payload);
-    if (result?.ok) {
-      otcwDevLog('create_success', { id: result.id });
-      clearCreateOtDraft();
-      otcwClearFieldErrors(form);
-      setWizardFooter({ draftLine: '', error: '' });
-      form.reset();
-      const prEl = form.elements.prioridadOperativaCreate;
-      if (prEl) {
-        for (let i = 0; i < prEl.options.length; i++) {
-          if (prEl.options[i].value === 'media') {
-            prEl.selectedIndex = i;
-            break;
+
+    otcwFinalSubmitBusy = true;
+    setOtcwFinalBusy(true);
+    try {
+      const result = await actions.createOT(payload);
+      if (result?.ok) {
+        otcwDevLog('create_success', { id: result.id });
+        clearCreateOtDraft();
+        otcwClearFieldErrors(form);
+        setWizardFooter({ draftLine: '', error: '' });
+        form.reset();
+        const prEl = form.elements.prioridadOperativaCreate;
+        if (prEl) {
+          for (let i = 0; i < prEl.options.length; i++) {
+            if (prEl.options[i].value === 'media') {
+              prEl.selectedIndex = i;
+              break;
+            }
           }
         }
-      }
-      const opEl = form.elements.operationModeWs;
-      if (opEl) {
-        for (let i = 0; i < opEl.options.length; i++) {
-          if (opEl.options[i].value === 'manual') {
-            opEl.selectedIndex = i;
-            break;
+        const opEl = form.elements.operationModeWs;
+        if (opEl) {
+          for (let i = 0; i < opEl.options.length; i++) {
+            if (opEl.options[i].value === 'manual') {
+              opEl.selectedIndex = i;
+              break;
+            }
           }
         }
+        applyWorkspaceEquiposFromDraft(eqHost, []);
+        form.elements.origenSolicitudCreate?.dispatchEvent(new Event('change', { bubbles: true }));
+        form.elements.tecnicoPreset?.dispatchEvent(new Event('change', { bubbles: true }));
+        form.elements.origenPedidoWs?.dispatchEvent(new Event('change', { bubbles: true }));
+        prevCreateStageForDraft = -1;
+        writeStoredStageIndex(createStageKey, 0);
+        setCreateStage(0);
+        createDialog.close();
+
+        const reloaded = await actions.reloadApp?.();
+        if (reloaded) {
+          actions.finalizeClimaOtCreateUi?.();
+        } else {
+          actions.showFeedback?.({
+            type: 'warning',
+            message: `OT ${result.id} registrada. No se pudo refrescar la lista (conexión o servidor).`,
+          });
+        }
+      } else {
+        otcwDevLog('create_fail', { message: result?.message });
+        setWizardFooter({
+          draftLine: '',
+          error: result?.message || 'Error del servidor. Reintentá con Crear OT.',
+        });
       }
-      applyWorkspaceEquiposFromDraft(eqHost, []);
-      form.elements.origenSolicitudCreate?.dispatchEvent(new Event('change', { bubbles: true }));
-      form.elements.tecnicoPreset?.dispatchEvent(new Event('change', { bubbles: true }));
-      form.elements.origenPedidoWs?.dispatchEvent(new Event('change', { bubbles: true }));
-      prevCreateStageForDraft = -1;
-      writeStoredStageIndex(createStageKey, 0);
-      setCreateStage(0);
-      createDialog.close();
-    } else {
-      otcwDevLog('create_fail', { message: result?.message });
-      setWizardFooter({
-        error: result?.message || 'No se pudo crear la OT. El borrador se mantiene.',
-      });
+    } finally {
+      if (createDialog.open) {
+        setOtcwFinalBusy(false);
+        otcwFinalSubmitBusy = false;
+      } else {
+        otcwFinalSubmitBusy = false;
+      }
     }
   });
 
