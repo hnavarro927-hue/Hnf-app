@@ -1,4 +1,4 @@
-// Variables mínimas esperadas:
+// Variables mínimas esperadas (tras `load-env.js`: raíz `.env` y `backend/.env`):
 // - PORT: puerto HTTP inyectado por la plataforma de deployment.
 // - BACKEND_PORT: puerto HTTP local del backend.
 

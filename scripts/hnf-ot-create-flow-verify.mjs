@@ -42,7 +42,7 @@ const minimalValidFields = () => ({
   telefonoContacto: { value: '+56900000000' },
   fecha: { value: '2026-04-15' },
   hora: { value: '10:00' },
-  tipoServicio: { value: 'Clima' },
+  tipoServicio: { value: 'clima' },
   subtipoServicio: { value: 'Mantención' },
   origenPedidoWs: { value: 'llamada' },
   canalWs: { value: 'llamada' },

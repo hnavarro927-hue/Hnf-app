@@ -13,6 +13,7 @@
     "start": "node backend/src/server.js",
     "check:frontend": "cd frontend && npm run check",
     "verify:ot-create": "node scripts/hnf-ot-create-flow-verify.mjs",
+    "verify:e2e-clima-ot-api": "node scripts/hnf-e2e-clima-ot-api.mjs",
     "check:backend": "cd backend && npm run check",
     "verify:jarvis": "npm run check:backend && node scripts/hnf-jarvis-verify.mjs",
     "verify:jarvis-diagnostics": "node scripts/hnf-jarvis-diagnostics-verify.mjs",

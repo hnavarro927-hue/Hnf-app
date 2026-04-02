@@ -2889,13 +2889,19 @@ export const climaView = ({
         setCreateStage(0);
         createDialog.close();
 
-        const reloaded = await actions.reloadApp?.();
+        let reloaded = false;
+        try {
+          reloaded = (await actions.reloadApp?.()) === true;
+        } catch (reloadErr) {
+          otcwDevLog('reload_after_create_fail', { message: String(reloadErr?.message || reloadErr) });
+          reloaded = false;
+        }
         if (reloaded) {
           actions.finalizeClimaOtCreateUi?.();
         } else {
           actions.showFeedback?.({
             type: 'warning',
-            message: `OT ${result.id} registrada. No se pudo refrescar la lista (conexión o servidor).`,
+            message: `OT ${result.id} creada en el servidor. La bandeja no se actualizó: revisá la conexión y pulsá «Actualizar datos».`,
           });
         }
       } else {
@@ -2906,12 +2912,8 @@ export const climaView = ({
         });
       }
     } finally {
-      if (createDialog.open) {
-        setOtcwFinalBusy(false);
-        otcwFinalSubmitBusy = false;
-      } else {
-        otcwFinalSubmitBusy = false;
-      }
+      setOtcwFinalBusy(false);
+      otcwFinalSubmitBusy = false;
     }
   });
 

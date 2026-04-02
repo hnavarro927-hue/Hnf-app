@@ -1253,11 +1253,15 @@ const createActions = () => ({
     state.isSubmittingOT = true;
     try {
       const response = await otService.create(payload);
-      const id = String(response?.data?.id ?? '').trim();
-      const serverOk = response?.success !== false;
+      const body = response && typeof response === 'object' ? response : {};
+      const nested = body.data;
+      const ot =
+        nested && typeof nested === 'object' && !Array.isArray(nested) ? nested : body;
+      const id = String(ot?.id ?? '').trim();
+      const serverOk = body.success !== false;
       if (!serverOk || !id) {
         const message =
-          response?.error?.message ||
+          body.error?.message ||
           (!id && serverOk
             ? 'El servidor respondió sin ID de OT.'
             : 'No se pudo crear la orden de trabajo.');

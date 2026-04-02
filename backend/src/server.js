@@ -1,3 +1,4 @@
+import './config/load-env.js';
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
@@ -137,17 +138,6 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.warn(
-      `[HNF] Backend ya en ejecución: el puerto ${appConfig.port} está ocupado. No se inicia un segundo listener.`
-    );
-    process.exit(0);
-    return;
-  }
-  throw err;
-});
-
 (async () => {
   try {
     await ensureBootstrapAdmin();
@@ -159,7 +149,9 @@ server.on('error', (err) => {
     startJarvisOperationalCycleTimer();
     const mode = frontendRoot === frontendDistRoot ? 'dist (build)' : 'código fuente';
     const ips = lanIpv4Addresses();
-    console.log(`HNF backend listening on 0.0.0.0:${appConfig.port} (todas las interfaces)`);
+    console.log(
+      `HNF backend listening on 0.0.0.0:${appConfig.port} — comprobar: http://127.0.0.1:${appConfig.port}/health`
+    );
     console.log(`  Local:   http://127.0.0.1:${appConfig.port}`);
     for (const ip of ips) {
       console.log(`  En LAN:  http://${ip}:${appConfig.port}`);
@@ -172,3 +164,14 @@ server.on('error', (err) => {
     }
   });
 })();
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(
+      `[HNF] Backend ya en ejecución: el puerto ${appConfig.port} está ocupado. No se inicia un segundo listener.`
+    );
+    process.exit(0);
+    return;
+  }
+  throw err;
+});

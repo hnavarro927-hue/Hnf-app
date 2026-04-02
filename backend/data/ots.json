@@ -101,7 +101,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-002",
@@ -205,7 +207,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-003",
@@ -288,7 +292,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-004",
@@ -427,7 +433,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-005",
@@ -589,7 +597,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-006",
@@ -667,7 +677,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-007",
@@ -745,7 +757,9 @@
     "lynAprobacionHistorial": [],
     "enviadoCliente": false,
     "fechaEnvio": null,
-    "enviadoPor": null
+    "enviadoPor": null,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-008",
@@ -874,7 +888,9 @@
     "fechaEnvio": null,
     "enviadoPor": null,
     "costoTotal": 0,
-    "utilidad": 0
+    "utilidad": 0,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-009",
@@ -1003,7 +1019,9 @@
     "fechaEnvio": null,
     "enviadoPor": null,
     "costoTotal": 0,
-    "utilidad": 0
+    "utilidad": 0,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
   },
   {
     "id": "OT-010",
@@ -1106,6 +1124,270 @@
       },
       {
         "at": "2026-03-31T17:22:03.027Z",
+        "accion": "jarvis_prioridad",
+        "detalle": "Prioridad sugerida (heurística): baja [origen:manual] · valor guardado en OT: media",
+        "actor": "sistema"
+      }
+    ],
+    "costoMateriales": 0,
+    "costoManoObra": 0,
+    "costoTraslado": 0,
+    "costoOtros": 0,
+    "montoCobrado": 0,
+    "tipoFacturacion": "inmediata",
+    "periodoFacturacion": null,
+    "tiendaId": null,
+    "tiendaNombre": null,
+    "valorReferencialTienda": 0,
+    "incluidaEnCierreMensual": false,
+    "cierreMensualId": null,
+    "utilidadEstimada": null,
+    "margenEstimadoRatio": null,
+    "aprobacionLynEstado": null,
+    "listoEnviarCliente": false,
+    "lynAprobacionHistorial": [],
+    "enviadoCliente": false,
+    "fechaEnvio": null,
+    "enviadoPor": null,
+    "costoTotal": 0,
+    "utilidad": 0,
+    "prioridadSugerida": null,
+    "riesgoDetectado": false
+  },
+  {
+    "id": "OT-011",
+    "jarvisIntakeTrace": {
+      "engineVersion": "1.0.0",
+      "at": "2026-04-02T04:17:47.062Z",
+      "otId": "OT-011",
+      "actorIngreso": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+      "origen_detectado": "manual",
+      "area_sugerida": "clima",
+      "confianza_jarvis": 73,
+      "cliente_detectado": {
+        "nombre": "E2E Cursor Test",
+        "match": "posible_nuevo",
+        "score": 40,
+        "id": null
+      },
+      "contacto_detectado": {
+        "nombre": "Juan",
+        "match": "capturado"
+      },
+      "duplicado_probable": false,
+      "bandeja_destino": "romina",
+      "notificacion_destino": "Romina",
+      "prioridad_sugerida": "media",
+      "advertencias": [],
+      "accion_sugerida": "Enviar a bandeja romina (Romina). Sin señales fuertes de duplicado.",
+      "documentos": [],
+      "trace": [
+        {
+          "at": "2026-04-02T04:17:47.062Z",
+          "step": "clasificacion_v1",
+          "detalle": "area=clima bandeja=romina confianza=73",
+          "actor": "Modo sin autenticación (HNF_AUTH_DISABLED)"
+        }
+      ]
+    },
+    "cliente": "E2E Cursor Test",
+    "direccion": "Calle E2E 1",
+    "comuna": "Santiago",
+    "contactoTerreno": "Juan",
+    "telefonoContacto": "+56911111111",
+    "clienteRelacionado": null,
+    "vehiculoRelacionado": null,
+    "tipoServicio": "clima",
+    "subtipoServicio": "Mantención",
+    "tecnicoAsignado": "Por asignar",
+    "operationMode": "manual",
+    "origenPedido": "llamada",
+    "origenSolicitud": "cliente_directo",
+    "whatsappContactoNumero": "",
+    "whatsappContactoNombre": "",
+    "entradaExterna": false,
+    "bandejaAsignada": "romina",
+    "notificacionAsignadaA": "Romina",
+    "prioridadOperativa": "media",
+    "prioridadSugerida": null,
+    "riesgoDetectado": false,
+    "pendienteRespuestaCliente": false,
+    "asignadoPor": null,
+    "responsableActual": null,
+    "estado": "nueva",
+    "montoEstimado": 0,
+    "margenEstimado": null,
+    "fecha": "2026-04-15",
+    "hora": "10:00",
+    "observaciones": "",
+    "resumenTrabajo": "",
+    "recomendaciones": "",
+    "creadoEn": "2026-04-02T04:17:47.062Z",
+    "cerradoEn": null,
+    "pdfName": null,
+    "pdfUrl": null,
+    "equipos": [],
+    "fotografiasAntes": [],
+    "fotografiasDurante": [],
+    "fotografiasDespues": [],
+    "maestroDocumentoOrigenId": null,
+    "estadoOperativo": null,
+    "createdAt": "2026-04-02T04:17:47.062Z",
+    "updatedAt": "2026-04-02T04:17:47.062Z",
+    "creadoPor": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+    "actualizadoPor": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+    "historial": [
+      {
+        "at": "2026-04-02T04:17:47.063Z",
+        "accion": "alta",
+        "detalle": "OT creada · nueva · modo manual · Jarvis v1: 73% → bandeja romina",
+        "actor": "Modo sin autenticación (HNF_AUTH_DISABLED)"
+      },
+      {
+        "at": "2026-04-02T04:17:47.063Z",
+        "accion": "jarvis_origen",
+        "detalle": "Origen registrado: Manual",
+        "actor": "sistema"
+      },
+      {
+        "at": "2026-04-02T04:17:47.063Z",
+        "accion": "jarvis_asignacion",
+        "detalle": "Asignación automática titular operativo: Romina",
+        "actor": "sistema"
+      },
+      {
+        "at": "2026-04-02T04:17:47.063Z",
+        "accion": "jarvis_prioridad",
+        "detalle": "Prioridad sugerida (heurística): baja [origen:manual] · valor guardado en OT: media",
+        "actor": "sistema"
+      }
+    ],
+    "costoMateriales": 0,
+    "costoManoObra": 0,
+    "costoTraslado": 0,
+    "costoOtros": 0,
+    "montoCobrado": 0,
+    "tipoFacturacion": "inmediata",
+    "periodoFacturacion": null,
+    "tiendaId": null,
+    "tiendaNombre": null,
+    "valorReferencialTienda": 0,
+    "incluidaEnCierreMensual": false,
+    "cierreMensualId": null,
+    "utilidadEstimada": null,
+    "margenEstimadoRatio": null,
+    "aprobacionLynEstado": null,
+    "listoEnviarCliente": false,
+    "lynAprobacionHistorial": [],
+    "enviadoCliente": false,
+    "fechaEnvio": null,
+    "enviadoPor": null,
+    "costoTotal": 0,
+    "utilidad": 0
+  },
+  {
+    "id": "OT-012",
+    "jarvisIntakeTrace": {
+      "engineVersion": "1.0.0",
+      "at": "2026-04-02T04:19:55.358Z",
+      "otId": "OT-012",
+      "actorIngreso": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+      "origen_detectado": "manual",
+      "area_sugerida": "clima",
+      "confianza_jarvis": 73,
+      "cliente_detectado": {
+        "nombre": "E2E API 2026-04-02T04:19:55",
+        "match": "posible_nuevo",
+        "score": 40,
+        "id": null
+      },
+      "contacto_detectado": {
+        "nombre": "Verificación",
+        "match": "capturado"
+      },
+      "duplicado_probable": false,
+      "bandeja_destino": "romina",
+      "notificacion_destino": "Romina",
+      "prioridad_sugerida": "media",
+      "advertencias": [],
+      "accion_sugerida": "Enviar a bandeja romina (Romina). Sin señales fuertes de duplicado.",
+      "documentos": [],
+      "trace": [
+        {
+          "at": "2026-04-02T04:19:55.358Z",
+          "step": "clasificacion_v1",
+          "detalle": "area=clima bandeja=romina confianza=73",
+          "actor": "Modo sin autenticación (HNF_AUTH_DISABLED)"
+        }
+      ]
+    },
+    "cliente": "E2E API 2026-04-02T04:19:55",
+    "direccion": "Calle verificación 1",
+    "comuna": "Santiago",
+    "contactoTerreno": "Verificación",
+    "telefonoContacto": "+56987654321",
+    "clienteRelacionado": null,
+    "vehiculoRelacionado": null,
+    "tipoServicio": "clima",
+    "subtipoServicio": "Mantención preventiva",
+    "tecnicoAsignado": "Por asignar",
+    "operationMode": "manual",
+    "origenPedido": "llamada",
+    "origenSolicitud": "cliente_directo",
+    "whatsappContactoNumero": "",
+    "whatsappContactoNombre": "",
+    "entradaExterna": false,
+    "bandejaAsignada": "romina",
+    "notificacionAsignadaA": "Romina",
+    "prioridadOperativa": "media",
+    "prioridadSugerida": null,
+    "riesgoDetectado": false,
+    "pendienteRespuestaCliente": false,
+    "asignadoPor": null,
+    "responsableActual": null,
+    "estado": "nueva",
+    "montoEstimado": 0,
+    "margenEstimado": null,
+    "fecha": "2026-04-15",
+    "hora": "10:30",
+    "observaciones": "",
+    "resumenTrabajo": "",
+    "recomendaciones": "",
+    "creadoEn": "2026-04-02T04:19:55.358Z",
+    "cerradoEn": null,
+    "pdfName": null,
+    "pdfUrl": null,
+    "equipos": [],
+    "fotografiasAntes": [],
+    "fotografiasDurante": [],
+    "fotografiasDespues": [],
+    "maestroDocumentoOrigenId": null,
+    "estadoOperativo": null,
+    "createdAt": "2026-04-02T04:19:55.358Z",
+    "updatedAt": "2026-04-02T04:19:55.358Z",
+    "creadoPor": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+    "actualizadoPor": "Modo sin autenticación (HNF_AUTH_DISABLED)",
+    "historial": [
+      {
+        "at": "2026-04-02T04:19:55.358Z",
+        "accion": "alta",
+        "detalle": "OT creada · nueva · modo manual · Jarvis v1: 73% → bandeja romina",
+        "actor": "Modo sin autenticación (HNF_AUTH_DISABLED)"
+      },
+      {
+        "at": "2026-04-02T04:19:55.358Z",
+        "accion": "jarvis_origen",
+        "detalle": "Origen registrado: Manual",
+        "actor": "sistema"
+      },
+      {
+        "at": "2026-04-02T04:19:55.358Z",
+        "accion": "jarvis_asignacion",
+        "detalle": "Asignación automática titular operativo: Romina",
+        "actor": "sistema"
+      },
+      {
+        "at": "2026-04-02T04:19:55.358Z",
         "accion": "jarvis_prioridad",
         "detalle": "Prioridad sugerida (heurística): baja [origen:manual] · valor guardado en OT: media",
         "actor": "sistema"
