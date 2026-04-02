@@ -1,14 +1,17 @@
 import '../styles/centro-control-alien.css';
-import '../styles/hnf-mando-premium.css';
-import '../styles/hnf-operational-kanban.css';
+import '../styles/mando-centro-v2.css';
 import { applyJarvisRulesToNewOt } from '../domain/hnf-ot-jarvis-rules.js';
-import { createControlKanbanRegion } from '../components/control-center/ControlKanban.js';
-import { createJarvisCorePanel } from '../components/control-center/JarvisCorePanel.js';
-import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
-import { createJarvisAlienFlow } from '../components/jarvis-alien-flow.js';
 import { buildJarvisDecisionCard } from '../components/jarvis-decision-card.js';
-import { createJarvisPresence, jarvisLineaModoAlien } from '../components/jarvis-presence.js';
-import { createKanbanBoard, DEFAULT_KANBAN_LANE_LABELS } from '../components/kanban-board.js';
+import { DEFAULT_KANBAN_LANE_LABELS } from '../components/kanban-board.js';
+import { createSimpleKanbanBoard } from '../components/mando/simple-kanban.js';
+import {
+  createJarvisFloatingAssistant,
+  createMandoHeaderV2,
+  createMandoJarvisHero,
+  createMandoKpisV2,
+  createMandoQuickBar,
+} from '../components/mando/mando-centro-v2.js';
+import { simpleLaneToCommitLane, mapOtToSimpleLane } from '../domain/ot-simple-kanban-lanes.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import {
   alertaOperativaVisual,
@@ -220,31 +223,12 @@ function renderTabBody(ot, tabId) {
   return wrap;
 }
 
-function kpiMetric(label, value, variantClass = '') {
-  const d = el(`hnf-v2-metric${variantClass ? ` ${variantClass}` : ''}`);
-  const v = el('hnf-v2-metric__value');
-  v.textContent = value;
-  const k = el('hnf-v2-metric__label');
-  k.textContent = label;
-  d.append(v, k);
-  return d;
-}
-
 /**
- * Centro de control: layout operativo + KanbanBoard + JarvisPanel + drawer detalle.
+ * Centro de control HNF (Mando): Kanban 4 columnas, KPIs, Jarvis destacado, drawer detalle.
  * Datos: GET /ots (vía props.data).
  */
 export function centroControlAlienView(props) {
-  const {
-    data,
-    reloadApp,
-    navigateToView,
-    actions,
-    integrationStatus,
-    lastDataRefreshAt,
-    authLabel,
-    mandoFeedback,
-  } = props || {};
+  const { data, reloadApp, navigateToView, actions, integrationStatus, mandoFeedback } = props || {};
   const otsEnvelope = data?.ots;
   const otsRaw = Array.isArray(otsEnvelope?.data)
     ? otsEnvelope.data
@@ -254,11 +238,8 @@ export function centroControlAlienView(props) {
   const br = getSessionBackendRole() || 'admin';
   const ots = getAllOTs(filtrarOtsPorRolBackend(otsRaw, br));
 
-  const section = el(
-    'hnf-cc hnf-cc-mando hnf-cck-surface hnf-op-shell hnf-op-view hnf-op-view--mando hnf-mando-premium',
-    'section'
-  );
-  section.setAttribute('aria-label', 'Centro de control operativo');
+  const section = el('hnf-cc hnf-cc-mando-v2', 'section');
+  section.setAttribute('aria-label', 'Centro de Control HNF');
 
   if (mandoFeedback?.message) {
     const ban = el(
@@ -278,21 +259,26 @@ export function centroControlAlienView(props) {
   const jSig = buildJarvisGerencialSignals(ots);
   const opKpi = buildOperationalKpisFromMergedList(ots);
 
-  const command = el('hnf-cc-mando__command hnf-v2-holo-command');
-  const cmdLeft = el('');
-  const hTitle = document.createElement('h1');
-  hTitle.textContent = 'Panel operativo · Pipeline HNF';
-  const hSub = document.createElement('p');
-  hSub.textContent =
-    'Kanban en vivo con persistencia en servidor. Arrastrá tarjetas entre columnas. Detalle en panel lateral (sin modales largos).';
-  const headAct = el('hnf-cc-mando__actions hnf-v2-holo-actions');
-  const mkHeadBtn = (label, primary, fn) => {
-    const b = el(`hnf-op-btn${primary ? ' hnf-op-btn--primary' : ''}`, 'button');
-    b.type = 'button';
-    b.textContent = label;
-    b.addEventListener('click', fn);
-    return b;
-  };
+  let ingresoPipeline = 0;
+  for (const o of ots) {
+    const sl = mapOtToSimpleLane(o);
+    if (sl === 'simp_ingreso' || sl === 'simp_proceso') {
+      ingresoPipeline += Number(o.montoCobrado) || Number(o.costoTotal) || 0;
+    }
+  }
+  const ingresoLabel =
+    ingresoPipeline > 0 ? `$${Math.round(ingresoPipeline).toLocaleString('es-CL')}` : '$0';
+
+  let nSinEvidencia = 0;
+  let firstOtSinEv = null;
+  for (const o of ots) {
+    if (mapOtToSimpleLane(o) === 'simp_finalizadas') continue;
+    if (getEvidenceGaps(o).length > 0) {
+      nSinEvidencia += 1;
+      firstOtSinEv = firstOtSinEv || o;
+    }
+  }
+
   const quickSheet = el('hnf-mp-quick');
   quickSheet.hidden = true;
   let quickStep = 0;
@@ -386,7 +372,7 @@ export function centroControlAlienView(props) {
     } else {
       const p = document.createElement('p');
       p.style.gridColumn = '1 / -1';
-      p.style.color = '#e4e4e7';
+      p.style.color = '#3f3f46';
       p.style.fontSize = '0.85rem';
       p.textContent = `Confirmá: ${qCliente.value.trim() || '—'} · ${qTipo.value} · ${qDir.value.trim()}, ${qCom.value.trim()} · ${qFecha.value} ${qHora.value}`;
       qGrid.append(p);
@@ -469,134 +455,31 @@ export function centroControlAlienView(props) {
   const qLead = document.createElement('p');
   qLead.style.fontWeight = '600';
   qLead.style.margin = '0 0 8px';
-  qLead.style.color = '#fafafa';
-  qLead.textContent = 'Nueva OT en 3 pasos';
+  qLead.style.color = '#18181b';
+  qLead.textContent = 'Nueva OT (3 pasos)';
   quickSheet.append(qLead, qStepsDots, qGrid, qNav, qStatus);
   paintQuick();
 
-  headAct.append(
-    mkHeadBtn('Nueva OT', true, () => {
-      quickSheet.hidden = !quickSheet.hidden;
-      if (!quickSheet.hidden) {
-        quickStep = 0;
-        paintQuick();
-      }
-    }),
-    mkHeadBtn('Jarvis HQ', false, () => navigateToView?.('jarvis')),
-    mkHeadBtn('Ingesta', false, () => navigateToView?.('ingreso-operativo')),
-    mkHeadBtn('Actualizar', false, () => {
-      if (typeof reloadApp === 'function') void reloadApp();
-    })
-  );
-  cmdLeft.append(hTitle, hSub, quickSheet);
-  command.append(cmdLeft, headAct);
-
-  const execStrip = createJarvisExecutiveCopilotStrip({
-    authLabel,
-    integrationStatus,
-    viewData: data,
-    lastDataRefreshAt,
-  });
-
-  const jarvisPresenceEl = createJarvisPresence({
-    linea: jarvisLineaModoAlien(integrationStatus),
-    metrics: {
-      nRiesgo: jSig.nRiesgo,
-      nUrgentes: jSig.nUrgentes,
-      nPendAprobacion: jSig.nPendAprobacion,
-    },
-    suggestion: jSig.suggestion,
-    variant: 'alien-bar',
-    brandSubtitle: 'Jarvis | Integridad Operativa HNF',
-  });
-
-  const alienFlow = createJarvisAlienFlow();
-
-  const kpiRow = el('hnf-v2-metric-row');
-  const nRiesgo = opKpi.riesgoOperativo || 0;
-  const topResp = Object.entries(opKpi.byResponsable || {})
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 1)[0];
-  kpiRow.append(
-    kpiMetric('OT activas', String(opKpi.activas)),
-    kpiMetric('Riesgo operativo', String(opKpi.riesgoOperativo), nRiesgo > 0 ? 'hnf-v2-metric--alert' : ''),
-    kpiMetric('Prioridad alta', String(opKpi.prioridadAlta)),
-    kpiMetric('Carga top responsable', topResp ? `${topResp[1]} · ${topResp[0]}` : '—')
-  );
-
-  const hoursSinceIso = (iso) => {
-    const t = new Date(String(iso || '')).getTime();
-    if (!Number.isFinite(t)) return null;
-    return (Date.now() - t) / 3600000;
-  };
-  let detenidas = 0;
-  for (const o of ots) {
-    const st = getEffectiveEstadoOperativo(o);
-    const h = hoursSinceIso(o.updatedAt || o.creadoEn || o.createdAt);
-    if (st === 'ingreso' && h != null && h > 24) detenidas += 1;
-    else if (st === 'en_proceso' && h != null && h > 48) detenidas += 1;
-  }
-  const margenSum = ots.reduce((s, o) => s + (Number(o.utilidad) || 0), 0);
-  let lynN = 0;
-  let lynOk = 0;
-  for (const o of ots) {
-    const l = String(o.aprobacionLynEstado || '').toLowerCase();
-    if (l === 'aprobado_lyn' || l === 'rechazado_lyn') {
-      lynN += 1;
-      if (l === 'aprobado_lyn') lynOk += 1;
-    }
-  }
-  const tasaLyn = lynN ? `${Math.round((100 * lynOk) / lynN)}%` : '—';
-
-  const kpiDash = el('hnf-mp-kpi-dash');
-  const mpTile = (label, value, accent) => {
-    const t = el(`hnf-mp-kpi-tile${accent ? ' hnf-mp-kpi-tile--accent' : ''}`);
-    const v = el('hnf-mp-kpi-tile__v');
-    v.textContent = value;
-    const k = el('hnf-mp-kpi-tile__k');
-    k.textContent = label;
-    t.append(v, k);
-    return t;
-  };
-  kpiDash.append(
-    mpTile('OT en riesgo (heurística)', String(opKpi.riesgoOperativo || 0), true),
-    mpTile('OT detenidas (SLA visual)', String(detenidas), detenidas > 0),
-    mpTile('Margen Σ utilidad CLP', margenSum ? String(Math.round(margenSum).toLocaleString('es-CL')) : '0'),
-    mpTile('Tasa aprobación Lyn', tasaLyn),
-    mpTile('OT en tablero', String(ots.length))
-  );
-
-  const workspace = el('hnf-cc-mando__workspace');
-  const mainCol = el('hnf-cc-mando__workspace-main');
-  const asideCol = el('hnf-cc-mando__workspace-aside');
-
-  const jarvisCore = createJarvisCorePanel();
-
   let kanbanSetActive = () => {};
 
-  const { element: boardEl, setActiveShell } = createKanbanBoard({
+  const body = el('hnf-cc__body');
+  body.style.flexDirection = 'column';
+  body.style.position = 'relative';
+
+  const { element: boardEl, setActiveShell } = createSimpleKanbanBoard({
     ots,
-    laneLabels: DEFAULT_KANBAN_LANE_LABELS,
-    onSelectOt: (ot) => {
-      jarvisCore.setOt(ot);
-      alienFlow.setOt(ot);
+    onSelectOt: (ot, shell) => {
+      openDrawer(ot, shell);
     },
-    onAssignTech: (ot) => {
-      const ts = String(ot.tipoServicio || '').toLowerCase();
-      if (ts === 'flota') navigateToView?.('bandeja-gery');
-      else navigateToView?.('bandeja-romina');
-    },
-    onChangeState: (ot) => {
-      mountFlowEstadoPicker(ot, DEFAULT_KANBAN_LANE_LABELS, reloadApp);
-    },
-    onDropOnLane: (ot, laneId) => {
+    onDropOnLane: (ot, simpleLaneId) => {
       void (async () => {
+        const commitLane = simpleLaneToCommitLane(simpleLaneId);
         if (typeof actions?.commitKanbanLane === 'function') {
-          const r = await actions.commitKanbanLane(ot, laneId);
+          const r = await actions.commitKanbanLane(ot, commitLane);
           if (!r?.ok) return;
           return;
         }
-        const r = persistEstadoOperativo(ot, laneId);
+        const r = persistEstadoOperativo(ot, commitLane);
         if (!r.ok) window.alert(r.error || 'No se pudo mover de columna');
         else if (typeof reloadApp === 'function') void reloadApp();
       })();
@@ -607,13 +490,93 @@ export function centroControlAlienView(props) {
   });
   kanbanSetActive = setActiveShell;
 
-  mainCol.append(createControlKanbanRegion({ boardElement: boardEl }));
-  asideCol.append(jarvisCore.element);
-  workspace.append(mainCol, asideCol);
+  const headerV2 = createMandoHeaderV2({
+    integrationStatus,
+    onSync: () => {
+      if (typeof reloadApp === 'function') void reloadApp();
+    },
+  });
 
-  const body = el('hnf-cc__body');
-  body.style.flexDirection = 'column';
-  body.append(workspace);
+  const nRiesgoKpi = opKpi.riesgoOperativo || 0;
+  const nPendLyn = jSig.nPendAprobacion || 0;
+  const kpisV2 = createMandoKpisV2({
+    activas: opKpi.activas ?? 0,
+    riesgo: nRiesgoKpi,
+    pendLyn: nPendLyn,
+    ingresoProcesoLabel: ingresoLabel,
+  });
+
+  const jarvisHeadline =
+    nSinEvidencia > 0
+      ? `ATENCIÓN: ${nSinEvidencia} OT sin evidencia`
+      : jSig.nRiesgo > 0
+        ? `${jSig.nRiesgo} OT con riesgo detectado`
+        : 'Operación estable';
+  const jarvisSub =
+    nSinEvidencia > 0
+      ? 'Acción: Revisar ahora (pestaña Evidencia en el detalle).'
+      : String(jSig.suggestion || 'Sin alertas críticas en este momento.');
+
+  const jarvisHero = createMandoJarvisHero({
+    headline: jarvisHeadline,
+    subline: jarvisSub,
+    cta: 'Ver detalle',
+    onCta: () => {
+      const target = firstOtSinEv || jSig.focoOt;
+      if (target) {
+        openDrawer(target, null);
+        if (nSinEvidencia > 0 && getEvidenceGaps(target).length > 0) {
+          activeTab = 'evidencia';
+          renderTabs();
+          tabBodies.replaceChildren(renderTabBody(target, activeTab));
+        }
+      } else {
+        document.querySelector('.hnf-mv2-jarvis-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    },
+  });
+
+  const toggleQuick = () => {
+    quickSheet.hidden = !quickSheet.hidden;
+    if (!quickSheet.hidden) {
+      quickStep = 0;
+      paintQuick();
+    }
+  };
+
+  const firstPendLyn = ots.find((o) => mapOtToSimpleLane(o) === 'simp_pendiente_lyn');
+
+  const quickBar = createMandoQuickBar({
+    onNuevaOt: toggleQuick,
+    onDocumento: () => navigateToView?.('ingreso-operativo'),
+    onMapa: () => navigateToView?.('gestion-ot'),
+    onAprobarPend: () => {
+      if (firstPendLyn) openDrawer(firstPendLyn, null);
+      else {
+        document.querySelector('.hnf-skb__lane:nth-child(3)')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    },
+  });
+
+  const fabLine =
+    nSinEvidencia > 0
+      ? `${nSinEvidencia} sin evidencia`
+      : jSig.nPendAprobacion > 0
+        ? `${jSig.nPendAprobacion} pend. Lyn`
+        : 'Jarvis';
+
+  const jarvisFab = createJarvisFloatingAssistant({
+    line: fabLine,
+    onOpen: () => {
+      const target = firstOtSinEv || jSig.focoOt || firstPendLyn;
+      if (target) openDrawer(target, null);
+      else document.querySelector('.hnf-mv2-jarvis-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+  });
+
+  const mainFlow = el('hnf-mv2-flow');
+  mainFlow.append(headerV2, kpisV2, jarvisHero, quickSheet, boardEl);
+  body.append(mainFlow);
 
   const backdrop = el('hnf-cc__drawer-backdrop', 'button');
   backdrop.type = 'button';
@@ -652,7 +615,7 @@ export function centroControlAlienView(props) {
   const primaryActRow = el('hnf-mp-drawer-actions-primary');
   const actRow = el('hnf-cc__act-row');
   const foot = el('hnf-cc__drawer-foot');
-  foot.textContent = 'Módulos para ejecutar';
+  foot.textContent = '';
 
   let selectedShell = null;
   let currentOt = null;
@@ -748,8 +711,6 @@ export function centroControlAlienView(props) {
       escHandler = null;
     }
     kanbanSetActive(null);
-    jarvisCore.setOt(null);
-    alienFlow.setOt(null);
     selectedShell = null;
     currentOt = null;
   }
@@ -791,8 +752,6 @@ export function centroControlAlienView(props) {
     selectedShell = shell;
     idEl.textContent = String(ot.id || '');
     sub.textContent = String(ot.cliente || '').trim() || '—';
-    jarvisCore.setOt(ot);
-    alienFlow.setOt(ot);
     kanbanSetActive(shell);
     fillDrawerSummary(ot);
     fillJarvisStrip(ot);
@@ -816,7 +775,7 @@ export function centroControlAlienView(props) {
 
   body.append(backdrop, drawer);
 
-  section.append(command, execStrip, jarvisPresenceEl, alienFlow.element, kpiRow, kpiDash, body);
+  section.append(body, quickBar, jarvisFab);
 
   return section;
 }
