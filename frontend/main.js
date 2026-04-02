@@ -33,6 +33,8 @@ import { otService } from './services/ot.service.js';
 import { vehicleService } from './services/vehicle.service.js';
 import { buildHnfAdnSnapshot } from './domain/hnf-adn.js';
 import { tarifaBaseOperativa } from './domain/flota-solicitud-economics.js';
+import { intelFilterActiveKeys } from './domain/clima-ot-intel-filters.js';
+import { buildClimaTrayPipeline } from './domain/clima-ot-tray-pipeline.js';
 import { climaView } from './views/clima.js';
 import { gestionOtView } from './views/gestion-ot.js';
 import { flotaView } from './views/flota.js';
@@ -901,7 +903,7 @@ const state = {
   selectedFlotaId: null,
   /** Tras crear solicitud: seleccionar esta id en el próximo loadViewData y limpiar filtro intel. */
   pendingFlotaSelectId: null,
-  /** Tras guardar OT en Clima: mantener selección y limpiar filtro intel si aplica. */
+  /** Tras crear/patch OT en Clima: reaplicar selección tras `loadViewData` (lista desde servidor). */
   pendingOtSelectId: null,
   otFeedback: null,
   flotaFeedback: null,
@@ -927,6 +929,8 @@ const state = {
   /** Tras redirigir control-operativo → jarvis, scroll al bloque #hnf-mando-principal-v2 */
   pendingScrollToMando: false,
   climaIntelFilter: null,
+  /** { kind: 'post_create_filtered', otId: string } | null — bandeja Clima */
+  climaTrayNotice: null,
   flotaIntelFilter: null,
   /** Contexto planificación (un disparo por navegación intel). */
   planIntelOneShot: null,
@@ -1052,14 +1056,43 @@ const preserveClimaSelectionForReload = (otId) => {
 const syncSelectedOT = () => {
   if (state.activeView !== 'clima') return;
 
-  const ots = state.viewData?.data || [];
+  const { ots, listOts } = buildClimaTrayPipeline(state.viewData, state.climaIntelFilter);
+
   if (state.pendingOtSelectId) {
     const want = state.pendingOtSelectId;
     state.pendingOtSelectId = null;
-    state.climaIntelFilter = null;
-    if (ots.some((o) => o.id === want)) {
+
+    const inFull = ots.some((o) => o.id === want);
+    const inFiltered = listOts.some((o) => o.id === want);
+
+    if (inFiltered) {
       state.selectedOTId = want;
+      state.climaTrayNotice = null;
       return;
+    }
+    if (inFull && intelFilterActiveKeys(state.climaIntelFilter).length > 0) {
+      state.selectedOTId = want;
+      state.climaTrayNotice = { kind: 'post_create_filtered', otId: want };
+      return;
+    }
+    if (inFull) {
+      state.selectedOTId = want;
+      state.climaTrayNotice = null;
+      return;
+    }
+
+    state.selectedOTId = want;
+    state.climaTrayNotice = null;
+    return;
+  }
+
+  if (state.climaTrayNotice?.kind === 'post_create_filtered' && state.climaTrayNotice.otId) {
+    const tid = state.climaTrayNotice.otId;
+    const inFull = ots.some((o) => o.id === tid);
+    const inFiltered = listOts.some((o) => o.id === tid);
+    const filterOn = intelFilterActiveKeys(state.climaIntelFilter).length > 0;
+    if (!inFull || inFiltered || !filterOn) {
+      state.climaTrayNotice = null;
     }
   }
 
@@ -1142,6 +1175,7 @@ const createActions = () => ({
   selectOT: (id) => {
     state.pendingOtSelectId = null;
     state.selectedOTId = id;
+    if (state.activeView === 'clima') state.climaTrayNotice = null;
     recomputeOtEconomicsSaved();
     render();
   },
@@ -1183,9 +1217,16 @@ const createActions = () => ({
 
   clearIntelUiFilters: () => {
     state.climaIntelFilter = null;
+    state.climaTrayNotice = null;
     state.flotaIntelFilter = null;
     state.intelGuidanceOneShot = null;
     state.commercialIntelOneShot = null;
+    render();
+  },
+
+  clearClimaTrayFilterToRevealOt: () => {
+    state.climaIntelFilter = null;
+    state.climaTrayNotice = null;
     render();
   },
 
@@ -1203,6 +1244,9 @@ const createActions = () => ({
     state.planIntelOneShot = null;
   },
 
+  /**
+   * @returns {Promise<{ ok: true, id: string } | { ok: false, message: string }>}
+   */
   createOT: async (payload) => {
     state.isSubmittingOT = true;
     state.otFeedback = null;
@@ -1210,21 +1254,43 @@ const createActions = () => ({
 
     try {
       const response = await otService.create(payload);
-      state.selectedOTId = response.data.id;
-      preserveClimaSelectionForReload(response.data.id);
+      const id = String(response?.data?.id ?? '').trim();
+      const serverOk = response?.success !== false;
+      if (!serverOk || !id) {
+        const message =
+          response?.error?.message ||
+          (!id && serverOk
+            ? 'El servidor respondió sin ID de OT. Revisá la lista o tocá «Actualizar datos».'
+            : 'No se pudo crear la orden de trabajo.');
+        state.otFeedback = { type: 'error', message };
+        render();
+        return { ok: false, message };
+      }
+
+      preserveClimaSelectionForReload(id);
+      state.selectedOTId = id;
+      state.climaTrayNotice = null;
       state.otFeedback = {
         type: 'success',
-        message: 'OT creada. Seleccionála en el listado para cargar equipos, evidencias y cierre.',
+        message: `OT ${id} creada. Sincronizando…`,
       };
       await loadViewData();
-      return true;
+      state.otFeedback = {
+        type: 'success',
+        message: state.climaTrayNotice
+          ? `OT ${id} lista. Si no ves la fila: aviso de filtro arriba.`
+          : `OT ${id} creada. Bandeja actualizada.`,
+      };
+      return { ok: true, id };
     } catch (error) {
+      const message =
+        error.message || 'No se pudo crear la orden de trabajo. Revisá los datos o la conexión.';
       state.otFeedback = {
         type: 'error',
-        message: error.message || 'No se pudo crear la orden de trabajo. Revisá los datos o la conexión.',
+        message,
       };
       render();
-      return false;
+      return { ok: false, message };
     } finally {
       state.isSubmittingOT = false;
       render();
@@ -1692,6 +1758,7 @@ async function navigateToView(viewId, intelOptions = null) {
   if (viewId !== 'clima' && viewId !== 'gestion-ot') {
     state.otFeedback = null;
     state.climaIntelFilter = null;
+    state.climaTrayNotice = null;
   }
   if (viewId !== 'flota') {
     state.flotaFeedback = null;
@@ -1943,6 +2010,7 @@ const render = () => {
         navigateToView,
         intelNavigate,
         intelListFilter: state.activeView === 'clima' ? state.climaIntelFilter : null,
+        climaTrayNotice: state.activeView === 'clima' ? state.climaTrayNotice : null,
         flotaIntelFilter: state.activeView === 'flota' ? state.flotaIntelFilter : null,
         intelPlanContext: state.activeView === 'planificacion' ? state.planIntelOneShot : null,
         intelGuidance:

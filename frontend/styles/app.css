@@ -598,6 +598,29 @@ select option {
   margin: 0 0 16px;
 }
 
+.hnf-clima-tray-notice {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  background: rgba(251, 191, 36, 0.09);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.hnf-clima-tray-notice__text {
+  margin: 0;
+  flex: 1 1 220px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.hnf-clima-tray-notice__cta {
+  flex-shrink: 0;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1384,6 +1407,11 @@ select option {
   resize: vertical;
 }
 
+.hnf-otcw-textarea--sm {
+  min-height: 64px;
+  max-height: 140px;
+}
+
 .hnf-otcw-field-error {
   margin: 4px 0 0;
   font-size: 13px;
@@ -1424,6 +1452,39 @@ select option {
   flex-wrap: wrap;
   gap: 10px;
   margin-left: auto;
+}
+
+.hnf-otcw__footer-center {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hnf-otcw__footer-draft,
+.hnf-otcw__footer-hint,
+.hnf-otcw__footer-wizard-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.hnf-otcw__footer-draft--ok {
+  color: #86efac;
+  font-weight: 600;
+}
+
+.hnf-otcw__footer-wizard-error {
+  color: #fecaca;
+  font-weight: 600;
+}
+
+.hnf-otcw-confirm-lead {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .otcw-equipos {

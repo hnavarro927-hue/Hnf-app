@@ -1,7 +1,6 @@
 import { mergeEquipoChecklist } from '../constants/hvacChecklist.js';
 import { otFormDefinition } from '../config/form-definitions.js';
 import { buildOtOperationalBrief } from '../domain/operational-intelligence.js';
-import { monthRangeYmd } from '../domain/hnf-intelligence-engine.js';
 import { getSessionBackendRole } from '../config/session-bridge.js';
 import { filtrarOtsPorRolBackend } from '../domain/hnf-operativa-reglas.js';
 import { resolveOperatorRole } from '../domain/hnf-operator-role.js';
@@ -50,8 +49,22 @@ import {
   labelPrioridadOperativa,
 } from '../constants/hnf-ot-operation.js';
 import { computeOtSlaTierForClimaListItem } from '../domain/hnf-ot-sla-presentation.js';
+import {
+  filterOtsIntelList,
+  intelFilterActiveKeys,
+  isOtEstadoCerradaUi,
+  roundEcon,
+} from '../domain/clima-ot-intel-filters.js';
 
 const CLIMA_CREATE_DRAFT_KEY = 'hnf-clima-ot-create-draft';
+
+const otcwDevLog = (action, detail) => {
+  try {
+    if (import.meta.env?.DEV) console.debug('[HNF][OT-Wizard]', action, detail ?? '');
+  } catch {
+    /* sin import.meta */
+  }
+};
 
 const OT_STATUS_OPTIONS = [
   { value: 'nueva', label: 'Nueva' },
@@ -62,9 +75,6 @@ const OT_STATUS_OPTIONS = [
   { value: 'finalizada', label: 'Finalizada' },
   { value: 'facturada', label: 'Facturada' },
 ];
-
-const isOtEstadoCerradaUi = (e) =>
-  ['terminado', 'cerrada', 'cerrado', 'finalizada', 'facturada'].includes(String(e || '').toLowerCase());
 
 const MAX_EQUIPOS = 12;
 const EQ_ESTADOS = ['operativo', 'mantenimiento', 'falla'];
@@ -740,6 +750,24 @@ const otcwApplyFieldErrors = (form, errors) => {
   }
 };
 
+const otcwFocusFirstErrorField = (form, errors) => {
+  const names = Object.keys(errors || {});
+  if (!names.length) return;
+  requestAnimationFrame(() => {
+    for (const name of names) {
+      const w = form.querySelector(`.hnf-otcw-field[data-otcw-field="${name}"]`);
+      if (!w) continue;
+      const el = w.querySelector(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      );
+      if (el) {
+        el.focus({ preventScroll: true });
+        return;
+      }
+    }
+  });
+};
+
 const createOtWorkspaceEquipoRow = () => {
   const fs = document.createElement('fieldset');
   fs.className = 'otcw-equipo-row';
@@ -785,12 +813,7 @@ const createOtWorkspaceEquipoRow = () => {
   obsCorta.name = 'equipoObsCortaWs';
   obsCorta.autocomplete = 'off';
 
-  grid.append(
-    mk('Nombre equipo', nombre),
-    mk('Tipo', tipo),
-    mk('Estado inicial', estado),
-    mk('Observación corta', obsCorta)
-  );
+  grid.append(mk('Nombre', nombre), mk('Tipo', tipo), mk('Estado', estado));
 
   const { details: det, body: body } = createHnfEwDetails('Más datos', false);
   const inner = document.createElement('div');
@@ -807,7 +830,12 @@ const createOtWorkspaceEquipoRow = () => {
   const rec = document.createElement('textarea');
   rec.name = 'equipoRecWs';
   rec.rows = 2;
-  inner.append(mk('Nº serie', serie), mk('Ubicación', ubic), mk('Recomendación', rec));
+  inner.append(
+    mk('Observación corta', obsCorta),
+    mk('Nº serie', serie),
+    mk('Ubicación', ubic),
+    mk('Recomendación', rec)
+  );
   body.append(inner);
 
   const rm = document.createElement('button');
@@ -955,8 +983,9 @@ const readCreateOtDraft = () => {
   }
 };
 
+/** @returns {boolean} */
 const writeCreateOtDraft = (form, equiposHost) => {
-  if (!form) return;
+  if (!form) return false;
   try {
     const snap = {};
     const els = form.elements;
@@ -972,8 +1001,9 @@ const writeCreateOtDraft = (form, equiposHost) => {
     }
     if (equiposHost) snap.__otcwEquipos = serializeWorkspaceEquiposForDraft(equiposHost);
     localStorage.setItem(CLIMA_CREATE_DRAFT_KEY, JSON.stringify(snap));
+    return true;
   } catch {
-    /* quota */
+    return false;
   }
 };
 
@@ -1934,12 +1964,6 @@ const parseMoneyInput = (v) => {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
-const roundEcon = (v) => {
-  const n = Number.parseFloat(String(v ?? '').replace(',', '.'));
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100) / 100;
-};
-
 const formatClp = (n) => {
   if (!Number.isFinite(n)) return '—';
   return n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
@@ -1973,43 +1997,6 @@ const utilidadToneClass = (utilidad, monto) => {
   if (utilidad > 0) return 'ot-econ-kpi--pos';
   if (utilidad < 0) return 'ot-econ-kpi--neg';
   return 'ot-econ-kpi--neutral';
-};
-
-const intelFilterActiveKeys = (f) =>
-  f && typeof f === 'object'
-    ? Object.keys(f).filter((k) => f[k] != null && f[k] !== false && f[k] !== '')
-    : [];
-
-const filterOtsIntelList = (list, intelListFilter) => {
-  if (!intelFilterActiveKeys(intelListFilter).length) return list;
-  let out = list;
-  if (intelListFilter.soloMesActual) {
-    const { start, end } = monthRangeYmd();
-    out = out.filter((o) => o.fecha >= start && o.fecha <= end);
-  }
-  if (intelListFilter.sinCostoTerminadas) {
-    out = out.filter((o) => isOtEstadoCerradaUi(o.estado) && roundEcon(o.costoTotal) <= 0);
-  }
-  if (intelListFilter.sinCobroConPdf) {
-    out = out.filter(
-      (o) =>
-        isOtEstadoCerradaUi(o.estado) &&
-        o.pdfUrl &&
-        String(o.pdfUrl).trim() &&
-        roundEcon(o.montoCobrado) <= 0
-    );
-  }
-  if (intelListFilter.sinPdfTerminadas) {
-    out = out.filter((o) => isOtEstadoCerradaUi(o.estado) && (!o.pdfUrl || !String(o.pdfUrl).trim()));
-  }
-  if (intelListFilter.soloAbiertas) {
-    out = out.filter((o) => !isOtEstadoCerradaUi(o.estado));
-  }
-  if (intelListFilter.clienteContains) {
-    const q = String(intelListFilter.clienteContains).toLowerCase();
-    out = out.filter((o) => String(o.cliente || '').toLowerCase().includes(q));
-  }
-  return out;
 };
 
 const buildClimaIntelChecklist = (ot, economicsSaved) => {
@@ -2162,6 +2149,7 @@ export const climaView = ({
   intelGuidance,
   isPatchingOtOperational,
   navigateToView,
+  climaTrayNotice = null,
 } = {}) => {
   const header = document.createElement('div');
   header.className = 'module-header flota-module-header--enterprise';
@@ -2178,6 +2166,22 @@ export const climaView = ({
     header.append(notice);
   }
 
+  if (climaTrayNotice?.kind === 'post_create_filtered' && climaTrayNotice.otId) {
+    const trayWrap = document.createElement('div');
+    trayWrap.className = 'hnf-clima-tray-notice workspace-notice';
+    trayWrap.setAttribute('role', 'status');
+    const trayP = document.createElement('p');
+    trayP.className = 'hnf-clima-tray-notice__text';
+    trayP.textContent = `OT ${climaTrayNotice.otId}: el filtro oculta la fila en la bandeja. La ficha al centro es esa orden.`;
+    const trayBtn = document.createElement('button');
+    trayBtn.type = 'button';
+    trayBtn.className = 'secondary-button hnf-clima-tray-notice__cta';
+    trayBtn.textContent = 'Ver todas';
+    trayBtn.addEventListener('click', () => actions?.clearClimaTrayFilterToRevealOt?.());
+    trayWrap.append(trayP, trayBtn);
+    header.append(trayWrap);
+  }
+
   const climaToolbar = document.createElement('div');
   climaToolbar.className = 'module-toolbar';
   const climaRefresh = document.createElement('button');
@@ -2187,18 +2191,13 @@ export const climaView = ({
   climaRefresh.title = 'Vuelve a cargar la lista de OT desde el servidor.';
   const climaRefreshHint = document.createElement('span');
   climaRefreshHint.className = 'muted module-toolbar__hint';
-  climaRefreshHint.textContent = 'Sincronizá si otra persona editó o llevás la pantalla abierta mucho tiempo.';
+  climaRefreshHint.textContent = 'Recarga la lista desde el servidor.';
   climaRefresh.addEventListener('click', async () => {
     if (typeof reloadApp !== 'function') return;
     const prev = climaRefresh.textContent;
     climaRefresh.disabled = true;
     climaRefresh.textContent = 'Actualizando…';
-    actions?.showFeedback?.({ type: 'neutral', message: 'Sincronizando órdenes…' });
     const ok = await reloadApp();
-    actions?.showFeedback?.({
-      type: ok ? 'success' : 'error',
-      message: ok ? 'Datos al día con el servidor.' : 'Sin conexión o error al actualizar.',
-    });
     climaRefresh.textContent = ok ? 'Listo' : 'Error';
     setTimeout(() => {
       climaRefresh.textContent = prev;
@@ -2215,9 +2214,13 @@ export const climaView = ({
     ots = [];
   }
   const listOts = filterOtsIntelList(ots, intelListFilter);
-  const effectiveSelectedId = listOts.some((item) => item.id === selectedOTId)
+  const selectedInFiltered = listOts.some((item) => item.id === selectedOTId);
+  const selectedInFull = ots.some((item) => item.id === selectedOTId);
+  const effectiveSelectedId = selectedInFiltered
     ? selectedOTId
-    : listOts[0]?.id ?? selectedOTId;
+    : selectedInFull
+      ? selectedOTId
+      : listOts[0]?.id ?? selectedOTId ?? null;
   const selectedOT = ots.find((item) => item.id === effectiveSelectedId) || ots[0] || null;
   const pendingCount = ots.filter((item) => {
     const s = String(item.estado || '')
@@ -2327,9 +2330,13 @@ export const climaView = ({
   const g1 = document.createElement('div');
   g1.className = 'hnf-otcw-grid';
   otcwAppendDef(g1, ['fecha', 'hora', 'tipoServicio', 'subtipoServicio']);
-  const { details: d1, body: b1 } = createHnfEwDetails('Más datos', false);
-  const g1m = document.createElement('div');
-  g1m.className = 'hnf-otcw-grid';
+  panel1.append(g1);
+
+  const panel2 = mkPanel(2);
+  const g2 = document.createElement('div');
+  g2.className = 'hnf-otcw-grid';
+  const opOpts = HNF_OT_ORIGEN_PEDIDO.filter((o) => o.value);
+  g2.append(otcwMkSelect('origenPedidoWs', 'Origen del pedido', opOpts));
   const prSel = document.createElement('select');
   prSel.name = 'prioridadOperativaCreate';
   HNF_OT_PRIORIDAD_OPERATIVA.forEach((o) => {
@@ -2345,30 +2352,7 @@ export const climaView = ({
   prSp.className = 'form-field__label';
   prSp.textContent = 'Prioridad operativa';
   prLb.append(prSp, prSel);
-  g1m.append(otcwWrapField(prLb));
-  const osSel = document.createElement('select');
-  osSel.name = 'origenSolicitudCreate';
-  HNF_OT_ORIGEN_SOLICITUD.forEach((o) => {
-    const op = document.createElement('option');
-    op.value = o.value;
-    op.textContent = o.label;
-    osSel.append(op);
-  });
-  const osLb = document.createElement('label');
-  osLb.className = 'form-field hnf-otcw-field__inner';
-  const osSp = document.createElement('span');
-  osSp.className = 'form-field__label';
-  osSp.textContent = 'Origen de la solicitud';
-  osLb.append(osSp, osSel);
-  g1m.append(otcwWrapField(osLb));
-  b1.append(g1m);
-  panel1.append(g1, d1);
-
-  const panel2 = mkPanel(2);
-  const g2 = document.createElement('div');
-  g2.className = 'hnf-otcw-grid';
-  const opOpts = HNF_OT_ORIGEN_PEDIDO.filter((o) => o.value);
-  g2.append(otcwMkSelect('origenPedidoWs', 'Origen del pedido', opOpts));
+  g2.append(otcwWrapField(prLb));
   g2.append(
     otcwMkSelect('responsableHnfWs', 'Responsable HNF', [
       { value: '', label: '—' },
@@ -2419,6 +2403,21 @@ export const climaView = ({
   const { details: d2, body: b2 } = createHnfEwDetails('Más datos', false);
   const g2m = document.createElement('div');
   g2m.className = 'hnf-otcw-grid';
+  const osSel = document.createElement('select');
+  osSel.name = 'origenSolicitudCreate';
+  HNF_OT_ORIGEN_SOLICITUD.forEach((o) => {
+    const op = document.createElement('option');
+    op.value = o.value;
+    op.textContent = o.label;
+    osSel.append(op);
+  });
+  const osLb = document.createElement('label');
+  osLb.className = 'form-field hnf-otcw-field__inner';
+  const osSp = document.createElement('span');
+  osSp.className = 'form-field__label';
+  osSp.textContent = 'Origen de la solicitud';
+  osLb.append(osSp, osSel);
+  g2m.append(otcwWrapField(osLb));
   const waN = document.createElement('input');
   waN.type = 'tel';
   waN.name = 'whatsappNumeroCreate';
@@ -2437,16 +2436,7 @@ export const climaView = ({
   waNmSp.className = 'form-field__label';
   waNmSp.textContent = 'WhatsApp · nombre';
   waNmLb.append(waNmSp, waNm);
-  const coLb = document.createElement('label');
-  coLb.className = 'form-field hnf-otcw-field__inner';
-  const coSp = document.createElement('span');
-  coSp.className = 'form-field__label';
-  coSp.textContent = 'Observación de coordinación';
-  const coTa = document.createElement('textarea');
-  coTa.name = 'coordObsCreate';
-  coTa.rows = 2;
-  coLb.append(coSp, coTa);
-  g2m.append(otcwWrapField(waNLb), otcwWrapField(waNmLb), otcwWrapField(coLb));
+  g2m.append(otcwWrapField(waNLb), otcwWrapField(waNmLb));
   g2m.append(otcwMkSelect('operationModeWs', 'Modo de asignación', HNF_OT_OPERATION_MODES));
   const idLb = document.createElement('label');
   idLb.className = 'form-field hnf-otcw-field__inner';
@@ -2468,20 +2458,41 @@ export const climaView = ({
   const rtLb = document.createElement('label');
   rtLb.className = 'form-field hnf-otcw-field__inner';
   rtLb.append(
-    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Descripción corta' }),
-    Object.assign(document.createElement('textarea'), { name: 'resumenTrabajo', rows: 3, className: 'hnf-otcw-textarea' })
+    Object.assign(document.createElement('span'), {
+      className: 'form-field__label',
+      textContent: 'Descripción breve',
+    }),
+    Object.assign(document.createElement('textarea'), {
+      name: 'resumenTrabajo',
+      rows: 2,
+      className: 'hnf-otcw-textarea hnf-otcw-textarea--sm',
+    })
   );
-  const rqLb = document.createElement('label');
-  rqLb.className = 'form-field hnf-otcw-field__inner';
-  rqLb.append(
-    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Requerimiento del cliente' }),
-    Object.assign(document.createElement('textarea'), { name: 'reqClienteWs', rows: 3, className: 'hnf-otcw-textarea' })
+  const coLb = document.createElement('label');
+  coLb.className = 'form-field hnf-otcw-field__inner';
+  coLb.append(
+    Object.assign(document.createElement('span'), {
+      className: 'form-field__label',
+      textContent: 'Observaciones operativas',
+    }),
+    Object.assign(document.createElement('textarea'), {
+      name: 'coordObsCreate',
+      rows: 2,
+      className: 'hnf-otcw-textarea hnf-otcw-textarea--sm',
+    })
   );
   const oiLb = document.createElement('label');
   oiLb.className = 'form-field hnf-otcw-field__inner';
   oiLb.append(
-    Object.assign(document.createElement('span'), { className: 'form-field__label', textContent: 'Observación interna' }),
-    Object.assign(document.createElement('textarea'), { name: 'observacionesInternaWs', rows: 3, className: 'hnf-otcw-textarea' })
+    Object.assign(document.createElement('span'), {
+      className: 'form-field__label',
+      textContent: 'Comentario técnico',
+    }),
+    Object.assign(document.createElement('textarea'), {
+      name: 'observacionesInternaWs',
+      rows: 2,
+      className: 'hnf-otcw-textarea hnf-otcw-textarea--sm',
+    })
   );
   const { details: d3, body: b3 } = createHnfEwDetails('Más datos', false);
   const g3m = document.createElement('div');
@@ -2501,7 +2512,7 @@ export const climaView = ({
   );
   g3m.append(otcwWrapField(refLb));
   b3.append(g3m);
-  g3.append(otcwWrapField(rtLb), otcwWrapField(rqLb), otcwWrapField(oiLb));
+  g3.append(otcwWrapField(rtLb), otcwWrapField(coLb), otcwWrapField(oiLb));
   panel3.append(g3, d3);
 
   const panel4 = mkPanel(4);
@@ -2521,6 +2532,9 @@ export const climaView = ({
   panel4.append(eqHost, addEqBtn);
 
   const panel5 = mkPanel(5);
+  const confirmLead = document.createElement('p');
+  confirmLead.className = 'hnf-otcw-confirm-lead';
+  confirmLead.textContent = 'Último paso: revisá y pulsá Crear OT (único envío al servidor).';
   const review = document.createElement('div');
   review.className = 'hnf-otcw-review';
   review.innerHTML =
@@ -2535,16 +2549,37 @@ export const climaView = ({
       li.innerHTML = `<strong>${k}:</strong> ${v || '—'}`;
       reviewList.append(li);
     };
-    add('Cliente', form.elements.cliente?.value);
-    add('Ubicación', `${form.elements.direccion?.value || ''}, ${form.elements.comuna?.value || ''}`);
-    add('Contacto', `${form.elements.contactoTerreno?.value || ''}`);
-    add('Teléfono', form.elements.telefonoContacto?.value);
-    add('Servicio', `${form.elements.tipoServicio?.value || ''} / ${form.elements.subtipoServicio?.value || ''}`);
-    add('Fecha', `${form.elements.fecha?.value || ''} ${form.elements.hora?.value || ''}`);
-    add('Pedido / técnico', `${form.elements.origenPedidoWs?.value || ''} · ${resolveTecnicoFromAltaForm(form)}`);
+    const clip = (s, n) => {
+      const t = String(s || '').trim();
+      if (!t) return '';
+      return t.length > n ? `${t.slice(0, n)}…` : t;
+    };
+    const hasNotas = Boolean(
+      clip(form.elements.resumenTrabajo?.value, 1) ||
+        clip(form.elements.coordObsCreate?.value, 1) ||
+        clip(form.elements.observacionesInternaWs?.value, 1)
+    );
+    const nEq = eqHost.querySelectorAll('.otcw-equipo-row').length;
+    add(
+      'Cliente · lugar',
+      [form.elements.cliente?.value, form.elements.direccion?.value, form.elements.comuna?.value]
+        .map((x) => String(x || '').trim())
+        .filter(Boolean)
+        .join(' · ') || '—'
+    );
+    add(
+      'Visita',
+      `${form.elements.fecha?.value || '—'} ${form.elements.hora?.value || ''} · ${form.elements.tipoServicio?.value || '—'} / ${form.elements.subtipoServicio?.value || '—'}`
+    );
+    add(
+      'Pedido',
+      `${labelOrigenPedido(form.elements.origenPedidoWs?.value || '')} · ${labelPrioridadOperativa(form.elements.prioridadOperativaCreate?.value || '')} · ${resolveTecnicoFromAltaForm(form)} · ${form.elements.canalWs?.value || '—'}`
+    );
+    add('Notas', hasNotas ? 'Sí (revisá paso Notas si hace falta)' : '—');
+    add('Equipos', `${nEq} fila(s)`);
     if (reviewChecks) reviewChecks.textContent = '';
   };
-  panel5.append(review);
+  panel5.append(confirmLead, review);
 
   form.append(panel0, panel1, panel2, panel3, panel4, panel5);
 
@@ -2601,12 +2636,60 @@ export const climaView = ({
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
   submitButton.className = 'primary-button';
-  submitButton.textContent = isSubmitting ? 'Guardando…' : 'Crear OT';
+  submitButton.textContent = isSubmitting ? 'Creando en servidor…' : 'Crear OT';
   submitButton.disabled = Boolean(isSubmitting);
   const footerRight = document.createElement('div');
   footerRight.className = 'hnf-otcw__footer-right';
   footerRight.append(createBtnNext, submitButton);
-  createFooter.append(createBtnPrev, btnDraft, footerRight);
+  const footerCenter = document.createElement('div');
+  footerCenter.className = 'hnf-otcw__footer-center';
+  const draftStatusEl = document.createElement('p');
+  draftStatusEl.className = 'hnf-otcw__footer-draft muted';
+  draftStatusEl.setAttribute('role', 'status');
+  const ctaHintEl = document.createElement('p');
+  ctaHintEl.className = 'hnf-otcw__footer-hint muted';
+  const wizardErrEl = document.createElement('p');
+  wizardErrEl.className = 'hnf-otcw__footer-wizard-error';
+  wizardErrEl.hidden = true;
+  wizardErrEl.setAttribute('role', 'alert');
+  footerCenter.append(draftStatusEl, ctaHintEl, wizardErrEl);
+  createFooter.append(createBtnPrev, btnDraft, footerCenter, footerRight);
+
+  const formatDraftTime = () =>
+    new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const setWizardFooter = (opts = {}) => {
+    if ('draftLine' in opts && opts.draftLine != null) {
+      draftStatusEl.textContent = opts.draftLine;
+      draftStatusEl.classList.toggle('hnf-otcw__footer-draft--ok', Boolean(opts.draftLine));
+    }
+    if ('hint' in opts) ctaHintEl.textContent = opts.hint ?? '';
+    if ('error' in opts) {
+      if (opts.error) {
+        wizardErrEl.textContent = opts.error;
+        wizardErrEl.hidden = false;
+      } else {
+        wizardErrEl.textContent = '';
+        wizardErrEl.hidden = true;
+      }
+    }
+  };
+
+  ctaHintEl.textContent = 'Borrador automático. Servidor: solo con Crear OT.';
+
+  const persistDraftAndNotify = (label) => {
+    const ok = writeCreateOtDraft(form, eqHost);
+    const t = formatDraftTime();
+    if (ok) {
+      otcwDevLog('draft_saved', { label, t });
+      setWizardFooter({ draftLine: `${label} ${t}` });
+    } else {
+      setWizardFooter({
+        draftLine: `Sin guardar · ${t}`,
+        error: 'No se pudo guardar el borrador en este equipo. Los datos siguen en pantalla.',
+      });
+    }
+  };
 
   const focusFirstOtcwInput = () => {
     requestAnimationFrame(() => {
@@ -2621,14 +2704,12 @@ export const climaView = ({
 
   const refreshOtcwActionState = () => {
     const last = OT_CREATE_WORKSPACE_STAGE_COUNT - 1;
-    if (createStageIdx < last) {
-      const v = validateOtCreateWorkspaceStage(form, createStageIdx);
-      createBtnNext.disabled = !v.ok;
-      submitButton.disabled = Boolean(isSubmitting);
-    } else {
+    createBtnNext.disabled = false;
+    createBtnNext.title = '';
+    submitButton.disabled = Boolean(isSubmitting);
+    submitButton.title = isSubmitting ? 'Enviando…' : '';
+    if (createStageIdx >= last) {
       createBtnNext.disabled = true;
-      const sv = validateOtCreateWorkspaceSubmit(form);
-      submitButton.disabled = Boolean(isSubmitting) || !sv.ok;
     }
   };
 
@@ -2638,7 +2719,6 @@ export const climaView = ({
     prevCreateStageForDraft = n;
     createStageIdx = n;
     writeStoredStageIndex(createStageKey, n);
-    otcwClearFieldErrors(form);
     form.querySelectorAll('.hnf-otcw-stage').forEach((el) => {
       el.hidden = Number(el.dataset.createStage) !== n;
     });
@@ -2653,6 +2733,11 @@ export const climaView = ({
     if (n === OT_CREATE_WORKSPACE_STAGE_COUNT - 1) refreshReview();
     paintCreateProgress();
     refreshOtcwActionState();
+    otcwDevLog('step', { index: n, id: OT_CREATE_WORKSPACE_STAGES[n]?.id });
+    createBtnNext.setAttribute(
+      'aria-label',
+      n < OT_CREATE_WORKSPACE_STAGE_COUNT - 1 ? `Validar y paso al siguiente (${OT_CREATE_WORKSPACE_STAGES[n + 1]?.label || ''})` : ''
+    );
     focusFirstOtcwInput();
   };
 
@@ -2685,24 +2770,33 @@ export const climaView = ({
   btnCloseCreate.addEventListener('click', () => createDialog.close());
   createBtnPrev.addEventListener('click', () => setCreateStage(createStageIdx - 1));
   btnDraft.addEventListener('click', () => {
-    writeCreateOtDraft(form, eqHost);
-    actions?.showFeedback?.({ type: 'success', message: 'Borrador guardado.' });
+    persistDraftAndNotify('Guardado');
   });
   createBtnNext.addEventListener('click', () => {
     const v = validateOtCreateWorkspaceStage(form, createStageIdx);
     if (!v.ok) {
       otcwApplyFieldErrors(form, v.errors);
+      otcwFocusFirstErrorField(form, v.errors);
+      otcwDevLog('validation_fail', { stage: createStageIdx, errors: v.errors });
       return;
     }
+    otcwClearFieldErrors(form);
+    setWizardFooter({ error: '' });
     setCreateStage(createStageIdx + 1);
   });
 
   attachCreateOtAutocomplete(form, ots);
-  applyCreateOtDraft(form, readCreateOtDraft(), eqHost);
+  const initialDraft = readCreateOtDraft();
+  const hadMeaningfulDraft =
+    Boolean(initialDraft && typeof initialDraft === 'object' && Object.keys(initialDraft).length > 0);
+  applyCreateOtDraft(form, initialDraft, eqHost);
+  if (hadMeaningfulDraft) {
+    persistDraftAndNotify('Restaurado');
+  }
   const onFormLive = () => {
     refreshOtcwActionState();
     window.clearTimeout(draftSaveTimer);
-    draftSaveTimer = window.setTimeout(() => writeCreateOtDraft(form, eqHost), 450);
+    draftSaveTimer = window.setTimeout(() => persistDraftAndNotify('Guardado'), 450);
   };
   form.addEventListener('input', onFormLive);
   form.addEventListener('change', onFormLive);
@@ -2716,15 +2810,51 @@ export const climaView = ({
       const target = getOtCreateWorkspaceStageForSubmitErrors(v.errors);
       setCreateStage(target);
       otcwApplyFieldErrors(form, v.errors);
+      otcwFocusFirstErrorField(form, v.errors);
+      otcwDevLog('validation_fail', { submit: true, errors: v.errors });
+      setWizardFooter({ error: 'Falta completar datos obligatorios (revisá los campos marcados).' });
       return;
     }
     const equipos = collectEquiposFromWorkspace(eqHost);
     const payload = buildOtCreateWorkspacePayload(form, equipos, resolveTecnicoFromAltaForm);
-    const created = await actions.createOT(payload);
-    if (created) {
+    const result = await actions.createOT(payload);
+    if (result?.ok) {
+      otcwDevLog('create_success', { id: result.id });
       clearCreateOtDraft();
+      otcwClearFieldErrors(form);
+      setWizardFooter({ draftLine: '', error: '' });
+      form.reset();
+      const prEl = form.elements.prioridadOperativaCreate;
+      if (prEl) {
+        for (let i = 0; i < prEl.options.length; i++) {
+          if (prEl.options[i].value === 'media') {
+            prEl.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      const opEl = form.elements.operationModeWs;
+      if (opEl) {
+        for (let i = 0; i < opEl.options.length; i++) {
+          if (opEl.options[i].value === 'manual') {
+            opEl.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      applyWorkspaceEquiposFromDraft(eqHost, []);
+      form.elements.origenSolicitudCreate?.dispatchEvent(new Event('change', { bubbles: true }));
+      form.elements.tecnicoPreset?.dispatchEvent(new Event('change', { bubbles: true }));
+      form.elements.origenPedidoWs?.dispatchEvent(new Event('change', { bubbles: true }));
+      prevCreateStageForDraft = -1;
       writeStoredStageIndex(createStageKey, 0);
+      setCreateStage(0);
       createDialog.close();
+    } else {
+      otcwDevLog('create_fail', { message: result?.message });
+      setWizardFooter({
+        error: result?.message || 'No se pudo crear la OT. El borrador se mantiene.',
+      });
     }
   });
 
@@ -2735,6 +2865,8 @@ export const climaView = ({
   btnOpenCreate.className = 'primary-button hnf-clima-action-bar__primary';
   btnOpenCreate.textContent = 'Crear nueva OT';
   btnOpenCreate.addEventListener('click', () => {
+    otcwClearFieldErrors(form);
+    setWizardFooter({ error: '' });
     createDialog.showModal();
     requestAnimationFrame(() => {
       refreshOtcwActionState();

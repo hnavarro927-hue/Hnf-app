@@ -1,6 +1,13 @@
 /**
- * OT Creation Workspace — etapas, validación por paso y armado de payload (Clima).
- * No bloquea avance por campos secundarios; lo crítico para API se valida por etapa / submit.
+ * Contrato — Alta OT Clima (wizard operativo)
+ *
+ * - Superficie única (dialog) con 6 pasos fijos; el servidor solo recibe POST en el paso final.
+ * - "Siguiente": valida solo el paso actual, persiste borrador (localStorage) y avanza. No llama create.
+ * - "Crear OT": valida pasos 0–2 (mínimos API), arma payload y ejecuta create una sola vez.
+ * - Borrador: clave `hnf-clima-ot-create-draft` + índice de paso en flow storage; limpiar solo tras create OK.
+ * - Errores: por campo (data-otcw-field) + mensajes de estado en footer del wizard (sin bloqueos silenciosos).
+ *
+ * Pasos: 0 Cliente · 1 Visita (solo fecha/hora/tipo/subtipo) · 2 Pedido · 3 Notas · 4 Equipos · 5 Confirmar.
  */
 
 const q = (form, name) => String(form?.elements?.[name]?.value ?? '').trim();
@@ -11,7 +18,7 @@ export const OT_CREATE_WORKSPACE_STAGES = [
   { id: 'pedido', label: 'Pedido' },
   { id: 'notas', label: 'Notas' },
   { id: 'equipos', label: 'Equipos' },
-  { id: 'listo', label: 'Listo' },
+  { id: 'confirmar', label: 'Confirmar' },
 ];
 
 export const OT_CREATE_WORKSPACE_STAGE_COUNT = OT_CREATE_WORKSPACE_STAGES.length;
@@ -43,6 +50,7 @@ export function validateOtCreateWorkspaceStage(form, stageIndex) {
 
   if (stageIndex === 2) {
     if (!q(form, 'origenPedidoWs')) set('origenPedidoWs', 'Indicá cómo entró el pedido.');
+    if (!q(form, 'canalWs')) set('canalWs', 'Indicá el canal.');
     const os = q(form, 'origenSolicitudCreate');
     if (!os) {
       const el = form.elements.origenSolicitudCreate;
@@ -75,7 +83,7 @@ export function validateOtCreateWorkspaceSubmit(form) {
   return { ok: Object.keys(errors).length === 0, errors };
 }
 
-/** Map de campo → etapa del workspace (0–2) para navegar tras fallo de submit. */
+/** Map de campo → etapa del wizard para navegar tras fallo de submit (incluye notas = 3). */
 const SUBMIT_ERROR_FIELD_STAGE = {
   cliente: 0,
   direccion: 0,
@@ -88,8 +96,8 @@ const SUBMIT_ERROR_FIELD_STAGE = {
   hora: 1,
   tipoServicio: 1,
   subtipoServicio: 1,
-  prioridadOperativaCreate: 1,
-  origenSolicitudCreate: 1,
+  prioridadOperativaCreate: 2,
+  origenSolicitudCreate: 2,
   origenPedidoWs: 2,
   whatsappNumeroCreate: 2,
   whatsappNombreCreate: 2,
@@ -97,9 +105,13 @@ const SUBMIT_ERROR_FIELD_STAGE = {
   canalWs: 2,
   tecnicoPreset: 2,
   tecnicoOtro: 2,
-  coordObsCreate: 2,
+  coordObsCreate: 3,
   operationModeWs: 2,
   otCustomId: 2,
+  resumenTrabajo: 3,
+  observacionesInternaWs: 3,
+  tipoFacturacionWs: 3,
+  refFacturacionWs: 3,
 };
 
 /**
@@ -136,17 +148,13 @@ export function buildOtCreateWorkspacePayload(form, equipos, resolveTecnico) {
   if (sucursal) meta.push(`Sucursal / tienda: ${sucursal}`);
   if (canal) meta.push(`Canal: ${canal}`);
   if (responsableHnf) meta.push(`Responsable HNF: ${responsableHnf}`);
-  if (coordObs) meta.push(`Coordinación: ${coordObs}`);
-  if (obsInt) meta.push(`Nota interna: ${obsInt}`);
+  if (coordObs) meta.push(`Obs. operativas: ${coordObs}`);
+  if (obsInt) meta.push(`Comentario técnico: ${obsInt}`);
   if (meta.length) {
     observaciones = [meta.join('\n'), observaciones].filter(Boolean).join('\n\n');
   }
 
-  const reqCliente = q(form, 'reqClienteWs');
   let recomendaciones = q(form, 'recomendaciones');
-  if (reqCliente) {
-    recomendaciones = [reqCliente, recomendaciones].filter(Boolean).join('\n\n');
-  }
 
   const tipoFact = q(form, 'tipoFacturacionWs');
   const refFact = q(form, 'refFacturacionWs');
