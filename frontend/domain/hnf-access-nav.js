@@ -11,12 +11,12 @@ const byId = (id) => HNF_OS_NAV_ADMIN.find((x) => x.id === id);
  * Bandejas duplicadas y Equipo no van al menú principal (acceso por rol o rutas internas).
  */
 export const HNF_FULL_NAV_ORDER = [
+  'centro-control',
   'matriz-hnf',
   'control-gerencial',
   'finanzas',
   'jarvis',
   'ingreso-operativo',
-  'centro-control',
   'lyn-aprobacion',
   'planificacion',
   'clima',
@@ -47,7 +47,17 @@ export function navItemsFromModules(modules) {
     return HNF_FULL_NAV_ORDER.map((id) => EXTRA_NAV[id] || byId(id)).filter(Boolean);
   }
   const out = [];
+  const mandoNav =
+    mods.includes('centro-control') ||
+    mods.includes('clima') ||
+    mods.includes('flota') ||
+    mods.includes('operacion-control');
+  if (mandoNav) {
+    const m = byId('centro-control');
+    if (m) out.push(m);
+  }
   for (const id of HNF_FULL_NAV_ORDER) {
+    if (id === 'centro-control' && mandoNav) continue;
     if (mods.includes(id)) {
       const item = EXTRA_NAV[id] || byId(id);
       if (item) out.push(item);
@@ -60,6 +70,15 @@ export function isViewAllowedForModules(modules, viewId) {
   if (viewId === 'sin-acceso') return true;
   const mods = Array.isArray(modules) ? modules : [];
   const id = String(viewId || '');
+  if (id === 'centro-control') {
+    return (
+      mods.includes('*') ||
+      mods.includes('centro-control') ||
+      mods.includes('clima') ||
+      mods.includes('flota') ||
+      mods.includes('operacion-control')
+    );
+  }
   if (id === 'ingreso-clasico') {
     return mods.includes('*') || mods.includes('ingreso-operativo');
   }
@@ -73,11 +92,9 @@ export function isViewAllowedForModules(modules, viewId) {
 export function defaultViewForModules(modules) {
   const mods = Array.isArray(modules) ? modules : [];
   if (mods.includes('*')) {
-    const items = navItemsFromModules(modules);
-    return items.length ? items[0].id : 'sin-acceso';
+    return 'centro-control';
   }
-  if (mods.includes('clima')) return 'clima';
-  if (mods.includes('flota') && !mods.includes('clima')) return 'flota';
+  if (mods.includes('clima') || mods.includes('flota')) return 'centro-control';
   const items = navItemsFromModules(modules);
   if (items.length) return items[0].id;
   return 'sin-acceso';

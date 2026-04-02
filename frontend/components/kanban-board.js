@@ -4,9 +4,10 @@ import { KANBAN_LANE_IDS, getEffectiveEstadoOperativo, mapOtToLane } from '../do
 export const DEFAULT_KANBAN_LANE_LABELS = {
   ingreso: 'Ingreso',
   en_proceso: 'En proceso',
+  pendiente_aprobacion: 'Pendiente aprobación',
   observado: 'Observado',
-  aprobado: 'Aprobado / Lyn',
-  enviado: 'Enviado',
+  aprobado: 'Aprobado (Lyn)',
+  enviado: 'Enviado cliente',
   cerrado: 'Cerrado',
 };
 

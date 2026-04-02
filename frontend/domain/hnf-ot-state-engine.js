@@ -25,16 +25,17 @@ export function mapLegacyOtToEstadoOperativo(ot) {
   if (enviado) return 'enviado';
   if (lyn === 'aprobado_lyn') return 'aprobado';
   if (lyn === 'observado_lyn') return 'observado';
-  if (lyn === 'pendiente_revision_lyn') return 'aprobado';
+  if (lyn === 'pendiente_revision_lyn') return 'pendiente_aprobacion';
   if (lyn === 'devuelto_operaciones') return 'en_proceso';
 
   if (estado === 'cerrada') {
-    if (ambitoLyn && !lyn) return 'aprobado';
+    if (ambitoLyn && !lyn) return 'pendiente_aprobacion';
     return 'cerrado';
   }
 
   if (estado === 'en_proceso' || estado === 'en proceso') return 'en_proceso';
-  if (estado === 'pendiente_validacion' || estado === 'nueva' || estado === 'asignada' || estado === 'pendiente') {
+  if (estado === 'pendiente_validacion') return 'pendiente_aprobacion';
+  if (estado === 'nueva' || estado === 'asignada' || estado === 'pendiente') {
     return 'ingreso';
   }
 

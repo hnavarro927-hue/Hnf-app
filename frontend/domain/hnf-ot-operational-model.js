@@ -8,6 +8,7 @@
 export const OT_ESTADO_FLUJO = [
   'ingreso',
   'en_proceso',
+  'pendiente_aprobacion',
   'observado',
   'aprobado',
   'enviado',

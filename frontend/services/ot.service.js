@@ -24,4 +24,6 @@ export const otService = {
     httpClient
       .post(`${apiEndpoints.ots}/${encodeURIComponent(id)}/enviar-cliente`, {})
       .then(unwrap),
+  patchLynAprobacion: (id, body) =>
+    httpClient.patch(`${apiEndpoints.ots}/${encodeURIComponent(id)}/lyn-aprobacion`, body ?? {}),
 };

@@ -145,6 +145,17 @@ export function persistEstadoOperativo(ot, nuevoEstado) {
 /**
  * @param {string|number} otId
  */
+/** Tras persistir en servidor, quitar overlay local para que mande la API. */
+export function clearEstadoOperativoForId(otId) {
+  const store = loadFlowStore();
+  const id = String(otId);
+  if (!store.estadoById || !(id in store.estadoById)) return;
+  const next = { ...store.estadoById };
+  delete next[id];
+  store.estadoById = next;
+  saveFlowStore(store);
+}
+
 export function deleteLocalFlowOt(otId) {
   const store = loadFlowStore();
   const id = String(otId);

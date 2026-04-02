@@ -1,0 +1,185 @@
+/**
+ * Capa visual premium — Panel operativo (Mando / Kanban).
+ * Complementa centro-control-alien + hnf-operational-kanban.
+ */
+
+.hnf-cc-mando.hnf-mando-premium {
+  --hnf-mp-bg: #09090b;
+  --hnf-mp-surface: rgba(24, 24, 27, 0.92);
+  --hnf-mp-border: rgba(63, 63, 70, 0.65);
+  --hnf-mp-glow: rgba(99, 102, 241, 0.12);
+  --hnf-mp-text: #fafafa;
+  --hnf-mp-muted: #a1a1aa;
+}
+
+.hnf-cc-mando.hnf-mando-premium .hnf-cc-mando__command {
+  background: linear-gradient(135deg, var(--hnf-mp-surface) 0%, rgba(9, 9, 11, 0.98) 100%);
+  border: 1px solid var(--hnf-mp-border);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.hnf-cc-mando.hnf-mando-premium .hnf-cc-mando__command h1 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--hnf-mp-text);
+  margin: 0 0 0.25rem;
+}
+
+.hnf-cc-mando.hnf-mando-premium .hnf-cc-mando__command p {
+  color: var(--hnf-mp-muted);
+  font-size: 0.8125rem;
+  margin: 0;
+  max-width: 52ch;
+}
+
+.hnf-mp-banner {
+  margin: 0 0 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  border: 1px solid var(--hnf-mp-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hnf-mp-banner--success {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #bbf7d0;
+}
+
+.hnf-mp-banner--error {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+
+.hnf-mp-banner__dismiss {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: #e4e4e7;
+  cursor: pointer;
+}
+
+.hnf-mp-kpi-dash {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0 0 1rem;
+}
+
+.hnf-mp-kpi-tile {
+  background: var(--hnf-mp-surface);
+  border: 1px solid var(--hnf-mp-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 0 0 1px var(--hnf-mp-glow);
+}
+
+.hnf-mp-kpi-tile__v {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #f4f4f5;
+  line-height: 1.1;
+}
+
+.hnf-mp-kpi-tile__k {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hnf-mp-muted);
+  margin-top: 4px;
+}
+
+.hnf-mp-kpi-tile--accent .hnf-mp-kpi-tile__v {
+  color: #a5b4fc;
+}
+
+.hnf-mp-quick {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.hnf-mp-quick__steps {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.hnf-mp-quick__step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #3f3f46;
+}
+
+.hnf-mp-quick__step-dot--on {
+  background: #818cf8;
+  box-shadow: 0 0 12px rgba(129, 140, 248, 0.5);
+}
+
+.hnf-mp-quick__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hnf-mp-quick__grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hnf-mp-muted);
+}
+
+.hnf-mp-quick__grid input,
+.hnf-mp-quick__grid select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hnf-mp-border);
+  background: #18181b;
+  color: #fafafa;
+  font-size: 0.875rem;
+}
+
+.hnf-mp-drawer-actions-primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hnf-mp-drawer-actions-primary .hnf-cc__act-btn {
+  background: linear-gradient(180deg, rgba(63, 63, 70, 0.9), rgba(39, 39, 42, 0.95));
+  border: 1px solid rgba(113, 113, 122, 0.5);
+  color: #fafafa;
+  font-weight: 500;
+}
+
+.hnf-mp-drawer-actions-primary .hnf-cc__act-btn--danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+}
+
+.hnf-mp-drawer-actions-primary .hnf-cc__act-btn--ok {
+  border-color: rgba(74, 222, 128, 0.45);
+  color: #bbf7d0;
+}

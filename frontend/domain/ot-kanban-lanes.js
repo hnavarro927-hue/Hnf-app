@@ -8,6 +8,7 @@ import { getEffectiveEstadoOperativo, mapLegacyOtToEstadoOperativo } from './hnf
 export const KANBAN_LANE_IDS = [
   'ingreso',
   'en_proceso',
+  'pendiente_aprobacion',
   'observado',
   'aprobado',
   'enviado',

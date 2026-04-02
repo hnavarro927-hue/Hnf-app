@@ -1,5 +1,7 @@
 import '../styles/centro-control-alien.css';
+import '../styles/hnf-mando-premium.css';
 import '../styles/hnf-operational-kanban.css';
+import { applyJarvisRulesToNewOt } from '../domain/hnf-ot-jarvis-rules.js';
 import { createControlKanbanRegion } from '../components/control-center/ControlKanban.js';
 import { createJarvisCorePanel } from '../components/control-center/JarvisCorePanel.js';
 import { createJarvisExecutiveCopilotStrip } from '../components/jarvis-executive-copilot-strip.js';
@@ -233,8 +235,16 @@ function kpiMetric(label, value, variantClass = '') {
  * Datos: GET /ots (vía props.data).
  */
 export function centroControlAlienView(props) {
-  const { data, reloadApp, navigateToView, actions, integrationStatus, lastDataRefreshAt, authLabel } =
-    props || {};
+  const {
+    data,
+    reloadApp,
+    navigateToView,
+    actions,
+    integrationStatus,
+    lastDataRefreshAt,
+    authLabel,
+    mandoFeedback,
+  } = props || {};
   const otsEnvelope = data?.ots;
   const otsRaw = Array.isArray(otsEnvelope?.data)
     ? otsEnvelope.data
@@ -245,10 +255,25 @@ export function centroControlAlienView(props) {
   const ots = getAllOTs(filtrarOtsPorRolBackend(otsRaw, br));
 
   const section = el(
-    'hnf-cc hnf-cc-mando hnf-cck-surface hnf-op-shell hnf-op-view hnf-op-view--mando',
+    'hnf-cc hnf-cc-mando hnf-cck-surface hnf-op-shell hnf-op-view hnf-op-view--mando hnf-mando-premium',
     'section'
   );
   section.setAttribute('aria-label', 'Centro de control operativo');
+
+  if (mandoFeedback?.message) {
+    const ban = el(
+      `hnf-mp-banner hnf-mp-banner--${mandoFeedback.type === 'error' ? 'error' : 'success'}`
+    );
+    ban.setAttribute('role', 'status');
+    const tx = document.createElement('span');
+    tx.textContent = mandoFeedback.message;
+    const dis = el('hnf-mp-banner__dismiss', 'button');
+    dis.type = 'button';
+    dis.textContent = 'Cerrar';
+    dis.addEventListener('click', () => actions?.clearMandoFeedback?.());
+    ban.append(tx, dis);
+    section.append(ban);
+  }
 
   const jSig = buildJarvisGerencialSignals(ots);
   const opKpi = buildOperationalKpisFromMergedList(ots);
@@ -256,10 +281,10 @@ export function centroControlAlienView(props) {
   const command = el('hnf-cc-mando__command hnf-v2-holo-command');
   const cmdLeft = el('');
   const hTitle = document.createElement('h1');
-  hTitle.textContent = 'Operación HNF · Mando';
+  hTitle.textContent = 'Panel operativo · Pipeline HNF';
   const hSub = document.createElement('p');
-  hSub.textContent = 'Kanban como superficie principal · núcleo Jarvis en el costado · un solo cockpit.';
-  cmdLeft.append(hTitle, hSub);
+  hSub.textContent =
+    'Kanban en vivo con persistencia en servidor. Arrastrá tarjetas entre columnas. Detalle en panel lateral (sin modales largos).';
   const headAct = el('hnf-cc-mando__actions hnf-v2-holo-actions');
   const mkHeadBtn = (label, primary, fn) => {
     const b = el(`hnf-op-btn${primary ? ' hnf-op-btn--primary' : ''}`, 'button');
@@ -268,13 +293,202 @@ export function centroControlAlienView(props) {
     b.addEventListener('click', fn);
     return b;
   };
+  const quickSheet = el('hnf-mp-quick');
+  quickSheet.hidden = true;
+  let quickStep = 0;
+  const qCliente = Object.assign(document.createElement('input'), {
+    type: 'text',
+    placeholder: 'Razón social o nombre',
+    autocomplete: 'off',
+  });
+  const qTipo = document.createElement('select');
+  qTipo.innerHTML =
+    '<option value="clima">Clima → responsable Romina</option><option value="flota">Flota → responsable Gery</option>';
+  const qPri = document.createElement('select');
+  qPri.innerHTML =
+    '<option value="media">Prioridad media</option><option value="alta">Alta</option><option value="baja">Baja</option>';
+  const qDir = Object.assign(document.createElement('input'), { type: 'text', placeholder: 'Dirección' });
+  const qCom = Object.assign(document.createElement('input'), { type: 'text', placeholder: 'Comuna' });
+  const qCont = Object.assign(document.createElement('input'), { type: 'text', placeholder: 'Contacto en terreno' });
+  const qTel = Object.assign(document.createElement('input'), { type: 'tel', placeholder: '+56…' });
+  const qFecha = Object.assign(document.createElement('input'), { type: 'date' });
+  const qHora = Object.assign(document.createElement('input'), { type: 'time' });
+  const qSub = Object.assign(document.createElement('input'), {
+    type: 'text',
+    placeholder: 'Subtipo / trabajo (ej. Mantención)',
+  });
+  try {
+    const t = new Date();
+    qFecha.value = t.toISOString().slice(0, 10);
+    qHora.value = '09:00';
+  } catch {
+    /* ignore */
+  }
+  const qStepsDots = el('hnf-mp-quick__steps');
+  const qDot = () => el('hnf-mp-quick__step-dot');
+  const d0 = qDot();
+  const d1 = qDot();
+  const d2 = qDot();
+  qStepsDots.append(d0, d1, d2);
+  const qGrid = el('hnf-mp-quick__grid');
+  const qNav = el('', 'div');
+  qNav.style.display = 'flex';
+  qNav.style.gap = '8px';
+  qNav.style.flexWrap = 'wrap';
+  qNav.style.marginTop = '8px';
+  const qBtnPrev = el('hnf-op-btn', 'button');
+  qBtnPrev.type = 'button';
+  qBtnPrev.textContent = 'Anterior';
+  const qBtnNext = el('hnf-op-btn hnf-op-btn--primary', 'button');
+  qBtnNext.type = 'button';
+  qBtnNext.textContent = 'Siguiente';
+  const qBtnCreate = el('hnf-op-btn hnf-op-btn--primary', 'button');
+  qBtnCreate.type = 'button';
+  qBtnCreate.textContent = 'Confirmar y crear en servidor';
+  const qBtnCancel = el('hnf-op-btn', 'button');
+  qBtnCancel.type = 'button';
+  qBtnCancel.textContent = 'Cancelar';
+  const qStatus = el('', 'p');
+  qStatus.style.fontSize = '0.75rem';
+  qStatus.style.color = '#a1a1aa';
+  qStatus.style.marginTop = '8px';
+
+  const paintQuick = () => {
+    d0.classList.toggle('hnf-mp-quick__step-dot--on', quickStep >= 0);
+    d1.classList.toggle('hnf-mp-quick__step-dot--on', quickStep >= 1);
+    d2.classList.toggle('hnf-mp-quick__step-dot--on', quickStep >= 2);
+    qGrid.replaceChildren();
+    qBtnPrev.hidden = quickStep <= 0;
+    qBtnNext.hidden = quickStep >= 2;
+    qBtnCreate.hidden = quickStep < 2;
+    if (quickStep === 0) {
+      const L = (txt, node) => {
+        const lb = document.createElement('label');
+        lb.append(txt, node);
+        return lb;
+      };
+      qGrid.append(L('Cliente', qCliente), L('Servicio', qTipo), L('Prioridad', qPri));
+    } else if (quickStep === 1) {
+      const L = (txt, node) => {
+        const lb = document.createElement('label');
+        lb.append(txt, node);
+        return lb;
+      };
+      qGrid.append(
+        L('Dirección', qDir),
+        L('Comuna', qCom),
+        L('Contacto', qCont),
+        L('Teléfono', qTel),
+        L('Fecha visita', qFecha),
+        L('Hora', qHora),
+        L('Subtipo', qSub)
+      );
+    } else {
+      const p = document.createElement('p');
+      p.style.gridColumn = '1 / -1';
+      p.style.color = '#e4e4e7';
+      p.style.fontSize = '0.85rem';
+      p.textContent = `Confirmá: ${qCliente.value.trim() || '—'} · ${qTipo.value} · ${qDir.value.trim()}, ${qCom.value.trim()} · ${qFecha.value} ${qHora.value}`;
+      qGrid.append(p);
+    }
+  };
+
+  qBtnPrev.addEventListener('click', () => {
+    quickStep = Math.max(0, quickStep - 1);
+    paintQuick();
+  });
+  qBtnNext.addEventListener('click', () => {
+    if (quickStep === 0 && !qCliente.value.trim()) {
+      qStatus.textContent = 'Completá el cliente.';
+      return;
+    }
+    if (quickStep === 1) {
+      if (!qDir.value.trim() || !qCom.value.trim() || !qCont.value.trim() || !qTel.value.trim()) {
+        qStatus.textContent = 'Dirección, comuna, contacto y teléfono son obligatorios.';
+        return;
+      }
+      if (!qSub.value.trim()) {
+        qStatus.textContent = 'Indicá el subtipo de trabajo.';
+        return;
+      }
+    }
+    qStatus.textContent = '';
+    quickStep = Math.min(2, quickStep + 1);
+    paintQuick();
+  });
+  qBtnCancel.addEventListener('click', () => {
+    quickSheet.hidden = true;
+    quickStep = 0;
+    paintQuick();
+  });
+  qBtnCreate.addEventListener('click', async () => {
+    const tipo = String(qTipo.value || 'clima').toLowerCase();
+    const jarvis = applyJarvisRulesToNewOt({
+      text: qSub.value,
+      area: tipo === 'flota' ? 'flota' : 'clima',
+      cliente: qCliente.value,
+    });
+    const tech = jarvis.responsable;
+    const payload = {
+      cliente: qCliente.value.trim(),
+      direccion: qDir.value.trim(),
+      comuna: qCom.value.trim(),
+      contactoTerreno: qCont.value.trim(),
+      telefonoContacto: qTel.value.trim(),
+      tipoServicio: tipo,
+      subtipoServicio: qSub.value.trim(),
+      fecha: qFecha.value,
+      hora: qHora.value || '09:00',
+      origenSolicitud: 'cliente_directo',
+      origenPedido: 'manual',
+      prioridadOperativa: qPri.value || jarvis.prioridadOperativa,
+      operationMode: 'manual',
+      tecnicoAsignado: tech,
+      observaciones: `Alta rápida Mando · Jarvis → ${tech} · P ${qPri.value || jarvis.prioridadOperativa}`,
+      equipos: [],
+    };
+    qBtnCreate.disabled = true;
+    qStatus.textContent = 'Creando…';
+    const r = await actions?.createOT?.(payload);
+    qBtnCreate.disabled = false;
+    if (r?.ok) {
+      actions?.setMandoFeedback?.({
+        type: 'success',
+        message: `OT ${r.id} creada. Aparece en columna Ingreso tras sincronizar.`,
+      });
+      qStatus.textContent = `OT ${r.id} creada.`;
+      quickSheet.hidden = true;
+      quickStep = 0;
+      paintQuick();
+      if (typeof reloadApp === 'function') void reloadApp();
+    } else {
+      qStatus.textContent = r?.message || 'No se pudo crear. Revisá sesión y datos.';
+    }
+  });
+  qNav.append(qBtnCancel, qBtnPrev, qBtnNext, qBtnCreate);
+  const qLead = document.createElement('p');
+  qLead.style.fontWeight = '600';
+  qLead.style.margin = '0 0 8px';
+  qLead.style.color = '#fafafa';
+  qLead.textContent = 'Nueva OT en 3 pasos';
+  quickSheet.append(qLead, qStepsDots, qGrid, qNav, qStatus);
+  paintQuick();
+
   headAct.append(
+    mkHeadBtn('Nueva OT', true, () => {
+      quickSheet.hidden = !quickSheet.hidden;
+      if (!quickSheet.hidden) {
+        quickStep = 0;
+        paintQuick();
+      }
+    }),
     mkHeadBtn('Jarvis HQ', false, () => navigateToView?.('jarvis')),
     mkHeadBtn('Ingesta', false, () => navigateToView?.('ingreso-operativo')),
-    mkHeadBtn('Actualizar', true, () => {
+    mkHeadBtn('Actualizar', false, () => {
       if (typeof reloadApp === 'function') void reloadApp();
     })
   );
+  cmdLeft.append(hTitle, hSub, quickSheet);
   command.append(cmdLeft, headAct);
 
   const execStrip = createJarvisExecutiveCopilotStrip({
@@ -310,6 +524,48 @@ export function centroControlAlienView(props) {
     kpiMetric('Carga top responsable', topResp ? `${topResp[1]} · ${topResp[0]}` : '—')
   );
 
+  const hoursSinceIso = (iso) => {
+    const t = new Date(String(iso || '')).getTime();
+    if (!Number.isFinite(t)) return null;
+    return (Date.now() - t) / 3600000;
+  };
+  let detenidas = 0;
+  for (const o of ots) {
+    const st = getEffectiveEstadoOperativo(o);
+    const h = hoursSinceIso(o.updatedAt || o.creadoEn || o.createdAt);
+    if (st === 'ingreso' && h != null && h > 24) detenidas += 1;
+    else if (st === 'en_proceso' && h != null && h > 48) detenidas += 1;
+  }
+  const margenSum = ots.reduce((s, o) => s + (Number(o.utilidad) || 0), 0);
+  let lynN = 0;
+  let lynOk = 0;
+  for (const o of ots) {
+    const l = String(o.aprobacionLynEstado || '').toLowerCase();
+    if (l === 'aprobado_lyn' || l === 'rechazado_lyn') {
+      lynN += 1;
+      if (l === 'aprobado_lyn') lynOk += 1;
+    }
+  }
+  const tasaLyn = lynN ? `${Math.round((100 * lynOk) / lynN)}%` : '—';
+
+  const kpiDash = el('hnf-mp-kpi-dash');
+  const mpTile = (label, value, accent) => {
+    const t = el(`hnf-mp-kpi-tile${accent ? ' hnf-mp-kpi-tile--accent' : ''}`);
+    const v = el('hnf-mp-kpi-tile__v');
+    v.textContent = value;
+    const k = el('hnf-mp-kpi-tile__k');
+    k.textContent = label;
+    t.append(v, k);
+    return t;
+  };
+  kpiDash.append(
+    mpTile('OT en riesgo (heurística)', String(opKpi.riesgoOperativo || 0), true),
+    mpTile('OT detenidas (SLA visual)', String(detenidas), detenidas > 0),
+    mpTile('Margen Σ utilidad CLP', margenSum ? String(Math.round(margenSum).toLocaleString('es-CL')) : '0'),
+    mpTile('Tasa aprobación Lyn', tasaLyn),
+    mpTile('OT en tablero', String(ots.length))
+  );
+
   const workspace = el('hnf-cc-mando__workspace');
   const mainCol = el('hnf-cc-mando__workspace-main');
   const asideCol = el('hnf-cc-mando__workspace-aside');
@@ -334,9 +590,16 @@ export function centroControlAlienView(props) {
       mountFlowEstadoPicker(ot, DEFAULT_KANBAN_LANE_LABELS, reloadApp);
     },
     onDropOnLane: (ot, laneId) => {
-      const r = persistEstadoOperativo(ot, laneId);
-      if (!r.ok) window.alert(r.error || 'No se pudo mover de columna');
-      else if (typeof reloadApp === 'function') void reloadApp();
+      void (async () => {
+        if (typeof actions?.commitKanbanLane === 'function') {
+          const r = await actions.commitKanbanLane(ot, laneId);
+          if (!r?.ok) return;
+          return;
+        }
+        const r = persistEstadoOperativo(ot, laneId);
+        if (!r.ok) window.alert(r.error || 'No se pudo mover de columna');
+        else if (typeof reloadApp === 'function') void reloadApp();
+      })();
     },
     onDetail: (ot, shell) => {
       openDrawer(ot, shell);
@@ -386,6 +649,7 @@ export function centroControlAlienView(props) {
   let activeTab = 'detalle';
   const tabBodies = el('hnf-cc__drawer-body');
 
+  const primaryActRow = el('hnf-mp-drawer-actions-primary');
   const actRow = el('hnf-cc__act-row');
   const foot = el('hnf-cc__drawer-foot');
   foot.textContent = 'Módulos para ejecutar';
@@ -415,6 +679,7 @@ export function centroControlAlienView(props) {
 
   function renderActuar(ot) {
     actRow.replaceChildren();
+    primaryActRow.replaceChildren();
     const t = String(ot?.tipoServicio || '').toLowerCase();
     const mk = (label, fn) => {
       const b = el('hnf-cc__act-btn', 'button');
@@ -423,6 +688,36 @@ export function centroControlAlienView(props) {
       b.addEventListener('click', fn);
       return b;
     };
+    const mkPri = (label, fn, variant) => {
+      const b = el(
+        `hnf-cc__act-btn${variant === 'danger' ? ' hnf-cc__act-btn--danger' : ''}${variant === 'ok' ? ' hnf-cc__act-btn--ok' : ''}`,
+        'button'
+      );
+      b.type = 'button';
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const mapQuery = encodeURIComponent(
+      `${String(ot?.direccion || '').trim()} ${String(ot?.comuna || '').trim()}`.trim() || 'Chile'
+    );
+    primaryActRow.append(
+      mkPri('Aprobar', () => void actions?.applyLynAccionOnOt?.(ot.id, 'aprobar'), 'ok'),
+      mkPri('Rechazar', () => void actions?.applyLynAccionOnOt?.(ot.id, 'rechazar'), 'danger'),
+      mkPri('Ver mapa', () => {
+        window.open(
+          `https://www.google.com/maps/search/?api=1&query=${mapQuery}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
+      }),
+      mkPri('Añadir nota', () => {
+        const note = window.prompt('Nota (se agrega a observaciones de la OT):');
+        if (note && String(note).trim()) {
+          void actions?.mandoAppendObservacion?.(ot.id, String(note).trim(), ot.observaciones);
+        }
+      })
+    );
     if (t === 'clima') {
       actRow.append(
         mk('Ir a Clima', () => navigateToView?.('clima', { otId: ot.id })),
@@ -517,11 +812,11 @@ export function centroControlAlienView(props) {
   closeBtn.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
 
-  drawer.append(drawerHandle, dHead, drawerSummary, actRow, jarvisStrip, tabsRow, tabBodies, foot);
+  drawer.append(drawerHandle, dHead, drawerSummary, primaryActRow, actRow, jarvisStrip, tabsRow, tabBodies, foot);
 
   body.append(backdrop, drawer);
 
-  section.append(command, execStrip, jarvisPresenceEl, alienFlow.element, kpiRow, body);
+  section.append(command, execStrip, jarvisPresenceEl, alienFlow.element, kpiRow, kpiDash, body);
 
   return section;
 }

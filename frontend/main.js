@@ -33,6 +33,8 @@ import { otService } from './services/ot.service.js';
 import { vehicleService } from './services/vehicle.service.js';
 import { buildHnfAdnSnapshot } from './domain/hnf-adn.js';
 import { tarifaBaseOperativa } from './domain/flota-solicitud-economics.js';
+import { clearEstadoOperativoForId } from './domain/hnf-ot-flow-storage.js';
+import { commitKanbanLaneToServer } from './domain/ot-kanban-api-bridge.js';
 import { intelFilterActiveKeys } from './domain/clima-ot-intel-filters.js';
 import { buildClimaTrayPipeline } from './domain/clima-ot-tray-pipeline.js';
 import { climaView } from './views/clima.js';
@@ -906,6 +908,8 @@ const state = {
   /** Tras crear/patch OT en Clima: reaplicar selección tras `loadViewData` (lista desde servidor). */
   pendingOtSelectId: null,
   otFeedback: null,
+  /** Panel Mando / Kanban (centro-control): éxito o error tras mover tarjeta o crear OT rápida. */
+  mandoFeedback: null,
   flotaFeedback: null,
   adminFeedback: null,
   lastSuccessfulFetchAt: null,
@@ -1413,6 +1417,82 @@ const createActions = () => ({
       render();
     } finally {
       state.isUpdatingOTStatus = false;
+      render();
+    }
+  },
+
+  clearMandoFeedback: () => {
+    state.mandoFeedback = null;
+    render();
+  },
+
+  setMandoFeedback: (fb) => {
+    state.mandoFeedback = fb && fb.message ? { type: fb.type || 'success', message: fb.message } : null;
+    render();
+  },
+
+  /**
+   * Kanban Mando: mueve OT en servidor según columna (estado / Lyn / envío).
+   * @returns {Promise<{ ok: boolean }>}
+   */
+  commitKanbanLane: async (ot, targetLaneId) => {
+    state.mandoFeedback = null;
+    render();
+    const r = await commitKanbanLaneToServer(ot, targetLaneId, {
+      updateStatus: (id, payload) => otService.updateStatus(id, payload),
+      patchLyn: (id, body) => otService.patchLynAprobacion(id, body),
+      enviarCliente: (id) => otService.enviarInformeCliente(id),
+    });
+    if (!r.ok) {
+      state.mandoFeedback = { type: 'error', message: r.message || 'No se pudo actualizar el pipeline.' };
+      render();
+      return { ok: false };
+    }
+    clearEstadoOperativoForId(ot.id);
+    state.mandoFeedback = {
+      type: 'success',
+      message: r.hint || 'Cambio guardado en el servidor. Kanban actualizado.',
+    };
+    preserveClimaSelectionForReload(ot.id);
+    await loadViewData();
+    return { ok: true };
+  },
+
+  applyLynAccionOnOt: async (id, accion) => {
+    state.mandoFeedback = null;
+    render();
+    try {
+      await otService.patchLynAprobacion(id, { accion: String(accion || '').toLowerCase() });
+      state.mandoFeedback = { type: 'success', message: `Acción Lyn «${accion}» registrada en servidor.` };
+      preserveClimaSelectionForReload(id);
+      await loadViewData();
+    } catch (error) {
+      state.mandoFeedback = {
+        type: 'error',
+        message: error.message || 'Sin permiso Lyn u OT fuera de cola de aprobación.',
+      };
+      render();
+    }
+  },
+
+  mandoAppendObservacion: async (id, texto, observacionesPrevias) => {
+    state.mandoFeedback = null;
+    render();
+    try {
+      const base = String(observacionesPrevias || '').trim();
+      const add = String(texto || '').trim();
+      if (!add) {
+        state.mandoFeedback = { type: 'error', message: 'La nota está vacía.' };
+        render();
+        return;
+      }
+      const observaciones = [base, add].filter(Boolean).join('\n');
+      await otService.patchVisit(id, { observaciones });
+      state.mandoFeedback = { type: 'success', message: 'Nota agregada a la OT.' };
+      preserveClimaSelectionForReload(id);
+      await loadViewData();
+    } catch (error) {
+      state.mandoFeedback = { type: 'error', message: error.message || 'No se pudo guardar la nota.' };
       render();
     }
   },
@@ -1985,6 +2065,7 @@ const render = () => {
         data: state.viewData,
         actions: createActions(),
         feedback: state.otFeedback,
+        mandoFeedback: state.activeView === 'centro-control' ? state.mandoFeedback : null,
         flotaFeedback: state.flotaFeedback,
         adminFeedback: state.adminFeedback,
         isSubmitting: state.isSubmittingOT,
