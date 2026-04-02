@@ -1930,6 +1930,12 @@ const render = () => {
         sessionWarning: state.authSessionWarning || '',
         lastDataRefreshAt: state.lastSuccessfulFetchAt,
         onNavigate: (viewId) => navigateToView(viewId),
+        onSync: () => {
+          void loadViewData();
+        },
+        allowedModules: Array.isArray(state.authMe?.modules) && state.authMe.modules.length
+          ? state.authMe.modules
+          : ['*'],
         onLogout: async () => {
           await authApiService.logout();
           clearSessionBackendRole();
@@ -1983,7 +1989,7 @@ const render = () => {
         });
       };
 
-      shell.content.className = `hnf-cc-main content content--view-${state.activeView} content--command-layout`;
+      shell.content.className = `hnf-ops-main content content--view-${state.activeView} content--command-layout`;
       if (typeof document !== 'undefined' && document.body) {
         document.body.classList.toggle('hnf-view--control-operativo', false);
         document.body.classList.toggle(
@@ -2354,7 +2360,11 @@ async function startAuthenticatedApp() {
 function mountLoginUi() {
   if (!app) return;
   if (typeof document !== 'undefined' && document.body) {
-    document.body.classList.remove('hnf-cc-shell-active', 'hnf-cc-unified');
+    document.body.classList.remove(
+      'hnf-cc-shell-active',
+      'hnf-cc-unified',
+      'hnf-ops-app'
+    );
   }
   clearSessionBackendRole();
   state.authMe = null;
