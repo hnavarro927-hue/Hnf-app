@@ -6,6 +6,7 @@ import { resolveAuthFromBearer } from './auth.service.js';
 const truthy = (v) => v === '1' || String(v).toLowerCase() === 'true';
 
 const isPublicRoute = (method, pathname) => {
+  if (pathname === '/api/health' && method === 'GET') return true;
   if (pathname === '/health' && method === 'GET') return true;
   if (pathname === '/auth/login' && method === 'POST') return true;
   if (pathname === '/intake/externo' && method === 'POST') return true;
