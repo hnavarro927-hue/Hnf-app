@@ -1,21 +1,70 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0a0b" />
-    <meta name="description" content="Panel operativo interno HNF — Clima, flota y administración." />
-    <title>HNF · Centro de operaciones</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script src="/env.js"></script>
-    <script type="module" src="/main.js"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HNF OS - Dashboard Ejecutivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0a0f1e] text-slate-200 p-6">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-10 border-b border-slate-800 pb-6">
+            <h1 class="text-4xl font-black text-blue-500 tracking-tighter">HNF OS</h1>
+            <div class="bg-slate-900/50 p-4 rounded-2xl border border-blue-500/20">
+                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Dinero Detenido</p>
+                <div id="totalCash" class="text-3xl font-black text-green-400">$ 0</div>
+            </div>
+        </header>
+
+        <div id="ots-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://hnf-backend-production.up.railway.app/api/ots';
+
+        async function fetchData() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                // 1. Calcular Dinero Detenido
+                const total = data.filter(ot => ot.estado !== 'Terminado').reduce((s, ot) => s + ot.precio, 0);
+                document.getElementById('totalCash').innerText = '$ ' + total.toLocaleString('es-CL');
+
+                // 2. Renderizar OTs con Responsables
+                const container = document.getElementById('ots-grid');
+                container.innerHTML = data.map(ot => {
+                    // LÓGICA DE ASIGNACIÓN
+                    let responsable = "Técnico";
+                    if (ot.estado === 'Pendiente') responsable = "Lyn";
+                    else if (ot.estado === 'En Proceso' && ot.precio <= 0) responsable = "Gery";
+                    else if (ot.modulo === 'Clima') responsable = "Romina";
+
+                    return `
+                        <div class="bg-slate-900 border ${ot.precio > 1000000 ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-slate-800'} p-6 rounded-3xl">
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full font-bold uppercase">${ot.modulo}</span>
+                                <span class="text-2xl font-black text-white">$ ${ot.precio.toLocaleString('es-CL')}</span>
+                            </div>
+                            <h2 class="text-xl font-bold text-slate-100">${ot.cliente}</h2>
+                            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] text-slate-500 uppercase">Responsable</p>
+                                    <p class="text-blue-400 font-bold">${responsable}</p>
+                                </div>
+                                <span class="text-[10px] text-slate-600 font-mono">ID-${ot.id}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error("Error de conexión:", error);
+                document.getElementById('ots-grid').innerHTML = `<p class="text-red-400">Error: No se pudo conectar con el Backend en Railway.</p>`;
+            }
+        }
+        fetchData();
+        setInterval(fetchData, 10000); // Auto-refresco cada 10 seg
+    </script>
+</body>
 </html>
