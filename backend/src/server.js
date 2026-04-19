@@ -1,29 +1,32 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// CONFIGURACIÓN POWER: Permite todas las conexiones y métodos
-app.use(cors({
-  origin: '*', 
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+// CONFIGURACIÓN DE PODER: Permite que Vercel y tu iPad se conecten sin errores
+app.use(cors());
 app.use(express.json());
 
-// Datos de prueba con lógica de responsables integrada
+const PORT = process.env.PORT || 3000;
+
+// Base de datos de prueba (Sincronizada con tu equipo)
 let ots = [
-  { id: 101, cliente: "Inmobiliaria HNF", estado: "Pendiente", precio: 1500000, modulo: "Clima" },
-  { id: 102, cliente: "Logística Gery", estado: "En Proceso", precio: 0, modulo: "Flota" }
+  { id: 101, cliente: "Inmobiliaria HNF", estado: "Pendiente", precio: 2500000, modulo: "Clima", fecha: new Date() },
+  { id: 102, cliente: "Logística Central", estado: "En Proceso", precio: 0, modulo: "Flota", fecha: new Date() }
 ];
 
+// Endpoints solicitados
+app.get('/api/health', (req, res) => res.json({ status: "ok", db: "connected" }));
+
 app.get('/api/ots', (req, res) => {
-  // Entregamos ordenadas por precio de mayor a menor
-  const ordenadas = [...ots].sort((a, b) => b.precio - a.precio);
-  res.status(200).json(ordenadas);
+  res.json(ots);
+});
+
+app.post('/api/ots', (req, res) => {
+  const nuevaOT = { ...req.body, id: Date.now(), fecha: new Date() };
+  ots.push(nuevaOT);
+  res.status(201).json(nuevaOT);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor HNF OS activo en puerto ${PORT}`);
+  console.log(`HNF Backend activo en puerto ${PORT}`);
 });
