@@ -2,69 +2,68 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HNF OS - Dashboard Ejecutivo</title>
+    <title>HNF OS - Control Total</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-[#0a0f1e] text-slate-200 p-6">
-    <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-center mb-10 border-b border-slate-800 pb-6">
-            <h1 class="text-4xl font-black text-blue-500 tracking-tighter">HNF OS</h1>
-            <div class="bg-slate-900/50 p-4 rounded-2xl border border-blue-500/20">
-                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Dinero Detenido</p>
-                <div id="totalCash" class="text-3xl font-black text-green-400">$ 0</div>
+<body class="bg-slate-900 text-white p-6">
+    <div class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-10 bg-slate-800 p-6 rounded-2xl border border-slate-700">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-400">HNF SERVICIOS</h1>
+                <p class="text-slate-400 text-sm">Dashboard Operativo</p>
             </div>
-        </header>
+            <div class="text-right">
+                <p class="text-xs uppercase text-slate-500 font-bold">Dinero Detenido</p>
+                <h2 id="totalDinero" class="text-4xl font-black text-green-500">$ 0</h2>
+            </div>
+        </div>
 
-        <div id="ots-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            </div>
+        <div id="contenedorOTs" class="grid gap-4"></div>
     </div>
 
     <script>
-        const API_URL = 'https://hnf-backend-production.up.railway.app/api/ots';
+        const API = 'https://hnf-backend-production.up.railway.app/api/ots';
 
-        async function fetchData() {
+        async function render() {
             try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
-                
-                // 1. Calcular Dinero Detenido
-                const total = data.filter(ot => ot.estado !== 'Terminado').reduce((s, ot) => s + ot.precio, 0);
-                document.getElementById('totalCash').innerText = '$ ' + total.toLocaleString('es-CL');
+                const res = await fetch(API);
+                const data = await res.json();
 
-                // 2. Renderizar OTs con Responsables
-                const container = document.getElementById('ots-grid');
-                container.innerHTML = data.map(ot => {
-                    // LÓGICA DE ASIGNACIÓN
-                    let responsable = "Técnico";
-                    if (ot.estado === 'Pendiente') responsable = "Lyn";
-                    else if (ot.estado === 'En Proceso' && ot.precio <= 0) responsable = "Gery";
-                    else if (ot.modulo === 'Clima') responsable = "Romina";
+                // 1. RANKING POR PRECIO (Mayor a menor)
+                data.sort((a, b) => b.precio - a.precio);
 
-                    return `
-                        <div class="bg-slate-900 border ${ot.precio > 1000000 ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-slate-800'} p-6 rounded-3xl">
-                            <div class="flex justify-between items-start mb-4">
-                                <span class="text-[10px] bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full font-bold uppercase">${ot.modulo}</span>
-                                <span class="text-2xl font-black text-white">$ ${ot.precio.toLocaleString('es-CL')}</span>
+                // 2. DINERO DETENIDO
+                const total = data.reduce((acc, ot) => ot.estado !== 'Terminado' ? acc + (ot.precio || 0) : acc, 0);
+                document.getElementById('totalDinero').innerText = '$ ' + total.toLocaleString('es-CL');
+
+                // 3. RENDER CON RESPONSABLES
+                const container = document.getElementById('contenedorOTs');
+                container.innerHTML = '';
+
+                data.forEach(ot => {
+                    let responsable = "Equipo HNF";
+                    if(ot.estado === 'Pendiente') responsable = "Lyn";
+                    else if(ot.estado === 'En Proceso' && !ot.precio) responsable = "Gery";
+                    else if(ot.modulo === 'Clima') responsable = "Romina";
+
+                    container.innerHTML += `
+                        <div class="bg-slate-800 p-5 rounded-xl border-l-4 ${ot.precio > 1000000 ? 'border-red-500' : 'border-blue-500'} flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-lg">${ot.cliente}</h3>
+                                <p class="text-sm text-slate-400">${ot.modulo} | <span class="text-blue-300 font-bold">${responsable}</span></p>
                             </div>
-                            <h2 class="text-xl font-bold text-slate-100">${ot.cliente}</h2>
-                            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
-                                <div>
-                                    <p class="text-[10px] text-slate-500 uppercase">Responsable</p>
-                                    <p class="text-blue-400 font-bold">${responsable}</p>
-                                </div>
-                                <span class="text-[10px] text-slate-600 font-mono">ID-${ot.id}</span>
+                            <div class="text-right">
+                                <p class="text-xl font-mono">${ot.precio.toLocaleString('es-CL')}</p>
+                                <span class="text-[10px] px-2 py-1 rounded bg-slate-700 uppercase">${ot.estado}</span>
                             </div>
                         </div>
                     `;
-                }).join('');
-            } catch (error) {
-                console.error("Error de conexión:", error);
-                document.getElementById('ots-grid').innerHTML = `<p class="text-red-400">Error: No se pudo conectar con el Backend en Railway.</p>`;
+                });
+            } catch (e) {
+                document.getElementById('contenedorOTs').innerHTML = "Error de conexión con Railway.";
             }
         }
-        fetchData();
-        setInterval(fetchData, 10000); // Auto-refresco cada 10 seg
+        render();
     </script>
 </body>
 </html>
