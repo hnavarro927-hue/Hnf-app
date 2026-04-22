@@ -5,7 +5,7 @@ import { sendError, sendSuccess } from '../utils/http.js';
 export const getAllOT = async (request, response) => {
   sendSuccess(response, 200, otService.getAll(), {
     resource: 'ots',
-    flow: ['crear OT', 'cambiar estado', 'obtener lista de OT'],
+    flow: ['mensaje -> gestion -> OT (manual)', 'crear OT', 'cambiar estado', 'matriz central'],
     model: otModel,
     repositoryMode: otService.repositoryMode,
   });
@@ -21,7 +21,7 @@ export const createOT = async (request, response) => {
     });
   }
 
-  sendSuccess(response, 201, item, {
+  return sendSuccess(response, 201, item, {
     resource: 'ots',
     action: 'createOT',
   });

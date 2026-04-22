@@ -3,42 +3,24 @@ import { otModel } from '../models/ot.model.js';
 export const validateOTPayload = (payload = {}) => {
   const errors = [];
 
-  if (!payload.cliente && !payload.clienteRelacionado) {
-    errors.push('Debe informar cliente o clienteRelacionado.');
+  if (!payload.cliente?.nombre) {
+    errors.push('Debe informar cliente.nombre.');
   }
 
-  if (!payload.direccion) {
-    errors.push('La dirección es obligatoria.');
+  if (!payload.servicio?.tecnico) {
+    errors.push('Debe informar servicio.tecnico.');
   }
 
-  if (!payload.comuna) {
-    errors.push('La comuna es obligatoria.');
+  if (!payload.servicio?.horaInicio || !payload.servicio?.horaTermino) {
+    errors.push('Debe informar servicio.horaInicio y servicio.horaTermino.');
   }
 
-  if (!payload.contactoTerreno) {
-    errors.push('El contacto en terreno es obligatorio.');
+  if (typeof payload.costos?.totalNeto !== 'number' || Number.isNaN(payload.costos.totalNeto)) {
+    errors.push('Debe informar costos.totalNeto numérico.');
   }
 
-  if (!payload.telefonoContacto) {
-    errors.push('El teléfono de contacto es obligatorio.');
-  }
-
-  if (!payload.tipoServicio) {
-    errors.push('El tipo de servicio es obligatorio.');
-  } else if (!otModel.serviceTypes.includes(payload.tipoServicio)) {
-    errors.push(`Tipo de servicio inválido. Valores permitidos: ${otModel.serviceTypes.join(', ')}.`);
-  }
-
-  if (!payload.subtipoServicio) {
-    errors.push('El subtipo de servicio es obligatorio.');
-  }
-
-  if (!payload.fecha) {
-    errors.push('La fecha es obligatoria.');
-  }
-
-  if (!payload.hora) {
-    errors.push('La hora es obligatoria.');
+  if (!payload.control?.estado || !otModel.statusOptions.includes(payload.control.estado)) {
+    errors.push(`Estado inválido. Valores permitidos: ${otModel.statusOptions.join(', ')}.`);
   }
 
   return {

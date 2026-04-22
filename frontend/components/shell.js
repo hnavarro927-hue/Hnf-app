@@ -1,8 +1,8 @@
 const menu = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'clima', label: 'Clima' },
-  { id: 'flota', label: 'Flota' },
-  { id: 'admin', label: 'Administración' },
+  { id: 'home', label: 'Inicio' },
+  { id: 'inbox', label: 'Inbox (Gery)' },
+  { id: 'approval', label: 'Approval (Lyn)' },
+  { id: 'manager', label: 'Manager (Hernan)' },
 ];
 
 export const createShell = ({ activeView, onNavigate, apiBaseUrl, integrationStatus }) => {
@@ -14,8 +14,8 @@ export const createShell = ({ activeView, onNavigate, apiBaseUrl, integrationSta
   sidebar.innerHTML = `
     <div>
       <p class="muted">HNF Servicios Integrales</p>
-      <h1>Base de aplicación</h1>
-      <p class="muted">Frontend preparado para integración limpia con backend.</p>
+      <h1>Centralized ERP Control</h1>
+      <p class="muted">Roles activos: Gery · Lyn · Hernan</p>
       <p class="muted"><strong>API:</strong> ${apiBaseUrl || 'No configurada'}</p>
       <p class="muted"><strong>Health:</strong> ${integrationStatus}</p>
     </div>
@@ -34,11 +34,8 @@ export const createShell = ({ activeView, onNavigate, apiBaseUrl, integrationSta
   });
 
   sidebar.append(nav);
-
   const content = document.createElement('main');
   content.className = 'content';
-
   element.append(sidebar, content);
-
   return { element, content };
 };

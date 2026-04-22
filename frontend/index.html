@@ -6,12 +6,12 @@
     <title>HNF Servicios Integrales</title>
     <style>
       :root {
-        --bg: #f4f7fb;
-        --surface: #ffffff;
-        --surface-soft: #f8fbff;
-        --border: #d9e1ec;
-        --text: #10233f;
-        --muted: #5c6f88;
+        --bg: #0b1220;
+        --surface: #121b2d;
+        --surface-soft: #19243a;
+        --border: #2a3855;
+        --text: #e6eefc;
+        --muted: #94a3b8;
         --primary: #1d4ed8;
         --success: #15803d;
         --success-bg: #dcfce7;
@@ -24,10 +24,10 @@
       .shell { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
       .sidebar, .content { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
       .nav { display: grid; gap: 12px; margin-top: 24px; }
-      .nav button { text-align: left; border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 14px; cursor: pointer; }
+      .nav button { text-align: left; border: 1px solid var(--border); background: #18243b; color: var(--text); border-radius: 12px; padding: 14px; cursor: pointer; }
       .nav button.active { border-color: var(--primary); color: var(--primary); }
       .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-      .card, .ot-form-card, .ot-list-card, .ot-detail-card, .evidence-card, .ot-text-card, .preview-sheet { border: 1px solid var(--border); border-radius: 14px; padding: 18px; background: #fff; }
+      .card, .ot-form-card, .ot-list-card, .ot-detail-card, .evidence-card, .ot-text-card, .preview-sheet { border: 1px solid var(--border); border-radius: 14px; padding: 18px; background: #0f172a; }
       .muted { color: var(--muted); line-height: 1.6; }
       .ot-workspace { display: grid; gap: 20px; }
       .ot-form-card { background: var(--surface-soft); }
@@ -132,6 +132,35 @@
       }
       .preview-photo-card span { color: var(--muted); }
       .preview-photo-card.is-empty { align-content: center; min-height: 170px; }
+
+      .inbox-list, .ot-board { display: grid; gap: 12px; }
+      .inbox-item, .ot-block { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; }
+      .inbox-item__meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+      .table-grid { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.92rem; }
+      .table-grid th, .table-grid td { border: 1px solid var(--border); padding: 8px; text-align: left; }
+      .table-grid-wrap { overflow-x: auto; }
+      .table-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+      .table-filters input, .table-filters select { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #0b1220; color: var(--text); }
+      .inline-form { margin-top: 14px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+      .inline-form--ot { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+      .inline-form input, .inline-form select { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #0b1220; color: var(--text); }
+      .ot-block__top { display: flex; justify-content: space-between; gap: 8px; }
+      .status-badge--nuevo { background: #fee2e2; color: #b91c1c; }
+      .status-badge--leido { background: #e0e7ff; color: #3730a3; }
+      .status-badge--procesado { background: #dcfce7; color: #166534; }
+      .status-badge--abierta { background: #fef3c7; color: #92400e; }
+      .status-badge--coordinado { background: #e0e7ff; color: #3730a3; }
+      .status-badge--aprobado { background: #dcfce7; color: #166534; }
+      .status-badge--ejecutado { background: #bbf7d0; color: #14532d; }
+      .status-badge--reprogramado { background: #fde68a; color: #78350f; }
+      .status-badge--enviada { background: #dbeafe; color: #1e3a8a; }
+      .status-badge--activa { background: #dcfce7; color: #14532d; }
+
+      .status-badge--reviewed_by_gery { background: #dbeafe; color: #1e3a8a; }
+      .status-badge--approved_by_lyn { background: #dcfce7; color: #14532d; }
+      .status-badge--converted_to_gestion { background: #ede9fe; color: #5b21b6; }
+      .status-badge--converted_to_ot { background: #fef9c3; color: #854d0e; }
+      .status-badge--cerrada { background: #dcfce7; color: #15803d; }
       @media (max-width: 1100px) {
         .shell, .cards, .ot-overview, .ot-summary-grid, .ot-text-blocks, .evidence-grid, .ot-form__grid, .ot-form__footer, .preview-summary-grid, .preview-text-grid, .preview-photo-grid { grid-template-columns: 1fr; }
       }

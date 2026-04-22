@@ -1,6 +1,6 @@
-import { normalizeFiles } from '../middlewares/file-upload.middleware.js';
 import { otRepository } from '../repositories/ot.repository.js';
 import { validateOTPayload } from '../validators/ot.validator.js';
+import { matrizService } from './matriz.service.js';
 
 export const otService = {
   repositoryMode: otRepository.mode,
@@ -13,27 +13,18 @@ export const otService = {
       return { errors: validation.errors };
     }
 
-    return otRepository.create({
-      cliente: data.cliente || null,
-      direccion: data.direccion || '',
-      comuna: data.comuna || '',
-      contactoTerreno: data.contactoTerreno || '',
-      telefonoContacto: data.telefonoContacto || '',
-      clienteRelacionado: data.clienteRelacionado || null,
-      vehiculoRelacionado: data.vehiculoRelacionado || null,
-      tipoServicio: data.tipoServicio,
-      subtipoServicio: data.subtipoServicio || '',
-      tecnicoAsignado: data.tecnicoAsignado || 'Por asignar',
-      estado: 'pendiente',
-      fecha: data.fecha,
-      hora: data.hora,
-      observaciones: data.observaciones || '',
-      resumenTrabajo: data.resumenTrabajo || '',
-      recomendaciones: data.recomendaciones || '',
-      fotografiasAntes: normalizeFiles(data, 'fotografiasAntes'),
-      fotografiasDurante: normalizeFiles(data, 'fotografiasDurante'),
-      fotografiasDespues: normalizeFiles(data, 'fotografiasDespues'),
+    const item = otRepository.create({
+      cliente: data.cliente,
+      vehiculo: data.vehiculo,
+      servicio: data.servicio,
+      costos: data.costos,
+      evidencia: data.evidencia,
+      control: data.control,
+      creadoDesde: data.creadoDesde,
     });
+
+    matrizService.appendFromOT(item, data.creadoDesde?.tipo || 'manual');
+    return item;
   },
   updateStatus(id, estado, statusOptions) {
     if (!statusOptions.includes(estado)) {
