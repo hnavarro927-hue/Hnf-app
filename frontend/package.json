@@ -3,7 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 4173",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "check": "find . -maxdepth 3 -name '*.js' -print0 | xargs -0 -n1 node --check"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.12"
   }
 }
