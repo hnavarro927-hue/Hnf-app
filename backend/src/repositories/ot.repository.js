@@ -1,25 +1,28 @@
 const otCollection = [
   {
     id: 'OT-001',
-    cliente: 'Cliente Demo',
-    direccion: 'Av. Principal 123',
-    comuna: 'Santiago',
-    contactoTerreno: 'Encargado Demo',
-    telefonoContacto: '+56 9 1111 2222',
-    clienteRelacionado: 'CLI-001',
-    vehiculoRelacionado: null,
-    tipoServicio: 'clima',
-    subtipoServicio: 'Mantenimiento preventivo',
-    tecnicoAsignado: 'Técnico Demo',
-    estado: 'pendiente',
-    fecha: '2026-03-20',
-    hora: '09:00',
-    observaciones: 'Visita de diagnóstico inicial.',
-    resumenTrabajo: 'Inspección general del sistema.',
-    recomendaciones: 'Revisar filtros en próxima visita.',
-    fotografiasAntes: [{ id: 'before-1', name: 'antes-01.jpg', url: '' }],
-    fotografiasDurante: [{ id: 'during-1', name: 'durante-01.jpg', url: '' }],
-    fotografiasDespues: [{ id: 'after-1', name: 'despues-01.jpg', url: '' }],
+    cliente: { nombre: 'Cliente Demo', direccion: 'Av. Principal 123', contacto: 'Encargado Demo' },
+    vehiculo: { patente: 'KJTR21', marca: 'Ford', modelo: 'Transit', anio: 2022, kilometraje: 80340 },
+    servicio: {
+      tipoServicio: 'RT',
+      descripcion: 'Atención en ruta por falla menor',
+      fecha: '2026-04-22',
+      horaInicio: '10:30',
+      horaTermino: '12:00',
+      duracion: '01:30',
+      tecnico: 'Gery',
+    },
+    costos: {
+      items: [{ descripcion: 'Mano de obra RT', cantidad: 1, precioUnitario: 55000, total: 55000 }],
+      totalManoObra: 55000,
+      totalInsumos: 0,
+      totalNeto: 55000,
+    },
+    evidencia: {
+      fotos: { frontal: [], trasera: [], laterales: [], kilometraje: [], documentos: [] },
+    },
+    control: { estado: 'abierta' },
+    creadoDesde: { tipo: 'gestion', referenciaId: 'GES-001' },
   },
 ];
 
@@ -41,7 +44,7 @@ export const otRepository = {
       return null;
     }
 
-    ot.estado = estado;
+    ot.control.estado = estado;
     return ot;
   },
 };

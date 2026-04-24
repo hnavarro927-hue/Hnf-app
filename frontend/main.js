@@ -1,141 +1,166 @@
 import { appConfig } from './config/app.config.js';
 import { createShell } from './components/shell.js';
-import { clientService } from './services/client.service.js';
-import { expenseService } from './services/expense.service.js';
+import { approvalService } from './services/approval.service.js';
+import { climaService } from './services/clima.service.js';
+import { flotaService } from './services/flota.service.js';
+import { gestionService } from './services/gestion.service.js';
 import { healthService } from './services/health.service.js';
-import { otService } from './services/ot.service.js';
-import { vehicleService } from './services/vehicle.service.js';
-import { dashboardView } from './views/dashboard.js';
-import { climaView } from './views/clima.js';
-import { flotaView } from './views/flota.js';
-import { adminView } from './views/admin.js';
+import { logService } from './services/log.service.js';
+import { matrizService } from './services/matriz.service.js';
+import { messageService } from './services/message.service.js';
+import { homeView } from './views/home.js';
+import { inboxView } from './views/inbox.js';
+import { approvalLynView } from './views/approval-lyn.js';
+import { managerView } from './views/manager.js';
 
 const app = document.querySelector('#app');
 
 const viewRegistry = {
-  dashboard: {
-    render: dashboardView,
+  home: {
+    render: homeView,
     load: async () => {
-      const [health, ots, clients, vehicles, expenses] = await Promise.all([
-        healthService.getStatus(),
-        otService.getAll(),
-        clientService.getAll(),
-        vehicleService.getAll(),
-        expenseService.getAll(),
-      ]);
-
-      return { health, ots, clients, vehicles, expenses };
+      const [health, messages, approvals] = await Promise.all([healthService.getStatus(), messageService.getAll(), approvalService.getAll()]);
+      return { health, messages, approvals };
     },
   },
-  clima: {
-    render: climaView,
-    load: () => otService.getAll(),
-  },
-  flota: {
-    render: flotaView,
+  inbox: {
+    render: inboxView,
     load: async () => {
-      const [vehicles, expenses] = await Promise.all([
-        vehicleService.getAll(),
-        expenseService.getAll(),
-      ]);
-
-      return { vehicles, expenses };
+      const [messages, gestiones] = await Promise.all([messageService.getAll(), gestionService.getAll()]);
+      return { messages, gestiones };
     },
   },
-  admin: {
-    render: adminView,
+  approval: {
+    render: approvalLynView,
     load: async () => {
-      const [clients, ots, expenses] = await Promise.all([
-        clientService.getAll(),
-        otService.getAll(),
-        expenseService.getAll(),
-      ]);
-
-      return { clients, ots, expenses };
+      const [messages, gestiones] = await Promise.all([messageService.getAll(), gestionService.getAll()]);
+      return { messages, gestiones };
+    },
+  },
+  manager: {
+    render: managerView,
+    load: async () => {
+      const [matriz, approvals, logs] = await Promise.all([matrizService.getAll(), approvalService.getAll(), logService.getAll()]);
+      return { matriz, approvals, logs };
     },
   },
 };
 
-const state = {
-  activeView: 'dashboard',
-  integrationStatus: 'pendiente',
-  viewData: null,
-  selectedOTId: null,
-  otFeedback: null,
-  isSubmittingOT: false,
-  isUpdatingOTStatus: false,
+const state = { activeView: 'home', integrationStatus: 'pendiente', viewData: null, feedback: null };
+
+const refresh = async (message) => {
+  state.feedback = { type: 'success', message };
+  await loadViewData();
 };
 
-const syncSelectedOT = () => {
-  if (state.activeView !== 'clima') {
-    return;
-  }
-
-  const ots = state.viewData?.data || [];
-  if (!ots.length) {
-    state.selectedOTId = null;
-    return;
-  }
-
-  const exists = ots.some((item) => item.id === state.selectedOTId);
-  if (!exists) {
-    state.selectedOTId = ots[ots.length - 1].id;
-  }
+const fail = (error) => {
+  state.feedback = { type: 'error', message: error.message || 'Error de operación' };
+  render();
 };
 
-const createActions = () => ({
-  selectOT: (id) => {
-    state.selectedOTId = id;
-    render();
-  },
-  createOT: async (payload) => {
-    state.isSubmittingOT = true;
-    state.otFeedback = null;
-    render();
-
+const actions = {
+  async reviewMessage(messageId) {
     try {
-      const response = await otService.create(payload);
-      state.selectedOTId = response.data.id;
-      state.otFeedback = {
-        type: 'success',
-        message: 'OT creada correctamente y lista para revisión en pantalla o futuro PDF.',
-      };
-      await loadViewData();
+      await messageService.reviewByGery(messageId, { actor: 'Gery', clasificacion: 'flota' });
+      await refresh('Mensaje revisado y clasificado por Gery.');
     } catch (error) {
-      state.otFeedback = {
-        type: 'error',
-        message: error.message || 'No fue posible crear la OT.',
-      };
-      render();
-    } finally {
-      state.isSubmittingOT = false;
-      render();
+      fail(error);
     }
   },
-  updateOTStatus: async (id, status) => {
-    state.isUpdatingOTStatus = true;
-    state.otFeedback = null;
-    render();
-
+  async convertToGestion(messageId) {
     try {
-      await otService.updateStatus(id, { estado: status });
-      state.otFeedback = {
-        type: 'success',
-        message: `Estado de la OT actualizado a ${status}.`,
-      };
-      await loadViewData();
+      const all = await messageService.getAll();
+      const message = (all.data || []).find((m) => m.id === messageId);
+      if (!message) throw new Error('Mensaje no encontrado para convertir');
+      await gestionService.create({
+        actor: 'Gery',
+        fecha: new Date().toISOString().slice(0, 10),
+        cliente: message.nombre,
+        patente: 'PENDIENTE',
+        servicio: message.mensaje,
+        tipo: message.clasificacion === 'clima' ? 'mantencion' : 'RT',
+        tecnico: 'Por asignar',
+        origenMensajeId: message.id,
+      });
+      await refresh('Gestión creada desde inbox.');
     } catch (error) {
-      state.otFeedback = {
-        type: 'error',
-        message: error.message || 'No fue posible actualizar el estado de la OT.',
-      };
-      render();
-    } finally {
-      state.isUpdatingOTStatus = false;
-      render();
+      fail(error);
     }
   },
-});
+  async approveMessage(messageId) {
+    try {
+      await messageService.approveByLyn(messageId, { actor: 'Lyn' });
+      await refresh('Mensaje aprobado por Lyn.');
+    } catch (error) {
+      fail(error);
+    }
+  },
+  async createApprovedOT(payload) {
+    try {
+      const gestiones = await gestionService.getAll();
+      const g = (gestiones.data || []).find((row) => row.id === payload.gestionId);
+      if (!g) throw new Error('Gestión no encontrada');
+
+      if (payload.unidad === 'flota') {
+        await flotaService.createOT({
+          // CLIENT
+          cliente: payload.cliente,
+          direccion: 'Por definir en gestión',
+          contacto: 'Por definir',
+          correo: 'pendiente@cliente.cl',
+          // VEHICLE
+          patente: g.patente,
+          marca: 'Por definir',
+          modelo: 'Por definir',
+          año: 0,
+          kilometraje: 0,
+          // SERVICE
+          tipo_servicio: payload.tipoServicio,
+          descripcion: g.servicio,
+          fecha: payload.fecha,
+          hora_inicio: payload.horaInicio,
+          hora_termino: payload.horaTermino,
+          duracion: `${payload.horaInicio}-${payload.horaTermino}`,
+          tecnico: payload.tecnico,
+          // COSTS (auto total)
+          items_servicio: [{ descripcion: payload.tipoServicio, cantidad: 1, precio_unitario: payload.costo }],
+          items_insumos: [],
+          // CONTROL
+          estado: 'en_proceso',
+          creadoDesdeMensajeId: g.origenMensajeId,
+          creadoDesdeGestionId: g.id,
+          // EVIDENCE
+          fotos: [],
+          // approval
+          aprobadaPor: 'Lyn',
+          actor: 'Lyn',
+        });
+      } else {
+        await climaService.createOT({
+          cliente: payload.cliente,
+          tienda: g.cliente,
+          fecha: payload.fecha,
+          horaInicio: payload.horaInicio,
+          horaTermino: payload.horaTermino,
+          duracion: `${payload.horaInicio}-${payload.horaTermino}`,
+          tecnico: payload.tecnico,
+          tipoServicio: payload.tipoServicio,
+          descripcion: g.servicio,
+          costoTotal: payload.costo,
+          estado: 'en_proceso',
+          creadoDesde: 'gestion',
+          aprobadaPor: 'Lyn',
+          actor: 'Lyn',
+          origenMensajeId: g.origenMensajeId,
+        });
+      }
+
+      await refresh('OT creada con aprobación obligatoria de Lyn.');
+    } catch (error) {
+      fail(error);
+    }
+  },
+};
 
 const render = () => {
   const currentView = viewRegistry[state.activeView];
@@ -148,27 +173,12 @@ const render = () => {
     onNavigate: async (viewId) => {
       state.activeView = viewId;
       state.integrationStatus = 'cargando';
-      if (viewId !== 'clima') {
-        state.otFeedback = null;
-      }
       render();
       await loadViewData();
     },
   });
 
-  shell.content.append(
-    currentView.render({
-      apiBaseUrl: appConfig.apiBaseUrl,
-      integrationStatus: state.integrationStatus,
-      data: state.viewData,
-      actions: createActions(),
-      feedback: state.otFeedback,
-      isSubmitting: state.isSubmittingOT,
-      isUpdatingStatus: state.isUpdatingOTStatus,
-      selectedOTId: state.selectedOTId,
-    }),
-  );
-
+  shell.content.append(currentView.render({ data: state.viewData, actions, feedback: state.feedback }));
   app.append(shell.element);
 };
 
@@ -176,12 +186,10 @@ const loadViewData = async () => {
   try {
     state.viewData = await viewRegistry[state.activeView].load();
     state.integrationStatus = 'conectado';
-    syncSelectedOT();
-  } catch (error) {
+  } catch {
     state.viewData = null;
     state.integrationStatus = 'sin conexión';
   }
-
   render();
 };
 
