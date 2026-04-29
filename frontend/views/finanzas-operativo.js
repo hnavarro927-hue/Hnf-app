@@ -80,6 +80,28 @@ export const finanzasOperativoView = ({
 
   const gastosMes = expenses.reduce((acc, e) => acc + roundMoney(e?.monto ?? e?.amount ?? 0), 0);
 
+
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const ingresosRows = ots
+    .map((o) => {
+      const fechaFactura = String(o?.fechaFacturacion || o?.fechaCierre || o?.updatedAt || o?.fecha || '');
+      const periodo = fechaFactura.slice(0, 7);
+      const ingreso = roundMoney(o?.montoCobrado ?? o?.montoFacturado ?? o?.monto ?? 0);
+      return {
+        otId: otIdOf(o),
+        cliente: o?.cliente || o?.clienteNombre || 'Sin cliente',
+        periodo,
+        ingreso,
+        estado: String(o?.estadoFacturacion || o?.estado || '').toLowerCase(),
+      };
+    })
+    .filter((r) => r.ingreso > 0 && r.periodo === monthKey)
+    .sort((a, b) => b.ingreso - a.ingreso);
+
+  const ingresosFacturadosMes = ingresosRows
+    .filter((r) => ['facturado', 'cobrada', 'cerrado', 'cerrada'].includes(r.estado))
+    .reduce((acc, r) => acc + r.ingreso, 0);
+
   const sinComprobante = expenses.filter((e) => !e?.comprobante).length;
   const pendientesReg = expenses.filter((e) => (e?.estadoAprobacion || 'registrado') === 'registrado').length;
   const observados = expenses.filter((e) => e?.estadoAprobacion === 'observado').length;
@@ -246,6 +268,32 @@ export const finanzasOperativoView = ({
     ['Utilidad estimada (mensual)', io?.kpi_fin_utilidad_estimada_mensual_clp, 'Sobre OT mensual no facturadas.'],
     ['Utilidad facturada (mes)', io?.kpi_fin_utilidad_facturada_mes_clp, 'Según cobros del mes.'],
   ];
+  const ingresosRealesSection = document.createElement('section');
+  ingresosRealesSection.className = 'tarjeta hnf-mod-finanzas__ingresos-reales';
+  ingresosRealesSection.innerHTML = `<div class="hnf-mod-finanzas__ingresos-head"><h2 class="hnf-mod-finanzas__gastos-t">Ingresos reales · ${monthKey}</h2><p class="hnf-mod-finanzas__ingresos-total">$${fmtMoney(ingresosFacturadosMes)}</p></div><p class="muted small">Facturación real detectada en OT del mes actual. Diseñado para cerrar rápido visibilidad de ingresos.</p>`;
+
+  const ingresosWrap = document.createElement('div');
+  ingresosWrap.className = 'hnf-mod-finanzas__table-wrap';
+  if (!ingresosRows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted small';
+    empty.textContent = 'No hay ingresos reales con fecha del mes en curso.';
+    ingresosWrap.append(empty);
+  } else {
+    const table = document.createElement('table');
+    table.className = 'hnf-mod-finanzas__table';
+    table.innerHTML = '<thead><tr><th>OT</th><th>Cliente</th><th>Período</th><th>Estado</th><th>Ingreso real</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    for (const row of ingresosRows.slice(0, 20)) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row.otId || '—'}</td><td class="small">${String(row.cliente).slice(0, 30)}</td><td>${row.periodo || '—'}</td><td>${row.estado || '—'}</td><td><strong>$${fmtMoney(row.ingreso)}</strong></td>`;
+      tbody.append(tr);
+    }
+    table.append(tbody);
+    ingresosWrap.append(table);
+  }
+  ingresosRealesSection.append(ingresosWrap);
+
   for (const [t, v, hint] of kpiDefs) {
     const c = document.createElement('div');
     c.className = 'hnf-mod-finanzas__kpi-fin-card';
@@ -632,6 +680,6 @@ export const finanzasOperativoView = ({
   sync.addEventListener('click', () => reloadApp?.());
   tool.append(sync);
 
-  root.append(head, flowStrip, jarvisBox, grid, finKpiSection, otMensualSection, gastosSection, foot, tool);
+  root.append(head, flowStrip, jarvisBox, grid, ingresosRealesSection, finKpiSection, otMensualSection, gastosSection, foot, tool);
   return root;
 };
