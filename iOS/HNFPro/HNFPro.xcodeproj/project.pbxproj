@@ -1,0 +1,59 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+	A1 /* HNFProApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2; };
+	A3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4; };
+	A5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6; };
+	A7 /* hnf-master-bundle.real.json in Resources */ = {isa = PBXBuildFile; fileRef = A8; };
+	A9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA; };
+	AB /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AC; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+	A0 = {isa = PBXFileReference; explicitFileType = wrapper.application; path = HNFPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
+	A2 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HNFProApp.swift; sourceTree = "<group>"; };
+	A4 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+	A6 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+	A8 = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Data/hnf-master-bundle.real.json"; sourceTree = "<group>"; };
+	AA = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+	AC = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+	B0 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+/* Begin PBXGroup section */
+	C0 = {isa = PBXGroup; children = (C1,C2); sourceTree = "<group>"; };
+	C1 = {isa = PBXGroup; children = (A2,A4,A6,AA,AC,A8); path = HNFPro; sourceTree = "<group>"; };
+	C2 = {isa = PBXGroup; children = (A0); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+/* Begin PBXNativeTarget section */
+	D0 = {isa = PBXNativeTarget; buildConfigurationList = E2; buildPhases = (F0,B0,F1); buildRules = (); dependencies = (); name = HNFPro; productName = HNFPro; productReference = A0; productType = "com.apple.product-type.application"; };
+/* End PBXNativeTarget section */
+/* Begin PBXProject section */
+	E0 = {isa = PBXProject; attributes = {LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600;}; buildConfigurationList = E1; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = C0; productRefGroup = C2; projectDirPath = ""; projectRoot = ""; targets = (D0); };
+/* End PBXProject section */
+/* Begin PBXResourcesBuildPhase section */
+	F1 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A7,A9,AB); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+/* Begin PBXSourcesBuildPhase section */
+	F0 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1,A3,A5); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+/* Begin XCBuildConfiguration section */
+	G0 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = NO; MARKETING_VERSION = 1.0; INFOPLIST_FILE = HNFPro/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)","@executable_path/Frameworks",); PRODUCT_BUNDLE_IDENTIFIER = cl.hnf.hnfpro; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphonesimulator iphoneos"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug; };
+	G1 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = NO; MARKETING_VERSION = 1.0; INFOPLIST_FILE = HNFPro/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)","@executable_path/Frameworks",); PRODUCT_BUNDLE_IDENTIFIER = cl.hnf.hnfpro; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphonesimulator iphoneos"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release; };
+	G2 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
+	G3 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
+/* End XCBuildConfiguration section */
+/* Begin XCConfigurationList section */
+	E1 = {isa = XCConfigurationList; buildConfigurations = (G2,G3); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	E2 = {isa = XCConfigurationList; buildConfigurations = (G0,G1); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = E0;
+}
