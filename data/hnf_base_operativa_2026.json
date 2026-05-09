@@ -1,0 +1,35 @@
+{
+  "version": "2026-05-09-base-actual",
+  "criterio": "Mantener misma base HNF; actualizar datos reales sin rediseñar ni romper el sistema.",
+  "operacion": {
+    "modo": "manual_semi_automatico",
+    "usuarios_principales": ["Hernan", "Lyn"],
+    "regla_aprobacion": "Nada se envia, cierra o pasa a EDP sin aprobacion Hernan/Lyn",
+    "archivo_maestro": "OneDrive o unidad local HNF",
+    "flujo": "solicitud -> registro diario -> presupuesto/OT -> evidencia -> aprobacion -> EDP -> facturacion"
+  },
+  "clientes_activos": [
+    {"cliente":"Grandleasing","area":"Flota","estado":"activo","nota":"RT y traslados"},
+    {"cliente":"Autotattersall","area":"Flota","estado":"activo","nota":"RT precio fijo RM segun tarifa vigente"},
+    {"cliente":"Puma SPA","area":"Clima","estado":"activo","nota":"Solo Casa Matriz. Mantencion BI mensual. Pisos 1, 2, 6 y 13"},
+    {"cliente":"Tattersall Casa Matriz","area":"Obras Civiles","estado":"activo","nota":"Obras civiles y trabajos operativos actuales"},
+    {"cliente":"Tattersall Sixt","area":"Lavado","estado":"activo_en_estructuracion","nota":"Aprox. 67 oficinas, rent a car y taller"}
+  ],
+  "personal_actual": [
+    {"nombre":"Hernan Navarro","rol":"direccion, comercial, supervisor"},
+    {"nombre":"Lyn Astorga","rol":"aprobacion, finanzas, control"},
+    {"nombre":"Gery","rol":"coordinacion operativa"},
+    {"nombre":"Andres Celis","rol":"flota y obras civiles Tattersall por 1 mes"},
+    {"nombre":"Andres Vilches","rol":"clima"},
+    {"nombre":"Bernabe Villegas","rol":"clima y apoyo"},
+    {"nombre":"Emerson Silva","rol":"tecnico apoyo"},
+    {"nombre":"Yohnatan Castillo","rol":"tecnico apoyo"}
+  ],
+  "modulos_requeridos": ["Dashboard", "Registro Diario", "Presupuestos", "OT", "Flota", "Clima", "Obras Civiles", "Lavado", "EDP Excel", "Clientes", "Archivos", "Configuracion"],
+  "validaciones": [
+    "Toda OT debe tener cliente, precio, costo, tecnico/personal y fecha",
+    "Alertar margen menor a 30 por ciento",
+    "Bloquear EDP si OT no esta enviada o aprobada",
+    "Registrar archivo, ruta o link de evidencia OneDrive"
+  ]
+}
