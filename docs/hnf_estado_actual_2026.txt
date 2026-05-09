@@ -1,0 +1,9 @@
+HNF Control Diario 2026
+
+Clientes activos:
+Flota: Grandleasing, Autotattersall.
+Clima: Puma SPA Casa Matriz pisos 1, 2, 6 y 13.
+Obras Civiles: Tattersall Casa Matriz.
+Lavado: Tattersall Sixt, aprox. 67 oficinas, rent a car y taller.
+
+Prioridad: sistema liviano para Hernan y Lyn, registro diario, presupuesto, OT, EDP Excel, evidencia OneDrive y respaldo JSON.
