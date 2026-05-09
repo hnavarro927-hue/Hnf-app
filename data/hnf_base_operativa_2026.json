@@ -1,35 +1,64 @@
 {
-  "version": "2026-05-09-base-actual",
-  "criterio": "Mantener misma base HNF; actualizar datos reales sin rediseñar ni romper el sistema.",
+  "version": "2026-05-09-real-v2",
+  "criterio": "Mantener misma base HNF; actualizar datos reales sin redisenar ni romper el sistema. Sistema liviano, manual y semiautomatico, para Hernan y Lyn.",
   "operacion": {
     "modo": "manual_semi_automatico",
     "usuarios_principales": ["Hernan", "Lyn"],
     "regla_aprobacion": "Nada se envia, cierra o pasa a EDP sin aprobacion Hernan/Lyn",
     "archivo_maestro": "OneDrive o unidad local HNF",
-    "flujo": "solicitud -> registro diario -> presupuesto/OT -> evidencia -> aprobacion -> EDP -> facturacion"
+    "flujo": "solicitud -> registro diario -> presupuesto/OT -> evidencia -> aprobacion -> EDP -> facturacion",
+    "prioridad": "cerrar, respaldar evidencia, solicitar OC y facturar"
   },
   "clientes_activos": [
-    {"cliente":"Grandleasing","area":"Flota","estado":"activo","nota":"RT y traslados"},
-    {"cliente":"Autotattersall","area":"Flota","estado":"activo","nota":"RT precio fijo RM segun tarifa vigente"},
-    {"cliente":"Puma SPA","area":"Clima","estado":"activo","nota":"Solo Casa Matriz. Mantencion BI mensual. Pisos 1, 2, 6 y 13"},
-    {"cliente":"Tattersall Casa Matriz","area":"Obras Civiles","estado":"activo","nota":"Obras civiles y trabajos operativos actuales"},
-    {"cliente":"Tattersall Sixt","area":"Lavado","estado":"activo_en_estructuracion","nota":"Aprox. 67 oficinas, rent a car y taller"}
+    {"cliente":"Grandleasing SPA","area":"Flota","estado":"activo","nota":"RT y traslados"},
+    {"cliente":"Autotattersall","area":"Flota","estado":"activo","nota":"RT / traslados RM. Debe permitir campo sucursal.","tarifa":"$15.000 + IVA precio fijo RM"},
+    {"cliente":"West","area":"Flota","estado":"activo","nota":"Se mantiene como cliente activo. Servicios por cotizar."},
+    {"cliente":"Puma SPA","area":"Clima","estado":"activo","nota":"Solo Casa Matriz. Mantencion BI mensual. Pisos 1, 2, 6 y 13.","contrato":"Casa Matriz BI mensual"},
+    {"cliente":"Tattersall Casa Matriz","area":"Obras Civiles","estado":"activo","nota":"Obras civiles, climatizacion y trabajos operativos actuales. Debe permitir campo sucursal.","rut":"96.565.580-8"},
+    {"cliente":"Tattersall Sixt","area":"Lavado","estado":"activo_prioridad_comercial","nota":"Aprox. 67 oficinas, rent a car y taller. Trabajos realizados entre 05-05-2026 y 07-05-2026, pendientes de OC.","rut":"96.565.580-8","sucursales_sugeridas":["Casa Matriz","ENEA","Vitacura","Taller","Rent a Car","Otra"]}
   ],
-  "personal_actual": [
-    {"nombre":"Hernan Navarro","rol":"direccion, comercial, supervisor"},
-    {"nombre":"Lyn Astorga","rol":"aprobacion, finanzas, control"},
-    {"nombre":"Gery","rol":"coordinacion operativa"},
-    {"nombre":"Andres Celis","rol":"flota y obras civiles Tattersall por 1 mes"},
-    {"nombre":"Andres Vilches","rol":"clima"},
-    {"nombre":"Bernabe Villegas","rol":"clima y apoyo"},
-    {"nombre":"Emerson Silva","rol":"tecnico apoyo"},
-    {"nombre":"Yohnatan Castillo","rol":"tecnico apoyo"}
+  "clientes_eliminados_o_no_considerar":["Dominion","Domino"],
+  "personal_actual":[
+    {"nombre":"Hernan Navarro","rol":"Gerente comercial / direccion / supervisor","permiso":"aprobacion_total"},
+    {"nombre":"Lindsay Astorga","alias":"Lyn Astorga","rol":"Gerente general / finanzas / aprobacion","permiso":"aprobacion_total"},
+    {"nombre":"Geraldine Catalan","alias":"Gery","rol":"Coordinadora operativa","permiso":"ingreso_operativo"},
+    {"nombre":"Andres Celis","rol":"Nueva ala Lavado / Tattersall Sixt","contrato":"1 mes","cliente_asignado":"Tattersall Sixt","costo_mensual_neto":1100000,"iva":209000,"costo_total_con_iva":1309000,"nota":"No cargar como margen por OT sin criterio de prorrateo mensual."},
+    {"nombre":"Andres Vilches","rol":"Tecnico Clima / apoyo obras"},
+    {"nombre":"Bernabe Villegas","rol":"Tecnico Clima / apoyo"},
+    {"nombre":"Emerson Silva","rol":"Tecnico apoyo / Tattersall Sixt"},
+    {"nombre":"Yohnatan Castillo","rol":"Tecnico apoyo clima"}
   ],
-  "modulos_requeridos": ["Dashboard", "Registro Diario", "Presupuestos", "OT", "Flota", "Clima", "Obras Civiles", "Lavado", "EDP Excel", "Clientes", "Archivos", "Configuracion"],
-  "validaciones": [
+  "personal_eliminado_o_no_considerar":["Patricio","Romina"],
+  "modulos_requeridos":["Dashboard","Registro Diario","Presupuestos","OT","Flota","Clima","Obras Civiles","Lavado","EDP Excel","Clientes","Archivos","Jarvis Update","Configuracion"],
+  "validaciones":[
     "Toda OT debe tener cliente, precio, costo, tecnico/personal y fecha",
     "Alertar margen menor a 30 por ciento",
+    "Alerta roja si falta precio, costo, cliente, fecha, tecnico o estado",
     "Bloquear EDP si OT no esta enviada o aprobada",
-    "Registrar archivo, ruta o link de evidencia OneDrive"
+    "Registrar archivo, ruta o link de evidencia OneDrive",
+    "Para Tattersall o AutoTattersall debe existir campo sucursal",
+    "Nada se envia sin aprobacion Hernan/Lyn"
+  ],
+  "trabajos_realizados_pendientes_oc":[
+    {"id":"OT-2838","mes":"Mayo","codigo_interno":"SSGG","fecha":"2026-05-05","cliente":"Tattersall Sixt","area":"Lavado","sucursal":"ENEA / Casa Matriz","tipo_servicio":"Reparacion de 2 banos Mujer 2do piso","detalle":"Cambio de valvula y flapper. Estanques quedan operativos.","tecnico_hnf":"Emerson Silva","cantidad":2,"valor_neto":105000,"iva":19950,"total":124950,"estado":"Pendiente OC","archivo":"OT_2838_ssgg_Tattersall_Sixt_05-05-2026.pdf","evidencia":"Si"},
+    {"id":"OT-2839","mes":"Mayo","codigo_interno":"SSGG","fecha":"2026-05-06","cliente":"Tattersall Sixt","area":"Lavado","sucursal":"Vitacura / ENEA / Casa Matriz","tipo_servicio":"Traslado de muebles","detalle":"Traslados de muebles desde Vitacura a ENEA / Casa Matriz. Se realizaron 4 viajes.","tecnico_hnf":"Emerson Silva","cantidad":4,"valor_neto":340000,"iva":64600,"total":404600,"estado":"Pendiente OC","archivo":"OT_2839_ssgg_Tattersall_Sixt_06-05-2026.pdf","evidencia":"Si"},
+    {"id":"OT-2840","mes":"Mayo","codigo_interno":"SSGG","fecha":"2026-05-06","cliente":"Tattersall Sixt","area":"Lavado","sucursal":"ENEA / Casa Matriz","tipo_servicio":"Mantencion 7 WC","detalle":"Banos Gerencia 2do piso. Mantencion preventiva para evitar colapso por sarro. Los 7 WC quedan operativos.","tecnico_hnf":"Emerson Silva","cantidad":7,"valor_neto":75000,"iva":14250,"total":89250,"estado":"Pendiente OC","archivo":"OT_2840_ssgg_Tattersall_Sixt_06-05-2026.pdf","evidencia":"Si"},
+    {"id":"OT-2841","mes":"Mayo","codigo_interno":"SSGG","fecha":"2026-05-06","cliente":"Tattersall Sixt","area":"Lavado","sucursal":"ENEA / Casa Matriz","tipo_servicio":"Reparacion 2 urinarios","detalle":"Mantencion y reparacion. Prueba con agua por 30 minutos sin fugas ni rebalse. Urinarios y lavamanos quedan operativos.","tecnico_hnf":"Emerson Silva","cantidad":2,"valor_neto":135000,"iva":25650,"total":160650,"estado":"Pendiente OC","archivo":"OT_2841_ssgg_Tattersall_Sixt_06-05-2026.pdf","evidencia":"Si"},
+    {"id":"OT-2848","mes":"Mayo","codigo_interno":"SSGG","fecha":"2026-05-07","cliente":"Tattersall Sixt","area":"Lavado","sucursal":"Vitacura","tipo_servicio":"Limpieza de espacio","detalle":"Limpieza y orden en Vitacura posterior al retiro de muebles y elementos acumulados.","tecnico_hnf":"Emerson Silva","cantidad":1,"valor_neto":55000,"iva":10450,"total":65450,"estado":"Pendiente OC","archivo":"OT_2848_ssgg_Tattersall_Sixt_07-05-2026.pdf","evidencia":"Si"},
+    {"id":"OT-2849","mes":"Mayo","codigo_interno":"SSGG","fecha":"2026-05-07","cliente":"Tattersall Sixt","area":"Lavado","sucursal":"Vitacura","tipo_servicio":"Instalacion de dispensadores","detalle":"Instalacion basica de 3 dispensadores murales. Dispensadores quedan operativos.","tecnico_hnf":"Emerson Silva","cantidad":3,"valor_neto":45000,"iva":8550,"total":53550,"estado":"Pendiente OC","archivo":"OT_2849_ssgg_Tattersall_Sixt_07-05-2026.pdf","evidencia":"Si"}
+  ],
+  "resumen_tattersall_sixt_pendiente_oc":{"periodo":"2026-05-05 a 2026-05-07","cantidad_ot":6,"neto_total":755000,"iva_total":143450,"total_con_iva":898450,"estado":"Trabajos realizados, enviados con evidencia, a la espera de OC"},
+  "trabajos_base_erp":[
+    {"id":"OT-2831","fecha":"2026-04-29","cliente":"Grandleasing SPA","area":"Flota","tipo":"Traslado","activo":"VCPT49","tecnico":"Andres Celis","neto":30000,"costo":8000,"estado":"OT enviada","edp":"Listo EDP"},
+    {"id":"OT-2832","fecha":"2026-04-30","cliente":"Grandleasing SPA","area":"Flota","tipo":"RT","activo":"RZSB33","tecnico":"Andres Celis","neto":35950,"costo":9000,"estado":"OT enviada","edp":"Listo EDP"},
+    {"id":"INF-186","fecha":"2026-04-17","cliente":"Puma SPA","area":"Clima","tipo":"Mantencion preventiva","activo":"Casa Matriz Piso 13","tecnico":"Andres Vilches / Bernabe Villegas / Yohnatan Castillo","neto":350000,"costo":95000,"estado":"Aprobado"},
+    {"id":"P-220","fecha":"2026-05-06","cliente":"Tattersall Casa Matriz","area":"Obras Civiles","tipo":"Presupuesto climatizacion independiente","activo":"Sector zocalo contabilidad","neto":2250000,"costo":1612740,"estado":"En cotizacion"}
+  ],
+  "pendientes_operativos":[
+    "Confirmar OC Tattersall Sixt por $755.000 neto / $898.450 total",
+    "Registrar costo real de materiales/insumos por cada OT Tattersall Sixt para margen real",
+    "Definir prorrateo de costo mensual Andres Celis $1.100.000 + IVA contra negocio Lavado",
+    "Confirmar si Tattersall Sixt se factura como Lavado, SSGG u Obras Civiles",
+    "Cargar links OneDrive de OT/PDF/evidencia por cada OT 2838 a 2849"
   ]
 }
