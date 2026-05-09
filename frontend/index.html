@@ -1,69 +1,101 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>HNF OS - Control Total</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HNF Control Diario 2026</title>
+  <style>
+    :root{
+      --hnf:#003f2a;--hnf2:#0b5d3b;--gold:#b78f46;--bg:#f6f8f6;--card:#ffffff;--line:#d9e4dd;--text:#1b2b25;--muted:#75867d;--red:#c0392b;--orange:#d98b00;--blue:#1468a8;--green:#138a51;--soft:#eef5f1;
+    }
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}.side{background:linear-gradient(180deg,#002f20,#0b5d3b);color:#fff;padding:28px 22px;position:sticky;top:0;height:100vh}.brand{font-size:34px;font-weight:900;letter-spacing:10px}.brand-sub{font-size:12px;color:#9ee0bd;letter-spacing:3px;margin-top:6px}.menu{margin-top:34px;display:grid;gap:8px}.menu button{display:flex;gap:12px;align-items:center;color:#d6eadf;background:transparent;border-radius:13px;padding:14px 12px;text-align:left}.menu button.active,.menu button:hover{background:rgba(255,255,255,.14);color:#fff}.side-foot{position:absolute;bottom:24px;font-size:13px;color:#c6dfd2}.main{padding:0 34px 42px}.top{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);background:rgba(246,248,246,.94);position:sticky;top:0;z-index:3}.hello h1{margin:0;font-size:24px}.hello p{margin:5px 0 0;color:var(--muted);font-size:13px}.pill{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:#fff8ec;color:#a96c00;border:1px solid #f1d6a3;font-weight:800}.hnf-top{display:flex;gap:12px;align-items:center}.logo-mini{background:var(--hnf);color:#fff;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:900}.view{display:none}.view.active{display:block}.title-row{display:flex;align-items:flex-end;justify-content:space-between;margin:28px 0 18px}.title-row h2{margin:0;font-size:26px}.title-row p{margin:7px 0 0;color:var(--muted)}.grid-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.04)}.kpi small{display:block;color:var(--muted);font-weight:800;letter-spacing:1.5px;text-transform:uppercase}.kpi strong{display:block;font-size:30px;margin-top:12px}.kpi span{color:var(--muted);font-size:13px}.filters,.actions-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:18px 0}.input,select,textarea{border:1px solid var(--line);background:white;border-radius:10px;padding:12px;color:var(--text);min-height:42px}.input:focus,select:focus,textarea:focus{outline:2px solid #b7d7c7}.btn{background:var(--hnf2);color:#fff;border-radius:11px;padding:12px 16px;font-weight:800}.btn.secondary{background:#eaf2ee;color:var(--hnf);border:1px solid #bdd4c8}.btn.warn{background:var(--orange)}.btn.danger{background:var(--red)}.layout-two{display:grid;grid-template-columns:1fr 290px;gap:22px}.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.035)}table{width:100%;border-collapse:separate;border-spacing:0}th{font-size:12px;text-align:left;color:#607368;letter-spacing:1px;text-transform:uppercase;background:#edf5f0;padding:12px}td{border-bottom:1px solid var(--line);padding:13px 12px;font-size:14px;vertical-align:top}tr:hover td{background:#fbfdfb}.tag{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;border:1px solid}.tag.green{background:#e5f5ed;color:#126b42;border-color:#b6ddc7}.tag.blue{background:#e7f2fd;color:#145c95;border-color:#bddaf0}.tag.orange{background:#fff2dd;color:#975700;border-color:#f0ce99}.tag.red{background:#fdebea;color:#9f2f24;border-color:#efbeb9}.tag.gray{background:#eef1f0;color:#617167;border-color:#d6ded9}.quick{display:grid;gap:10px}.flow{display:grid;gap:14px;margin-top:14px}.flow-row{display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start}.num{background:var(--green);color:#fff;width:26px;height:26px;border-radius:99px;display:grid;place-items:center;font-weight:900}.muted{color:var(--muted)}.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.form-grid .wide{grid-column:span 3}.form-grid .two{grid-column:span 2}.money{font-weight:900;color:var(--hnf)}.section-title{font-size:16px;font-weight:900;color:var(--hnf);margin:0 0 12px}.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.client-card{background:linear-gradient(180deg,#f2faf6,#fff);border:1px solid var(--line);border-radius:16px;padding:18px}.client-card h3{margin:0 0 8px}.doc{background:white;width:min(900px,100%);margin:0 auto;border:1px solid var(--line);box-shadow:0 12px 36px rgba(0,0,0,.08)}.doc-head{display:flex;justify-content:space-between;gap:20px;background:var(--hnf);color:white;padding:22px 28px}.doc-head h2{margin:0;font-size:24px}.doc-body{padding:26px}.doc-box{border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}.doc-table th{background:var(--hnf);color:white}.doc-total{display:flex;justify-content:flex-end;gap:20px;font-size:20px;font-weight:900;margin-top:12px}.split{display:grid;grid-template-columns:360px 1fr;gap:20px}.alert{border-left:5px solid var(--orange);background:#fff8ec;padding:12px;border-radius:12px}.ok{border-left-color:var(--green);background:#effaf4}.hidden{display:none!important}@media(max-width:900px){.app{grid-template-columns:1fr}.side{position:relative;height:auto}.main{padding:0 16px 32px}.grid-kpi{grid-template-columns:repeat(2,1fr)}.layout-two,.split{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.form-grid .wide,.form-grid .two{grid-column:span 1}.table-wrap{overflow:auto}.side-foot{position:static;margin-top:30px}.top{position:relative}.cards{grid-template-columns:1fr}}
+    @media print{.side,.top,.actions-bar,.filters,.no-print{display:none!important}.app{display:block}.main{padding:0}.view{display:block}.doc{box-shadow:none;border:0}.panel{box-shadow:none}}
+  </style>
 </head>
-<body class="bg-slate-900 text-white p-6">
-    <div class="max-w-5xl mx-auto">
-        <div class="flex justify-between items-center mb-10 bg-slate-800 p-6 rounded-2xl border border-slate-700">
-            <div>
-                <h1 class="text-2xl font-bold text-blue-400">HNF SERVICIOS</h1>
-                <p class="text-slate-400 text-sm">Dashboard Operativo</p>
-            </div>
-            <div class="text-right">
-                <p class="text-xs uppercase text-slate-500 font-bold">Dinero Detenido</p>
-                <h2 id="totalDinero" class="text-4xl font-black text-green-500">$ 0</h2>
-            </div>
-        </div>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">HNF</div><div class="brand-sub">CONTROL DIARIO 2026</div>
+    <nav class="menu" id="menu"></nav>
+    <div class="side-foot"><b>Sesión activa</b><br/>Hernan / Lyn · Control manual</div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div class="hello"><h1>¡Hola Hernan!</h1><p id="todayText">Control simple. Visión clara. Decisiones rápidas.</p></div>
+      <div class="hnf-top"><span class="pill" id="pendingPill">0 pendientes</span><div class="logo-mini">HNF</div><div><b>HNF</b><br/><span class="muted">Control Diario 2026</span></div></div>
+    </header>
 
-        <div id="contenedorOTs" class="grid gap-4"></div>
-    </div>
-
-    <script>
-        const API = 'https://hnf-backend-production.up.railway.app/api/ots';
-
-        async function render() {
-            try {
-                const res = await fetch(API);
-                const data = await res.json();
-
-                // 1. RANKING POR PRECIO (Mayor a menor)
-                data.sort((a, b) => b.precio - a.precio);
-
-                // 2. DINERO DETENIDO
-                const total = data.reduce((acc, ot) => ot.estado !== 'Terminado' ? acc + (ot.precio || 0) : acc, 0);
-                document.getElementById('totalDinero').innerText = '$ ' + total.toLocaleString('es-CL');
-
-                // 3. RENDER CON RESPONSABLES
-                const container = document.getElementById('contenedorOTs');
-                container.innerHTML = '';
-
-                data.forEach(ot => {
-                    let responsable = "Equipo HNF";
-                    if(ot.estado === 'Pendiente') responsable = "Lyn";
-                    else if(ot.estado === 'En Proceso' && !ot.precio) responsable = "Gery";
-                    else if(ot.modulo === 'Clima') responsable = "Romina";
-
-                    container.innerHTML += `
-                        <div class="bg-slate-800 p-5 rounded-xl border-l-4 ${ot.precio > 1000000 ? 'border-red-500' : 'border-blue-500'} flex justify-between items-center">
-                            <div>
-                                <h3 class="font-bold text-lg">${ot.cliente}</h3>
-                                <p class="text-sm text-slate-400">${ot.modulo} | <span class="text-blue-300 font-bold">${responsable}</span></p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-xl font-mono">${ot.precio.toLocaleString('es-CL')}</p>
-                                <span class="text-[10px] px-2 py-1 rounded bg-slate-700 uppercase">${ot.estado}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-            } catch (e) {
-                document.getElementById('contenedorOTs').innerHTML = "Error de conexión con Railway.";
-            }
-        }
-        render();
-    </script>
+    <section id="dashboard" class="view active"></section>
+    <section id="registro" class="view"></section>
+    <section id="presupuestos" class="view"></section>
+    <section id="ot" class="view"></section>
+    <section id="flota" class="view"></section>
+    <section id="clima" class="view"></section>
+    <section id="obras" class="view"></section>
+    <section id="edp" class="view"></section>
+    <section id="clientes" class="view"></section>
+    <section id="archivos" class="view"></section>
+    <section id="config" class="view"></section>
+  </main>
+</div>
+<script>
+const STORE='hnf_control_diario_2026_v3';
+const menuItems=[['dashboard','Dashboard'],['registro','Registro Diario'],['presupuestos','Presupuestos'],['ot','OT'],['flota','Flota'],['clima','Clima'],['obras','Obras Civiles'],['edp','EDP'],['clientes','Clientes'],['archivos','Archivos'],['config','Configuración']];
+const clients=[
+  {name:'Grandleasing SPA',area:'Flota',contact:'Sebastián Alvear',email:'sebastian.alvear@grandleasing.cl',rate:'RT $45.000 · Traslado según servicio',status:'Activo 2026'},
+  {name:'Autotattersall',area:'Flota',contact:'Sebastián Rojas',email:'srojas@autotatt.cl',rate:'$15.000 + IVA precio fijo RM',status:'Activo 2026'},
+  {name:'West',area:'Flota',contact:'Felipe Mora',email:'fmora@west.cl',rate:'Por cotizar',status:'Activo 2026'},
+  {name:'Puma SPA',area:'Clima',contact:'Por confirmar',email:'',rate:'Contrato Casa Matriz bimensual',status:'Activo 2026'},
+  {name:'Tattersall Casa Matriz',area:'Obras Civiles / Clima',contact:'Por confirmar',email:'',rate:'Por presupuesto / OC',status:'Activo 2026'}
+];
+const people=[
+  'Hernan Navarro — Gerencia / Comercial / Supervisor',
+  'Lyn Astorga — Gerencia general / Aprobación',
+  'Gery — Coordinación operativa',
+  'Andrés Celis — Técnico Flota / Obras Civiles Tattersall por 1 mes',
+  'Andrés Vilches — Técnico Clima',
+  'Bernabé Villegas — Técnico Clima / apoyo',
+  'Emerson Silva — Técnico / apoyo',
+  'Yohnatan Castillo — Técnico / apoyo'
+];
+const initialRecords=[
+  {id:'2831',fechaSolicitud:'2026-04-29',fechaEjecucion:'2026-04-29',cliente:'Grandleasing SPA',area:'Flota',tipo:'Traslado',descripcion:'Traslado Kaufmann - Caren - Grandleasing',responsable:'Gery',tecnico:'Andrés Celis',activo:'VCPT49',precio:30000,costo:8000,estado:'Aprobado',evidencia:'Sí',archivo:'OT N2831_Traslado Kaufmann-Caren_VCPT49.pdf',ot:'OT enviada',edp:'Listo EDP',facturado:'No',obs:'Registro base precargado desde OT.'},
+  {id:'2832',fechaSolicitud:'2026-04-30',fechaEjecucion:'2026-04-30',cliente:'Grandleasing SPA',area:'Flota',tipo:'RT',descripcion:'RT gases aprobada y traslado',responsable:'Gery',tecnico:'Andrés Celis',activo:'RZSB33',precio:35950,costo:9000,estado:'OT enviada',evidencia:'Sí',archivo:'OT N2832_RT_Traslado_RZSB33.pdf',ot:'OT enviada',edp:'Listo EDP',facturado:'No',obs:'Registro base precargado desde OT.'},
+  {id:'186',fechaSolicitud:'2026-04-17',fechaEjecucion:'2026-04-17',cliente:'Puma SPA',area:'Clima',tipo:'Mantención preventiva',descripcion:'Casa Matriz piso 13, 19 equipos operativos.',responsable:'Hernan Navarro',tecnico:'Andrés Vilches / Bernabé Villegas / Yohnatan Castillo',activo:'Piso 13',precio:350000,costo:95000,estado:'Aprobado',evidencia:'Sí',archivo:'N°186_Casa_Matriz_Piso13.pdf',ot:'No aplica',edp:'Pendiente',facturado:'No',obs:'Contrato vigente Casa Matriz bimensual. Romina ya no pertenece a HNF; Gery asume coordinación operativa.'},
+  {id:'OC-205',fechaSolicitud:'2026-05-06',fechaEjecucion:'',cliente:'Tattersall Casa Matriz',area:'Obras Civiles',tipo:'Lavado / apoyo operativo',descripcion:'Inicio nueva línea de trabajo Obras Civiles Tattersall. Personal asignado para apoyo operativo en terreno.',responsable:'Hernan Navarro',tecnico:'Andrés Celis + 3 personas adicionales',activo:'Tattersall',precio:0,costo:0,estado:'En ejecución',evidencia:'Pendiente',archivo:'',ot:'Pendiente',edp:'No',facturado:'No',obs:'Andrés Celis estará durante un mes apoyando esta nueva ala de negocio. Ya existen 4 personas activas. Pendiente completar nombres, precio, costo y condiciones comerciales.'},
+  {id:'P-220',fechaSolicitud:'2026-05-06',fechaEjecucion:'',cliente:'Tattersall Casa Matriz',area:'Obras Civiles',tipo:'Presupuesto climatización independiente',descripcion:'Instalación climatización independiente oficina jefatura contabilidad sector zócalo con termostato independiente frío/calor programable.',responsable:'Hernan Navarro',tecnico:'2 técnicos HNF + supervisión Hernan',activo:'Sector zócalo contabilidad',precio:2250000,costo:1612740,estado:'En cotización',evidencia:'Sí',archivo:'Presupuesto_Tattersall_Clima_Zocalo.pdf',ot:'No',edp:'No',facturado:'No',obs:'Trabajo nocturno. No se recomienda manga interna desde otro equipo ni perforación de pilares/muros estructurales de 60 cm.'}
+];
+function money(n){return '$'+Number(n||0).toLocaleString('es-CL')}
+function pct(r){if(!r.precio||!r.costo)return '—'; return Math.round(((r.precio-r.costo)/r.precio)*100)+'%'}
+function margin(r){return Number(r.precio||0)-Number(r.costo||0)}
+function load(){const raw=localStorage.getItem(STORE); if(raw){try{return JSON.parse(raw)}catch(e){}} return {records:initialRecords,clients,people,files:[],settings:{baseFolder:'HNF Control Diario 2026',yellow:30,red:15}}}
+let state=load();
+function save(){localStorage.setItem(STORE,JSON.stringify(state));renderAll()}
+function statusTag(s){const map={Aprobado:'green','OT enviada':'green','OT generada':'blue','Listo EDP':'blue','En ejecución':'orange','En cotización':'orange','Presupuesto enviado':'blue',Cerrado:'green',Facturado:'green','Solicitud recibida':'gray',Pendiente:'red','Servicio terminado':'orange'};return `<span class="tag ${map[s]||'gray'}">${s||'Pendiente'}</span>`}
+function areaTag(a){return `<span class="tag ${a==='Flota'?'blue':a==='Clima'?'green':'orange'}">${a}</span>`}
+function critical(r){let issues=[]; if(!r.precio)issues.push('sin precio'); if(!r.costo)issues.push('sin costo'); if(!r.cliente)issues.push('sin cliente'); if(!r.tecnico)issues.push('sin técnico'); if(r.precio&&r.costo){const mp=((r.precio-r.costo)/r.precio)*100; if(mp<15)issues.push('margen rojo'); else if(mp<30)issues.push('margen bajo')} if((r.estado==='Servicio terminado'||r.estado==='Aprobado')&&r.ot!=='OT enviada')issues.push('OT por enviar'); return issues}
+function sums(records=state.records){const fact=records.reduce((a,r)=>a+Number(r.precio||0),0);const cost=records.reduce((a,r)=>a+Number(r.costo||0),0);const pend=records.reduce((a,r)=>a+critical(r).length,0);return {fact,cost,marg:fact-cost,mp:fact?Math.round(((fact-cost)/fact)*100):0,pend}}
+function row(r){return `<tr><td><b>${r.id}</b></td><td>${r.fechaEjecucion||r.fechaSolicitud||''}</td><td><b>${r.cliente}</b></td><td>${areaTag(r.area)}</td><td>${r.activo||''}</td><td>${r.tipo||''}</td><td>${r.tecnico||''}</td><td>${statusTag(r.estado)}</td><td class="money">${money(r.precio)}</td><td>${money(r.costo)}</td><td><b>${pct(r)}</b></td><td>${r.evidencia||'No'}</td><td>${r.archivo?'<span class="tag gray">archivo</span>':'—'}</td><td><button class="btn secondary" onclick="openEdit('${r.id}')">Editar</button></td></tr>`}
+function table(records){return `<div class="table-wrap"><table><thead><tr><th>OT/ID</th><th>Fecha</th><th>Cliente</th><th>Área</th><th>Equipo/Patente</th><th>Tipo</th><th>Responsable</th><th>Estado</th><th>Neto</th><th>Costo</th><th>Margen</th><th>Evid.</th><th>Archivo</th><th></th></tr></thead><tbody>${records.map(row).join('')}</tbody></table></div>`}
+function dashboard(){const s=sums();const today=new Date().toISOString().slice(0,10);const todayRecords=state.records.filter(r=>r.fechaEjecucion===today||r.fechaSolicitud===today);const presup=state.records.filter(r=>['En cotización','Solicitud recibida'].includes(r.estado)).length;const otSend=state.records.filter(r=>(r.estado==='Servicio terminado'||r.estado==='Aprobado')&&r.ot!=='OT enviada').length;const byArea=['Flota','Clima','Obras Civiles'].map(a=>[a,state.records.filter(r=>r.area===a).length]);return `<div class="title-row"><div><h2>Resumen Operativo de Hoy</h2><p>Control simple. Visión clara. Decisiones rápidas.</p></div><button class="btn" onclick="show('registro')">+ Nueva solicitud</button></div><div class="grid-kpi"><div class="kpi"><small>Servicios del día</small><strong>${todayRecords.length}</strong><span>Registros de hoy</span></div><div class="kpi"><small>Pendientes críticos</small><strong>${s.pend}</strong><span>Requieren atención</span></div><div class="kpi"><small>Presupuestos por enviar</small><strong>${presup}</strong><span>Cotización / solicitud</span></div><div class="kpi"><small>Facturable neto</small><strong>${money(s.fact)}</strong><span>Margen ${s.mp}%</span></div><div class="kpi"><small>Costo neto</small><strong>${money(s.cost)}</strong></div><div class="kpi"><small>Margen neto</small><strong>${money(s.marg)}</strong></div><div class="kpi"><small>OT por enviar</small><strong>${otSend}</strong></div><div class="kpi"><small>Obras Civiles</small><strong>${byArea.find(x=>x[0]==='Obras Civiles')[1]}</strong><span>Tattersall activo</span></div></div><div class="layout-two" style="margin-top:22px"><div class="panel"><h3 class="section-title">Operaciones del día / Base actual HNF</h3>${table(state.records)}</div><aside class="panel"><h3>Acciones rápidas</h3><div class="quick"><button class="btn" onclick="show('registro')">+ Nueva Solicitud</button><button class="btn" onclick="show('presupuestos')">Generar Presupuesto</button><button class="btn" onclick="show('ot')">Generar OT</button><button class="btn secondary" onclick="show('archivos')">Asociar Archivo</button></div><h3 style="margin-top:22px">Flujo ultra liviano</h3><div class="flow"><div class="flow-row"><div class="num">1</div><div><b>Datos escritos manualmente</b><br><span class="muted">Solo lo esencial.</span></div></div><div class="flow-row"><div class="num">2</div><div><b>Archivos desde carpeta / unidad</b><br><span class="muted">Seleccionas y registras link.</span></div></div><div class="flow-row"><div class="num">3</div><div><b>Listo para operar</b><br><span class="muted">Sin carga compleja.</span></div></div></div></aside></div>`}
+function registro(){return `<div class="title-row"><div><h2>Registro Diario</h2><p>Ingreso manual rápido para Flota, Clima y Obras Civiles.</p></div></div><div class="split"><div class="panel"><h3 class="section-title">Nueva solicitud / servicio</h3>${form()}</div><div class="panel"><h3 class="section-title">Registros actuales</h3>${table(state.records)}</div></div>`}
+function form(r={}){const id=r.id||('HNF-'+Date.now().toString().slice(-5));return `<form id="recordForm" class="form-grid" onsubmit="submitRecord(event)"><input type="hidden" name="id" value="${id}"><label>Fecha solicitud<input class="input" name="fechaSolicitud" type="date" value="${r.fechaSolicitud||new Date().toISOString().slice(0,10)}"></label><label>Fecha ejecución<input class="input" name="fechaEjecucion" type="date" value="${r.fechaEjecucion||''}"></label><label>Cliente<select name="cliente">${state.clients.map(c=>`<option ${r.cliente===c.name?'selected':''}>${c.name}</option>`).join('')}</select></label><label>Área<select name="area"><option ${r.area==='Flota'?'selected':''}>Flota</option><option ${r.area==='Clima'?'selected':''}>Clima</option><option ${r.area==='Obras Civiles'?'selected':''}>Obras Civiles</option></select></label><label>Tipo servicio<input class="input" name="tipo" value="${r.tipo||''}" placeholder="Traslado, RT, mantención, lavado..."></label><label>Equipo / patente / activo<input class="input" name="activo" value="${r.activo||''}"></label><label>Responsable HNF<input class="input" name="responsable" value="${r.responsable||'Hernan Navarro'}"></label><label>Técnico / personal<input class="input" name="tecnico" value="${r.tecnico||''}"></label><label>Estado<select name="estado">${['Solicitud recibida','En cotización','Presupuesto enviado','Aprobado','En ejecución','Servicio terminado','OT generada','OT enviada','Listo EDP','Facturado','Cerrado','Pendiente'].map(s=>`<option ${r.estado===s?'selected':''}>${s}</option>`).join('')}</select></label><label>Precio neto<input class="input" name="precio" type="number" value="${r.precio||''}"></label><label>Costo neto<input class="input" name="costo" type="number" value="${r.costo||''}"></label><label>Evidencia<select name="evidencia"><option ${r.evidencia==='Sí'?'selected':''}>Sí</option><option ${r.evidencia==='Pendiente'?'selected':''}>Pendiente</option><option ${r.evidencia==='No'?'selected':''}>No</option></select></label><label class="wide">Descripción<textarea name="descripcion" rows="3" placeholder="Qué se pidió / qué se hizo">${r.descripcion||''}</textarea></label><label class="two">Archivo asociado / link OneDrive<input class="input" name="archivo" value="${r.archivo||''}" placeholder="Nombre, ruta o link"></label><label>OT<select name="ot"><option ${r.ot==='Pendiente'?'selected':''}>Pendiente</option><option ${r.ot==='OT generada'?'selected':''}>OT generada</option><option ${r.ot==='OT enviada'?'selected':''}>OT enviada</option><option ${r.ot==='No'?'selected':''}>No</option></select></label><label>EDP<select name="edp"><option ${r.edp==='No'?'selected':''}>No</option><option ${r.edp==='Pendiente'?'selected':''}>Pendiente</option><option ${r.edp==='Listo EDP'?'selected':''}>Listo EDP</option><option ${r.edp==='Incluido'?'selected':''}>Incluido</option></select></label><label>Facturado<select name="facturado"><option ${r.facturado==='No'?'selected':''}>No</option><option ${r.facturado==='Sí'?'selected':''}>Sí</option></select></label><label class="wide">Observaciones / próxima acción<textarea name="obs" rows="3">${r.obs||''}</textarea></label><button class="btn wide" type="submit">Guardar registro</button></form>`}
+function submitRecord(e){e.preventDefault();const d=Object.fromEntries(new FormData(e.target).entries());d.precio=Number(d.precio||0);d.costo=Number(d.costo||0);const idx=state.records.findIndex(r=>r.id===d.id);if(idx>=0)state.records[idx]=d;else state.records.unshift(d);save();show('dashboard')}
+function openEdit(id){const r=state.records.find(x=>x.id===id);document.getElementById('registro').innerHTML=`<div class="title-row"><div><h2>Editar registro ${id}</h2><p>Actualiza solo lo necesario.</p></div></div><div class="panel">${form(r)}</div>`;show('registro')}
+function areaView(area){const records=state.records.filter(r=>r.area===area);return `<div class="title-row"><div><h2>${area}</h2><p>Control operativo por área.</p></div><button class="btn" onclick="show('registro')">+ Registrar ${area}</button></div><div class="panel">${table(records)}</div>`}
+function presupuestos(){const selected=state.records.find(r=>r.id==='P-220')||state.records[0];return `<div class="title-row"><div><h2>Presupuestos</h2><p>Formato una hoja HNF para enviar.</p></div><button class="btn" onclick="window.print()">Imprimir / PDF</button></div><div class="actions-bar no-print"><select id="docSelect" onchange="renderAll()">${state.records.map(r=>`<option value="${r.id}" ${r.id===selected.id?'selected':''}>${r.id} · ${r.cliente} · ${r.tipo}</option>`).join('')}</select></div>${proposalDoc(selected)}`}
+function proposalDoc(r){const iva=Math.round(Number(r.precio||0)*.19);return `<div class="doc"><div class="doc-head"><div><h2>HNF · PRESUPUESTO TÉCNICO COMERCIAL</h2><p>Control Diario 2026</p></div><div><b>N° ${r.id}</b><br>Fecha: ${r.fechaSolicitud||''}</div></div><div class="doc-body"><div class="doc-box"><b>Cliente:</b> ${r.cliente}<br><b>Área:</b> ${r.area}<br><b>Ubicación / activo:</b> ${r.activo||'Por definir'}<br><b>Responsable:</b> ${r.responsable||'HNF'}</div><div class="doc-box"><h3>Diagnóstico / Solicitud</h3><p>${r.descripcion||'Solicitud recibida para evaluación técnica y económica.'}</p></div><div class="doc-box"><h3>Solución recomendada</h3><p>${r.obs||'Ejecutar solución HNF con alcance controlado, evidencia y cierre administrativo.'}</p></div><table class="doc-table"><thead><tr><th>Ítem</th><th>Descripción</th><th>Cant.</th><th>Total neto</th></tr></thead><tbody><tr><td>1</td><td>${r.tipo||'Servicio HNF'}</td><td>1</td><td>${money(r.precio)}</td></tr></tbody></table><div class="doc-total"><div>Neto: ${money(r.precio)}</div><div>IVA: ${money(iva)}</div><div>Total: ${money(Number(r.precio||0)+iva)}</div></div><div class="doc-box"><b>Condiciones:</b> Valor sujeto a aprobación y coordinación de acceso. No considera trabajos fuera del alcance indicado. Nada se ejecuta sin aprobación Hernan/Lyn.</div></div></div>`}
+function ot(){const r=state.records[0];return `<div class="title-row"><div><h2>OT</h2><p>Generación manual/semi desde registro diario.</p></div><button class="btn" onclick="window.print()">Imprimir / PDF</button></div>${otDoc(r)}<div class="panel" style="margin-top:18px"><h3 class="section-title">Registros para generar OT</h3>${table(state.records)}</div>`}
+function otDoc(r){return `<div class="doc"><div class="doc-head"><div><h2>ORDEN DE TRABAJO</h2><p>Servicio HNF · ${r.area}</p></div><div><b>OT ${r.id}</b><br>${r.fechaEjecucion||r.fechaSolicitud}</div></div><div class="doc-body"><div class="doc-box"><b>Cliente:</b> ${r.cliente}<br><b>Activo:</b> ${r.activo||'N/A'}<br><b>Técnico:</b> ${r.tecnico}<br><b>Tipo servicio:</b> ${r.tipo}</div><div class="doc-box"><h3>Descripción servicio realizado</h3><p>${r.descripcion}</p></div><table class="doc-table"><thead><tr><th>Descripción</th><th>Total neto</th></tr></thead><tbody><tr><td>${r.tipo}</td><td>${money(r.precio)}</td></tr></tbody></table><div class="doc-box"><b>Evidencia:</b> ${r.evidencia||'Pendiente'} · <b>Archivo:</b> ${r.archivo||'Pendiente'}</div></div></div>`}
+function edp(){const list=state.records.filter(r=>r.edp==='Listo EDP'||r.ot==='OT enviada');const s=sums(list);return `<div class="title-row"><div><h2>EDP</h2><p>Consolidado mensual manual/semi automático.</p></div><button class="btn">Generar EDP</button></div><div class="grid-kpi"><div class="kpi"><small>Servicios listos</small><strong>${list.length}</strong></div><div class="kpi"><small>Neto</small><strong>${money(s.fact)}</strong></div><div class="kpi"><small>IVA</small><strong>${money(Math.round(s.fact*.19))}</strong></div><div class="kpi"><small>Total</small><strong>${money(Math.round(s.fact*1.19))}</strong></div></div><div class="panel" style="margin-top:18px">${table(list)}</div>`}
+function clientes(){return `<div class="title-row"><div><h2>Clientes y Personal</h2><p>Cartera activa 2026. Romina fuera de HNF; Gery asume coordinación operativa.</p></div></div><div class="cards">${state.clients.map(c=>`<div class="client-card"><h3>${c.name}</h3>${areaTag(c.area.includes('Flota')?'Flota':c.area.includes('Clima')?'Clima':'Obras Civiles')} <span class="tag green">${c.status}</span><p><b>Contacto:</b> ${c.contact||'—'}<br><b>Correo:</b> ${c.email||'—'}<br><b>Tarifa:</b> ${c.rate}</p></div>`).join('')}</div><div class="panel" style="margin-top:18px"><h3 class="section-title">Personal activo</h3>${state.people.map(p=>`<p>${p}</p>`).join('')}</div>`}
+function archivos(){return `<div class="title-row"><div><h2>Archivos</h2><p>OneDrive/carpeta sigue siendo archivo maestro. Aquí se registra nombre o link.</p></div></div><div class="panel"><h3 class="section-title">Carpetas sugeridas</h3>${['01_Flota','02_Clima','03_Obras_Civiles','04_Presupuestos','05_OT','06_EDP','07_Clientes','08_Evidencias','09_Reportes','10_Control'].map(f=>`<span class="tag gray" style="margin:5px">${f}</span>`).join('')}<p class="alert ok" style="margin-top:18px">Base: ${state.settings.baseFolder}. No subir todo: solo asociar ruta, archivo o link OneDrive.</p></div><div class="panel" style="margin-top:18px">${table(state.records.filter(r=>r.archivo))}</div>`}
+function config(){return `<div class="title-row"><div><h2>Configuración</h2><p>Umbrales y control liviano.</p></div></div><div class="panel"><h3 class="section-title">Reglas activas</h3><p>Alerta amarilla: margen menor a 30%.</p><p>Alerta roja: margen menor a 15%.</p><p>No cerrar si falta cliente, fecha, precio, costo, responsable o estado.</p><p>Nada pasa a EDP sin OT enviada.</p><p>Nada se envía sin aprobación Hernan o Lyn.</p><button class="btn danger" onclick="resetData()">Restablecer datos base</button></div>`}
+function renderAll(){document.getElementById('todayText').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});const s=sums();document.getElementById('pendingPill').textContent=s.pend+' pendientes';document.getElementById('dashboard').innerHTML=dashboard();document.getElementById('registro').innerHTML=registro();document.getElementById('presupuestos').innerHTML=presupuestos();document.getElementById('ot').innerHTML=ot();document.getElementById('flota').innerHTML=areaView('Flota');document.getElementById('clima').innerHTML=areaView('Clima');document.getElementById('obras').innerHTML=areaView('Obras Civiles');document.getElementById('edp').innerHTML=edp();document.getElementById('clientes').innerHTML=clientes();document.getElementById('archivos').innerHTML=archivos();document.getElementById('config').innerHTML=config()}
+function renderMenu(){document.getElementById('menu').innerHTML=menuItems.map(([id,label])=>`<button id="m-${id}" onclick="show('${id}')">${label}</button>`).join('')}
+function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.menu button').forEach(b=>b.classList.remove('active'));document.getElementById('m-'+id).classList.add('active');window.scrollTo(0,0)}
+function resetData(){if(confirm('Restablecer datos base HNF?')){localStorage.removeItem(STORE);state=load();save()}}
+renderMenu();renderAll();show('dashboard');
+</script>
 </body>
 </html>
