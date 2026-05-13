@@ -1,11 +1,15 @@
 /**
  * Jarvis agente flotante — asistente persistente (overlay), sin rail lateral.
- * Sin intervalos: el contenido se actualiza solo cuando main.render() llama a update().
+ * Incluye estación local HNF: adjuntar archivos, fotos, PDF, Excel y respaldar en carpeta/descarga.
  */
 
 import { formatAllCloseBlockersMessage, getEvidenceGaps, otCanClose } from '../utils/ot-evidence.js';
 import { computeCommandCenterMetrics } from '../domain/hnf-command-center-metrics.js';
 import { buildHnfAdnSnapshot } from '../domain/hnf-adn.js';
+
+const LOCAL_WORKSPACE_KEY = 'hnf.jarvis.localWorkspace.v1';
+const MAX_TEXT_CHARS = 90000;
+const MAX_PREVIEW_BYTES = 950000;
 
 function findOt(data, id) {
   if (!id) return null;
@@ -18,6 +22,169 @@ function truncate(s, max) {
   const t = String(s || '').trim();
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
+}
+
+function readLocalWorkspace() {
+  try {
+    const raw = localStorage.getItem(LOCAL_WORKSPACE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== 'object') return { files: [], notes: [], updatedAt: null };
+    return {
+      files: Array.isArray(parsed.files) ? parsed.files.slice(-80) : [],
+      notes: Array.isArray(parsed.notes) ? parsed.notes.slice(-80) : [],
+      updatedAt: parsed.updatedAt || null,
+    };
+  } catch {
+    return { files: [], notes: [], updatedAt: null };
+  }
+}
+
+function writeLocalWorkspace(workspace) {
+  const payload = {
+    files: Array.isArray(workspace.files) ? workspace.files.slice(-80) : [],
+    notes: Array.isArray(workspace.notes) ? workspace.notes.slice(-80) : [],
+    updatedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(LOCAL_WORKSPACE_KEY, JSON.stringify(payload));
+  return payload;
+}
+
+function classifyLocalFile(file) {
+  const name = String(file?.name || '').toLowerCase();
+  const type = String(file?.type || '').toLowerCase();
+  if (type.startsWith('image/') || /\.(png|jpe?g|webp|heic)$/i.test(name)) return 'foto';
+  if (type.includes('pdf') || name.endsWith('.pdf')) return 'pdf';
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) return 'excel';
+  if (name.endsWith('.csv')) return 'csv';
+  if (name.endsWith('.json')) return 'json';
+  if (name.endsWith('.txt') || type.startsWith('text/')) return 'texto';
+  return 'archivo';
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').slice(0, MAX_TEXT_CHARS));
+    reader.onerror = () => reject(reader.error || new Error('No se pudo leer el archivo.'));
+    reader.readAsText(file);
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('No se pudo generar vista previa.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function extractWhatsAppSignals(text) {
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const joined = lines.join('\n');
+  const patenteMatches = joined.match(/\b[A-Z]{2,4}[- ]?\d{2,4}\b/gi) || [];
+  const moneyMatches = joined.match(/\$\s?\d[\d.]{2,}/g) || [];
+  const clientWords = ['puma', 'tattersall', 'autotattersall', 'granleasing', 'west', 'dominion', 'sixt'];
+  const detectedClients = clientWords.filter((c) => joined.toLowerCase().includes(c));
+  const serviceWords = ['clima', 'mantenci', 'lavado', 'traslado', 'rt', 'revision tecnica', 'obra', 'civil', 'instalaci'];
+  const detectedServices = serviceWords.filter((s) => joined.toLowerCase().includes(s));
+  return {
+    lineas: lines.length,
+    posiblesPatentes: [...new Set(patenteMatches.map((x) => x.toUpperCase().replace(' ', '-')))].slice(0, 12),
+    montosDetectados: [...new Set(moneyMatches)].slice(0, 12),
+    clientesDetectados: detectedClients,
+    serviciosDetectados: detectedServices,
+    resumen: truncate(lines.slice(0, 6).join(' · '), 420),
+  };
+}
+
+async function buildLocalFileRecord(file) {
+  const kind = classifyLocalFile(file);
+  const base = {
+    id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: file.name || 'archivo-sin-nombre',
+    type: file.type || kind,
+    kind,
+    size: file.size || 0,
+    addedAt: new Date().toISOString(),
+    status: 'registrado',
+    extraction: null,
+    previewDataUrl: null,
+  };
+
+  if (['texto', 'csv', 'json'].includes(kind) || file.size <= 180000) {
+    try {
+      const text = await readFileAsText(file);
+      base.textSample = truncate(text, 4000);
+      base.extraction = extractWhatsAppSignals(text);
+      base.status = 'extraído local';
+    } catch {
+      base.status = 'registrado sin lectura';
+    }
+  }
+
+  if (kind === 'foto' && file.size <= MAX_PREVIEW_BYTES) {
+    try {
+      base.previewDataUrl = await readFileAsDataUrl(file);
+      base.status = base.status === 'extraído local' ? 'extraído local + vista previa' : 'vista previa local';
+    } catch {
+      base.previewDataUrl = null;
+    }
+  }
+
+  if (kind === 'pdf') {
+    base.extraction = {
+      resumen: 'PDF registrado localmente. Para extracción completa se requiere motor PDF/backend o carga manual del texto.',
+      lineas: 0,
+      posiblesPatentes: [],
+      montosDetectados: [],
+      clientesDetectados: [],
+      serviciosDetectados: [],
+    };
+  }
+
+  if (kind === 'excel') {
+    base.extraction = {
+      resumen: 'Excel registrado localmente. Base lista para conectar parser XLSX o importación guiada al ERP.',
+      lineas: 0,
+      posiblesPatentes: [],
+      montosDetectados: [],
+      clientesDetectados: [],
+      serviciosDetectados: [],
+    };
+  }
+
+  return base;
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function saveWorkspaceToLocalFolder(workspace) {
+  if (!('showDirectoryPicker' in window)) {
+    downloadJson(`HNF-respaldo-local-${new Date().toISOString().slice(0, 10)}.json`, workspace);
+    return 'Descarga generada. En iPad/Safari se guarda en Archivos/Descargas.';
+  }
+  const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+  const file = await dir.getFileHandle(`HNF-respaldo-local-${new Date().toISOString().slice(0, 10)}.json`, {
+    create: true,
+  });
+  const writable = await file.createWritable();
+  await writable.write(JSON.stringify(workspace, null, 2));
+  await writable.close();
+  return 'Respaldo guardado en carpeta local seleccionada.';
 }
 
 /**
@@ -35,6 +202,8 @@ export function buildJarvisAgentBrief(ctx) {
   const adn = buildHnfAdnSnapshot(data);
   const metrics = computeCommandCenterMetrics(data, { hnfAdn: adn });
   const ot = activeView === 'clima' ? findOt(data, selectedOTId) : null;
+  const workspace = readLocalWorkspace();
+  const attachedCount = workspace.files.length;
 
   let statusLabel = 'Activo';
   if (integrationStatus === 'sin conexión') statusLabel = 'Sin conexión';
@@ -79,6 +248,10 @@ export function buildJarvisAgentBrief(ctx) {
     actionLine = 'Abrí Clima y cargá fotos antes / durante / después donde falten.';
   } else if (metrics.solicitudesNuevasHoy > 0) {
     actionLine = 'Revisá solicitudes del día en Flota.';
+  }
+
+  if (attachedCount > 0) {
+    actionLine = `${attachedCount} archivo(s) en estación local Jarvis · exportá respaldo antes de cerrar.`;
   }
 
   if (activeView === 'ingreso-operativo') {
@@ -127,6 +300,7 @@ export function buildJarvisAgentBrief(ctx) {
     executeTarget,
     executeLabel,
     viewLabel: activeView,
+    attachedCount,
   };
 }
 
@@ -180,7 +354,7 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
   panelHead.className = 'hnf-jarvis-agent-panel__head';
   const panelTitle = document.createElement('span');
   panelTitle.className = 'hnf-jarvis-agent-panel__title';
-  panelTitle.textContent = 'Jarvis';
+  panelTitle.textContent = 'Jarvis · HNF Local';
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'hnf-jarvis-agent-panel__close';
@@ -204,28 +378,67 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
   const r1 = mkRow('Prioridad', '');
   const r2 = mkRow('Riesgo', '');
   const r3 = mkRow('Siguiente acción', '');
+  const r4 = mkRow('Adjuntos locales', 'hnf-jarvis-agent-panel__v--local');
+
+  const localBox = document.createElement('div');
+  localBox.className = 'hnf-jarvis-agent-local';
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = '.txt,.csv,.json,.pdf,.xlsx,.xls,image/*,.jpg,.jpeg,.png,.webp';
+  fileInput.className = 'hnf-jarvis-agent-local__input';
+  fileInput.hidden = true;
+
+  const localHint = document.createElement('p');
+  localHint.className = 'hnf-jarvis-agent-local__hint';
+  localHint.textContent = 'Adjunta foto, Excel, PDF o chat exportado de WhatsApp. Se guarda en este equipo hasta exportar respaldo.';
+
+  const localList = document.createElement('div');
+  localList.className = 'hnf-jarvis-agent-local__list';
 
   const actions = document.createElement('div');
   actions.className = 'hnf-jarvis-agent-panel__actions';
 
+  const btnAttach = document.createElement('button');
+  btnAttach.type = 'button';
+  btnAttach.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--primary';
+  btnAttach.textContent = 'Adjuntar archivo';
+
+  const btnExport = document.createElement('button');
+  btnExport.type = 'button';
+  btnExport.className = 'hnf-jarvis-agent-panel__btn';
+  btnExport.textContent = 'Exportar respaldo';
+
+  const btnFolder = document.createElement('button');
+  btnFolder.type = 'button';
+  btnFolder.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--accent';
+  btnFolder.textContent = 'Carpeta local';
+
+  actions.append(btnAttach, btnExport, btnFolder);
+
+  const navActions = document.createElement('div');
+  navActions.className = 'hnf-jarvis-agent-panel__actions hnf-jarvis-agent-panel__actions--nav';
+
   const btnClima = document.createElement('button');
   btnClima.type = 'button';
-  btnClima.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--primary';
+  btnClima.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--ghost';
   btnClima.textContent = 'Ir a Clima';
 
   const btnOt = document.createElement('button');
   btnOt.type = 'button';
-  btnOt.className = 'hnf-jarvis-agent-panel__btn';
+  btnOt.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--ghost';
   btnOt.textContent = 'Revisar OT';
 
   const btnExec = document.createElement('button');
   btnExec.type = 'button';
-  btnExec.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--accent';
+  btnExec.className = 'hnf-jarvis-agent-panel__btn hnf-jarvis-agent-panel__btn--ghost';
   btnExec.textContent = 'Ejecutar acción';
 
-  actions.append(btnClima, btnOt, btnExec);
+  navActions.append(btnClima, btnOt, btnExec);
+  localBox.append(fileInput, localHint, localList, actions);
 
-  panel.append(panelHead, r0.row, r1.row, r2.row, r3.row, actions);
+  panel.append(panelHead, r0.row, r1.row, r2.row, r3.row, r4.row, localBox, navActions);
   root.append(fab, backdrop, panel);
   anchor.append(root);
 
@@ -234,10 +447,16 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
     backdrop,
     panel,
     closeBtn,
-    vals: [r0.vv, r1.vv, r2.vv, r3.vv],
+    vals: [r0.vv, r1.vv, r2.vv, r3.vv, r4.vv],
     btnClima,
     btnOt,
     btnExec,
+    btnAttach,
+    btnExport,
+    btnFolder,
+    fileInput,
+    localList,
+    localHint,
   };
 
   let handlers = {
@@ -246,14 +465,44 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
     brief: null,
   };
 
+  const renderLocalWorkspace = () => {
+    const workspace = readLocalWorkspace();
+    const last = workspace.files.slice(-4).reverse();
+    refs.vals[4].textContent = workspace.files.length
+      ? `${workspace.files.length} archivo(s) guardados · último ${truncate(last[0]?.name, 34)}`
+      : 'Sin archivos locales todavía.';
+    refs.localList.innerHTML = '';
+    if (!last.length) {
+      const empty = document.createElement('p');
+      empty.className = 'hnf-jarvis-agent-local__empty';
+      empty.textContent = 'Sin adjuntos. Úsalo para chats WhatsApp, fotos de terreno, PDFs, Excel y evidencias.';
+      refs.localList.append(empty);
+      return;
+    }
+    last.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'hnf-jarvis-agent-local__item';
+      const name = document.createElement('strong');
+      name.textContent = truncate(item.name, 38);
+      const meta = document.createElement('span');
+      const extracted = item.extraction?.posiblesPatentes?.length
+        ? ` · patente ${item.extraction.posiblesPatentes[0]}`
+        : '';
+      meta.textContent = `${item.kind} · ${Math.round((item.size || 0) / 1024)} KB · ${item.status || 'registrado'}${extracted}`;
+      row.append(name, meta);
+      refs.localList.append(row);
+    });
+  };
+
   const setOpen = (open) => {
     fab.setAttribute('aria-expanded', String(open));
     backdrop.hidden = !open;
     panel.hidden = !open;
     root.classList.toggle('hnf-jarvis-agent-root--open', open);
     if (open) {
+      renderLocalWorkspace();
       requestAnimationFrame(() => {
-        btnClima.focus();
+        btnAttach.focus();
       });
     } else {
       fab.focus();
@@ -274,6 +523,49 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
     }
   };
   document.addEventListener('keydown', onKey);
+
+  btnAttach.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const files = Array.from(fileInput.files || []);
+    if (!files.length) return;
+    refs.localHint.textContent = `Procesando ${files.length} archivo(s)…`;
+    const workspace = readLocalWorkspace();
+    for (const file of files) {
+      try {
+        const record = await buildLocalFileRecord(file);
+        workspace.files.push(record);
+      } catch (e) {
+        workspace.files.push({
+          id: `local-error-${Date.now()}`,
+          name: file.name || 'archivo con error',
+          kind: classifyLocalFile(file),
+          size: file.size || 0,
+          addedAt: new Date().toISOString(),
+          status: `error: ${truncate(e?.message || e, 80)}`,
+        });
+      }
+    }
+    const saved = writeLocalWorkspace(workspace);
+    window.dispatchEvent(new CustomEvent('hnf:jarvis-local-files-updated', { detail: saved }));
+    refs.localHint.textContent = 'Adjunto guardado localmente. Exporta respaldo para dejar copia en carpeta/unidad.';
+    fileInput.value = '';
+    renderLocalWorkspace();
+  });
+
+  btnExport.addEventListener('click', () => {
+    const workspace = readLocalWorkspace();
+    downloadJson(`HNF-respaldo-local-${new Date().toISOString().slice(0, 10)}.json`, workspace);
+    refs.localHint.textContent = 'Respaldo descargado. Súbelo a Drive/OneDrive o guárdalo en carpeta HNF.';
+  });
+
+  btnFolder.addEventListener('click', async () => {
+    try {
+      const workspace = readLocalWorkspace();
+      refs.localHint.textContent = await saveWorkspaceToLocalFolder(workspace);
+    } catch (e) {
+      refs.localHint.textContent = `No se pudo guardar carpeta: ${truncate(e?.message || e, 120)}`;
+    }
+  });
 
   btnClima.addEventListener('click', () => {
     handlers.navigateToView?.('clima');
@@ -304,6 +596,8 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
     refs.vals[3].textContent = brief.actionLine;
     btnExec.textContent = brief.executeLabel;
     fab.classList.toggle('hnf-jarvis-agent-fab--warn', brief.statusLabel !== 'Activo');
+    fab.classList.toggle('hnf-jarvis-agent-fab--has-files', brief.attachedCount > 0);
+    renderLocalWorkspace();
   }
 
   function destroy() {
@@ -316,5 +610,6 @@ export function mountHnfJarvisFloatingAgent(anchor = typeof document !== 'undefi
 
   const api = { update, destroy, root };
   root.hnfJarvisFloatingAgentApi = api;
+  renderLocalWorkspace();
   return api;
 }
