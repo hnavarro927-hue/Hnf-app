@@ -9,5 +9,8 @@
       "source": "/env.js",
       "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
     }
+  ],
+  "rewrites": [
+    { "source": "/hnf-pro-v3.html", "destination": "/hnf-pro-v3-gpt.html" }
   ]
 }
