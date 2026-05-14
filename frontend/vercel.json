@@ -1,5 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "npm install",
   "buildCommand": "npm run build",
@@ -11,6 +10,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/home", "destination": "/hnf-emerald-titanium.html" },
     { "source": "/hnf-pro-v3.html", "destination": "/hnf-pro-v3-gpt.html" }
   ]
 }
